@@ -2,17 +2,17 @@
 
 現在進行中のタスクリストです。開発の進捗に合わせて随時更新してください。
 
-## Phase 2: 設定管理の実装 (Current Focus)
+## Phase 2: 設定管理の実装 (Completed)
 
-優先度: 高。まずは設定ファイル (`config.yaml`) を読み書きできる基盤を作ります。
+優先度: 高。設定ファイル (`config.yaml`) を読み書きできる基盤を作ります。
 
 - [x] **設定パッケージ (`internal/config`) の作成**
     - [x] 設定構造体 (`Config`, `RepoConfig`, `SysConfig`) の定義
     - [x] `viper` を使用したデフォルト値設定とファイル読み込み処理
     - [x] 環境変数 (`DEVSYNC_*`) とのバインディング
-- [ ] **設定ファイル生成 (`config init`)**
-    - [ ] `survey` を導入し、対話形式でユーザー入力を受け付ける
-    - [ ] 入力内容を `yaml` ファイルとして保存する
+- [x] **設定ファイル生成 (`config init`)**
+    - [x] `survey` を導入し、対話形式でユーザー入力を受け付ける
+    - [x] 入力内容を `yaml` ファイルとして保存する
 - [x] **環境認識**
     - [x] コンテナ内 (`IsContainer`) かホストか判定するロジックの実装
     - [x] 推奨パッケージマネージャのリコメンドロジック実装
@@ -21,10 +21,10 @@
 
 設定ができたら、実際にコマンドを動かす部分を作ります。
 
-- [ ] **Secrets管理 (Bitwarden連携)**
-    - [ ] `config` に Secrets 設定を追加
-    - [ ] `bw` コマンドラッパー実装 (Unlock / Get Item)
-    - [ ] コマンド実行前の環境変数注入ロジック (Middleware/PreRun)
+- [x] **Secrets管理 (Bitwarden連携)**
+    - [x] `config` に Secrets 設定を追加
+    - [x] `bw` コマンドラッパー実装 (Unlock / Get Item)
+    - [x] コマンド実行前の環境変数注入ロジック (Middleware/PreRun)
 
 - [ ] **Updater インターフェース定義**
     - [ ] `Check()`, `Update()`, `Name()` などの共通メソッド定義

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
@@ -80,6 +81,14 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 				Help:    "環境に合わせて自動検出された推奨値が選択されています。",
 			},
 		},
+		{
+			Name: "UseBitwarden",
+			Prompt: &survey.Confirm{
+				Message: "Bitwardenを使用しますか？",
+				Default: false,
+				Help:    "Github Tokenなどの環境変数をBitwardenから自動注入する場合に有効にします。",
+			},
+		},
 	}
 
 	// 回答を受け取る構造体
@@ -88,6 +97,7 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 		GithubOwner     string
 		Concurrency     int
 		EnabledManagers []string
+		UseBitwarden    bool
 	}{}
 
 	// 質問実行
@@ -97,6 +107,29 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 		return err
+	}
+
+	// Bitwardenを使用する場合、アイテムIDの入力を求める
+	var secretItems []string
+	if answers.UseBitwarden {
+		var itemsInput string
+		secretPrompt := &survey.Input{
+			Message: "注入するBitwarden Item ID (カンマ区切り):",
+			Help:    "BitwardenのアイテムIDを入力してください。例えばGitHub Tokenなど。",
+		}
+		if err := survey.AskOne(secretPrompt, &itemsInput); err != nil {
+			return err
+		}
+		if itemsInput != "" {
+			// カンマで分割してトリム
+			parts := strings.Split(itemsInput, ",")
+			for _, part := range parts {
+				item := strings.TrimSpace(part)
+				if item != "" {
+					secretItems = append(secretItems, item)
+				}
+			}
+		}
 	}
 
 	// Config構造体の構築
@@ -126,6 +159,11 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 		Sys: config.SysConfig{
 			Enable:   answers.EnabledManagers,
 			Managers: make(map[string]config.ManagerConfig),
+		},
+		Secrets: config.SecretsConfig{
+			Enabled:  answers.UseBitwarden,
+			Provider: "bitwarden",
+			Items:    secretItems,
 		},
 	}
 
