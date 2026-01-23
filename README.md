@@ -37,7 +37,7 @@ DevSync は、開発環境の運用作業を統合・一元化するためのク
 ## 📅 ステータス
 
 現在 **v0.1 計画 / 初期開発** フェーズです。
-詳細なロードマップについては [Implementation_Plan.md](Implementation_Plan.md) を参照してください。
+詳細なロードマップについては [docs/Implementation_Plan.md](docs/Implementation_Plan.md) を参照してください。
 
 ## 📄 ライセンス
 
