@@ -2,6 +2,8 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "github>scottlz0310/renovate-config//presets/default",
-    "github>scottlz0310/renovate-config//presets/languages/go"
+    "github>scottlz0310/renovate-config//presets/languages/go",
+    "github>scottlz0310/renovate-config//presets/languages/docker",
+    "github>scottlz0310/renovate-config//presets/tools/precommit"
   ]
 }
