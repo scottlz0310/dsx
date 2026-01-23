@@ -1,6 +1,6 @@
 module github.com/scottlz0310/devsync
 
-go 1.24.5
+go 1.24.12
 
 require github.com/spf13/cobra v1.10.2
 
