@@ -10,10 +10,10 @@ type Config struct {
 }
 
 // SecretsConfig はシークレット管理に関する設定です。
+// 環境変数は Bitwarden の "env:" プレフィックス付き項目から自動的に読み込まれます。
 type SecretsConfig struct {
-	Enabled  bool     `mapstructure:"enabled" yaml:"enabled"`
-	Provider string   `mapstructure:"provider" yaml:"provider"` // "bitwarden"
-	Items    []string `mapstructure:"items" yaml:"items"`       // Bitwarden Item IDs or Names
+	Enabled  bool   `mapstructure:"enabled" yaml:"enabled"`
+	Provider string `mapstructure:"provider" yaml:"provider"` // "bitwarden"
 }
 
 // ControlConfig は実行制御に関する設定です。

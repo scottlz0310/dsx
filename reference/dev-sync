@@ -1,0 +1,14 @@
+# Dev environment sync function
+dev-sync() {
+  echo "🔐 Unlocking secrets..."
+  bw-unlock || return 1
+  bw-load-env || return 1
+
+  echo "🛠  Updating system..."
+  sysup update || return 1
+
+  echo "📦 Syncing repositories..."
+  setup-repo sync || return 1
+
+  echo "✅ Dev environment is up to date."
+}

@@ -2,7 +2,11 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 
+	"github.com/fatih/color"
+	"github.com/scottlz0310/devsync/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -13,13 +17,96 @@ var doctorCmd = &cobra.Command{
 	Long: `開発に必要なツール (git, git-lfs, bw など) がインストールされているか確認し、
 設定ファイルの状態を診断します。`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("🏥 DevSync Doctor: 環境診断を開始します...")
-		// TODO: 実際の実装はここに行います
-		fmt.Println("現在はプロトタイプ実装のため、チェック項目はありません。")
-		fmt.Println("✅ 診断完了 (ダミー)")
+		runDoctor()
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(doctorCmd)
+}
+
+func runDoctor() {
+	fmt.Println("🏥 DevSync Doctor: 環境診断を開始します...\n")
+
+	allPassed := true
+
+	// 1. 設定ファイルのチェック
+	fmt.Println("📋 設定ファイル:")
+	if cfg := config.Get(); cfg != nil {
+		printResult(true, "設定ファイルは正常に読み込まれています")
+	} else {
+		// Loadを試みる
+		if _, err := config.Load(); err != nil {
+			printResult(false, fmt.Sprintf("設定ファイルの読み込みに失敗: %v", err))
+			allPassed = false
+		} else {
+			printResult(true, "設定ファイルは正常に読み込まれています")
+		}
+	}
+
+	cfg := config.Get()
+	if cfg == nil {
+		fmt.Println("\n❌ 重大なエラー: 設定がロードできないため、以降のチェックを中断します")
+		os.Exit(1)
+	}
+
+	fmt.Println("\n🛠️  基本ツール:")
+	// Git
+	if err := checkCommand("git"); err != nil {
+		printResult(false, "git が見つかりません")
+		allPassed = false
+	} else {
+		printResult(true, "git")
+	}
+
+	// GitHub CLI
+	if err := checkCommand("gh"); err != nil {
+		printResult(false, "gh (GitHub CLI) が見つかりません（推奨）")
+		// 必須ではないので allPassed は変更しない、あるいはWarningにする?
+		// ここではFail扱いにしないでおく
+	} else {
+		printResult(true, "gh (GitHub CLI)")
+	}
+
+	fmt.Println("\n🔐 シークレット管理 (Bitwarden):")
+	if cfg.Secrets.Enabled && cfg.Secrets.Provider == "bitwarden" {
+		// bw コマンド
+		if err := checkCommand("bw"); err != nil {
+			printResult(false, "bw (Bitwarden CLI) が見つかりません")
+			allPassed = false
+		} else {
+			printResult(true, "bw (Bitwarden CLI)")
+		}
+
+		// BW_SESSION
+		if os.Getenv("BW_SESSION") == "" {
+			printResult(false, "環境変数 BW_SESSION が設定されていません (ロック解除が必要です)")
+			allPassed = false
+		} else {
+			printResult(true, "環境変数 BW_SESSION is set")
+		}
+	} else {
+		fmt.Println("   ⚪ スキップ (設定で無効化されています)")
+	}
+
+	fmt.Println()
+	if allPassed {
+		color.Green("✅ すべての診断項目をパスしました！準備完了です。")
+	} else {
+		color.Red("❌ 一部の項目で問題が見つかりました。ログを確認してください。")
+		os.Exit(1)
+	}
+}
+
+func checkCommand(name string) error {
+	_, err := exec.LookPath(name)
+	return err
+}
+
+func printResult(ok bool, message string) {
+	if ok {
+		color.Green("  ✅ %s", message)
+	} else {
+		color.Red("  ❌ %s", message)
+	}
 }

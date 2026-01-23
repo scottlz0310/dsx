@@ -34,8 +34,48 @@ DevSync は、開発環境の運用作業を統合・一元化するためのク
 ### 設定
 - `devsync config init`: 対話形式のウィザードで設定ファイルを生成します。
 - `devsync config show`: 現在の設定を表示します。
+### 環境変数
+- `devsync env export`: Bitwardenから環境変数を取得し、シェルにエクスポートします。
 
-## 📅 ステータス
+## 🔑 環境変数の使用
+
+Bitwardenから環境変数を現在のシェルに読み込むには：
+
+```bash
+# Bitwardenから環境変数をエクスポート
+eval $(devsync env export)
+
+# 確認
+echo $GPAT
+```
+
+**注意**: `devsync run` コマンド内では環境変数は自動的に注入されますが、親シェルには反映されません。シェルで環境変数を使用したい場合は上記のコマンドを使用してください。
+## � 開発
+
+### ビルド
+
+**Linux / macOS:**
+```bash
+go build -o devsync ./cmd/devsync
+```
+
+**Windows (PowerShell):**
+```powershell
+$env:GOOS="windows"; $env:GOARCH="amd64"; go build -o devsync.exe ./cmd/devsync
+```
+
+**Windows (クロスコンパイル - Linux/macOS から):**
+```bash
+GOOS=windows GOARCH=amd64 go build -o devsync.exe ./cmd/devsync
+```
+
+### 実行
+
+```bash
+./devsync --help
+```
+
+## �📅 ステータス
 
 現在 **v0.1 計画 / 初期開発** フェーズです。
 詳細なロードマップについては [docs/Implementation_Plan.md](docs/Implementation_Plan.md) を参照してください。

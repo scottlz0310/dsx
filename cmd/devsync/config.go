@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -81,14 +82,6 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 				Help:    "環境に合わせて自動検出された推奨値が選択されています。",
 			},
 		},
-		{
-			Name: "UseBitwarden",
-			Prompt: &survey.Confirm{
-				Message: "Bitwardenを使用しますか？",
-				Default: false,
-				Help:    "Github Tokenなどの環境変数をBitwardenから自動注入する場合に有効にします。",
-			},
-		},
 	}
 
 	// 回答を受け取る構造体
@@ -97,7 +90,6 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 		GithubOwner     string
 		Concurrency     int
 		EnabledManagers []string
-		UseBitwarden    bool
 	}{}
 
 	// 質問実行
@@ -109,28 +101,12 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Bitwardenを使用する場合、アイテムIDの入力を求める
-	var secretItems []string
-	if answers.UseBitwarden {
-		var itemsInput string
-		secretPrompt := &survey.Input{
-			Message: "注入するBitwarden Item ID (カンマ区切り):",
-			Help:    "BitwardenのアイテムIDを入力してください。例えばGitHub Tokenなど。",
-		}
-		if err := survey.AskOne(secretPrompt, &itemsInput); err != nil {
-			return err
-		}
-		if itemsInput != "" {
-			// カンマで分割してトリム
-			parts := strings.Split(itemsInput, ",")
-			for _, part := range parts {
-				item := strings.TrimSpace(part)
-				if item != "" {
-					secretItems = append(secretItems, item)
-				}
-			}
-		}
-	}
+	fmt.Println()
+	fmt.Println("📝 Bitwarden連携について:")
+	fmt.Println("   環境変数は 'env:' プレフィックス付きの項目から自動的に読み込まれます。")
+	fmt.Println("   各項目に 'value' カスタムフィールドを設定してください。")
+	fmt.Println("   例: 項目名='env:GPAT', カスタムフィールド='value'に値を設定")
+	fmt.Println()
 
 	// Config構造体の構築
 	cfg := &config.Config{
@@ -161,9 +137,8 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 			Managers: make(map[string]config.ManagerConfig),
 		},
 		Secrets: config.SecretsConfig{
-			Enabled:  answers.UseBitwarden,
+			Enabled:  true, // 常に有効（env:プレフィックスで自動検索）
 			Provider: "bitwarden",
-			Items:    secretItems,
 		},
 	}
 
@@ -199,6 +174,12 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 
 	fmt.Println("\n✅ 設定ファイルを作成しました！")
 	fmt.Println("変更するには `devsync config init` を再実行するか、直接ファイルを編集してください。")
+
+	// シェル初期化スクリプトの生成
+	if err := generateShellInit(home); err != nil {
+		fmt.Printf("\n⚠️  シェル初期化スクリプトの生成に失敗しました: %v\n", err)
+	}
+
 	return nil
 }
 
@@ -210,4 +191,254 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+// generateShellInit は検出されたシェルに応じた初期化スクリプトを生成します
+func generateShellInit(home string) error {
+	shell := detectShell()
+	configDir := filepath.Join(home, ".config", "devsync")
+
+	var scriptPath string
+	var scriptContent string
+
+	switch shell {
+	case "powershell", "pwsh":
+		scriptPath = filepath.Join(configDir, "init.ps1")
+		scriptContent = getPowerShellScript()
+	case "zsh":
+		scriptPath = filepath.Join(configDir, "init.zsh")
+		scriptContent = getZshScript(scriptPath)
+	case "bash":
+		scriptPath = filepath.Join(configDir, "init.bash")
+		scriptContent = getBashScript(scriptPath)
+	default:
+		scriptPath = filepath.Join(configDir, "init.sh")
+		scriptContent = getShScript(scriptPath)
+	}
+
+	// スクリプトを保存
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0644); err != nil {
+		return fmt.Errorf("スクリプトファイルの保存に失敗: %w", err)
+	}
+
+	fmt.Printf("\n📝 シェル初期化スクリプトを生成しました: %s\n", scriptPath)
+
+	// rcファイルへの追加を確認
+	var rcFilePath string
+	var sourceCommand string
+
+	switch shell {
+	case "powershell", "pwsh":
+		// PowerShellプロファイルのパスを取得
+		profilePath, err := getPowerShellProfilePath(shell)
+		if err != nil {
+			fmt.Printf("\n⚠️  PowerShell プロファイルパスの取得に失敗しました: %v\n", err)
+			fmt.Printf("次のコマンドを PowerShell のプロファイル ($PROFILE) に手動で追加してください:\n")
+			fmt.Printf("\n  . %s\n", scriptPath)
+			return nil
+		}
+		rcFilePath = profilePath
+		sourceCommand = fmt.Sprintf(". %s", scriptPath)
+	case "zsh":
+		rcFilePath = filepath.Join(home, ".zshrc")
+		sourceCommand = fmt.Sprintf("source %s", scriptPath)
+	case "bash":
+		rcFilePath = filepath.Join(home, ".bashrc")
+		sourceCommand = fmt.Sprintf("source %s", scriptPath)
+	default:
+		fmt.Printf("\n次のコマンドをシェルの設定ファイルに追加してください:\n")
+		fmt.Printf("\n  source %s\n", scriptPath)
+		return nil
+	}
+
+	// rcファイルへの追加確認
+	addToRc := false
+	prompt := &survey.Confirm{
+		Message: fmt.Sprintf("%s に自動的に読み込む設定を追加しますか？", rcFilePath),
+		Default: true,
+	}
+	if err := survey.AskOne(prompt, &addToRc); err != nil {
+		return err
+	}
+
+	if !addToRc {
+		fmt.Printf("\n次のコマンドを %s に手動で追加してください:\n", rcFilePath)
+		fmt.Printf("\n  %s\n", sourceCommand)
+		return nil
+	}
+
+	// rcファイルに追加
+	if err := appendToRcFile(rcFilePath, scriptPath, sourceCommand); err != nil {
+		return fmt.Errorf("rcファイルへの追加に失敗: %w", err)
+	}
+
+	fmt.Printf("\n✅ %s に設定を追加しました！\n", rcFilePath)
+	fmt.Println("次回シェル起動時から自動的に devsync が利用可能になります。")
+	fmt.Printf("\n現在のシェルに反映するには: source %s\n", rcFilePath)
+
+	return nil
+}
+
+// detectShell は現在のシェルを検出します
+func detectShell() string {
+	// SHELL 環境変数から検出
+	shell := os.Getenv("SHELL")
+	if shell != "" {
+		if filepath.Base(shell) == "zsh" {
+			return "zsh"
+		}
+		if filepath.Base(shell) == "bash" {
+			return "bash"
+		}
+	}
+
+	// Windowsの場合
+	if os.Getenv("PSModulePath") != "" {
+		return "powershell"
+	}
+
+	// デフォルト
+	return "sh"
+}
+
+// getPowerShellProfilePath は PowerShell のプロファイルパスを取得します
+func getPowerShellProfilePath(shell string) (string, error) {
+	var cmd *exec.Cmd
+	if shell == "pwsh" {
+		cmd = exec.Command("pwsh", "-NoProfile", "-Command", "echo $PROFILE")
+	} else {
+		cmd = exec.Command("powershell", "-NoProfile", "-Command", "echo $PROFILE")
+	}
+
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	profilePath := strings.TrimSpace(string(output))
+	if profilePath == "" {
+		return "", fmt.Errorf("プロファイルパスが空です")
+	}
+
+	return profilePath, nil
+}
+
+// appendToRcFile はrcファイルにsource行を追加します
+func appendToRcFile(rcFilePath, scriptPath, sourceCommand string) error {
+	// rcファイルが存在するか確認
+	content, err := os.ReadFile(rcFilePath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	// 既に追加されているかチェック
+	if strings.Contains(string(content), scriptPath) {
+		fmt.Println("\n⚠️  既に設定が追加されています。スキップします。")
+		return nil
+	}
+
+	// 追加する内容
+	addition := fmt.Sprintf("\n# devsync shell integration\n%s\n", sourceCommand)
+
+	// ファイルに追記
+	f, err := os.OpenFile(rcFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString(addition); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// getZshScript はzsh用の初期化スクリプトを返します
+func getZshScript(scriptPath string) string {
+	return `# devsync shell integration for zsh
+# Generated by: devsync config init
+
+# 環境変数を読み込む関数
+devsync-load-env() {
+  eval $(devsync env export)
+}
+
+# dev-sync 互換関数（参考実装との互換性）
+dev-sync() {
+  echo "🔐 Unlocking secrets..."
+  devsync-load-env || return 1
+
+  echo "🛠  Updating system..."
+  # devsync sys update || return 1
+
+  echo "📦 Syncing repositories..."
+  # devsync repo sync || return 1
+
+  echo "✅ Dev environment is up to date."
+}
+
+# devsync の完了を自動ロード（オプション）
+# autoload -U compinit && compinit
+`
+}
+
+// getBashScript はbash用の初期化スクリプトを返します
+func getBashScript(scriptPath string) string {
+	return `# devsync shell integration for bash
+# Generated by: devsync config init
+
+# 環境変数を読み込む関数
+devsync-load-env() {
+  eval $(devsync env export)
+}
+
+# dev-sync 互換関数（参考実装との互換性）
+dev-sync() {
+  echo "🔐 Unlocking secrets..."
+  devsync-load-env || return 1
+
+  echo "🛠  Updating system..."
+  # devsync sys update || return 1
+
+  echo "📦 Syncing repositories..."
+  # devsync repo sync || return 1
+
+  echo "✅ Dev environment is up to date."
+}
+`
+}
+
+// getShScript は汎用sh用の初期化スクリプトを返します
+func getShScript(scriptPath string) string {
+	return getBashScript(scriptPath)
+}
+
+// getPowerShellScript はPowerShell用の初期化スクリプトを返します
+func getPowerShellScript() string {
+	return `# devsync shell integration for PowerShell
+# Generated by: devsync config init
+
+# 環境変数を読み込む関数
+function devsync-load-env {
+  devsync env export | Invoke-Expression
+}
+
+# dev-sync 互換関数（参考実装との互換性）
+function dev-sync {
+  Write-Host "🔐 Unlocking secrets..." -ForegroundColor Cyan
+  devsync-load-env
+  if ($LASTEXITCODE -ne 0) { return }
+
+  Write-Host "🛠  Updating system..." -ForegroundColor Cyan
+  # devsync sys update
+  # if ($LASTEXITCODE -ne 0) { return }
+
+  Write-Host "📦 Syncing repositories..." -ForegroundColor Cyan
+  # devsync repo sync
+  # if ($LASTEXITCODE -ne 0) { return }
+
+  Write-Host "✅ Dev environment is up to date." -ForegroundColor Green
+}
+`
 }
