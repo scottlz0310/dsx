@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/go:1-1.24
+FROM mcr.microsoft.com/devcontainers/go:2-1.24
 
 # [Workaround] YarnのGPG鍵期限切れエラーにより apt-get update が失敗する問題を回避
 # Yarnのリポジトリ定義を削除します（このプロジェクトはGo言語メインのため影響はありません）
