@@ -26,6 +26,9 @@
   * ネットワークアクセスを伴う処理の **安定した並列実行**（高速化と失敗率の低減）。
   * 設定体験を「GUI感覚（ウィザード形式）」に近づけ、継続利用の摩擦を下げる。
 
+* **ハイブリッド運用の実現 (New)**:
+  * ローカルPC（Host）では「母艦のメンテナンス」、Codespaces（Container）では「個人環境の即時セットアップ（Personalization）」と、実行環境に応じて振る舞いを最適化する。
+
 ### v0.1 ゴール（MVP）
 
 * 単一バイナリで動作するGo CLIが提供され、最低限の日次運用が置き換え可能
@@ -34,6 +37,7 @@
 * `config init`（ウィザード）で設定ファイルを作成できる
 * `repo update` / `sys update` がそれぞれ動く
 * `doctor` で依存コマンド（bwコマンド含む）や基本疎通を確認できる
+* `Host` / `Container` モードを判別し、`sys update` 等の挙動を切り替える (New)
 
 ---
 
@@ -66,6 +70,7 @@
   * `--dry-run`（計画のみ）
   * `--yes`（確認なし）
   * `--fail-fast`（任意、デフォルトは集計）
+  * `--mode [host|container]` (強制指定オプション) (New)
 
 ### Repo系
 
@@ -74,7 +79,9 @@
 
 ### System系
 
-* `devsync sys update`（winget / apt / brew 等の更新）
+* `devsync sys update`
+  * **Host Mode**: OSパッケージマネージャ(`winget`, `brew`, `apt`)によるシステム・アプリ更新
+  * **Container Mode**: ユーザー固有ツール(`fzf`, `starship`等)やdotfilesのインストール・設定同期 (New)
 
 ### 設定系
 
@@ -120,6 +127,13 @@ sys:
   options:
     upgrade: true
     cleanup: false
+  
+  # コンテナ内でセットアップしたい個人ツール (New)
+  personalization:
+    packages:
+      - "fzf"
+      - "ripgrep"
+    dotfiles: "https://github.com/user/dotfiles.git"
 
 secrets:
   enabled: false
@@ -142,6 +156,7 @@ secrets:
 ### Phase 2：設定管理の実装 (Next)
 
 * [ ] `viper` 導入と設定ファイルの定義
+* [ ] 環境認識ロジックの実装 (`Host` vs `Container`) (New)
 * [ ] `config init` コマンド実装 (survey 使用)
 * [ ] 設定ファイルの読み込み・検証ロジック
 
