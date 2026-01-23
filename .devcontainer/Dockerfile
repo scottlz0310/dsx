@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/go:1.25-bookworm
+FROM mcr.microsoft.com/devcontainers/go:2.0-bookworm
 
 # [Workaround] YarnのGPG鍵期限切れエラーにより apt-get update が失敗する問題を回避
 # Yarnのリポジトリ定義を削除します（このプロジェクトはGo言語メインのため影響はありません）
