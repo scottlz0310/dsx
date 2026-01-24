@@ -26,7 +26,8 @@ func init() {
 }
 
 func runDoctor() {
-	fmt.Println("🏥 DevSync Doctor: 環境診断を開始します...\n")
+	fmt.Println("🏥 DevSync Doctor: 環境診断を開始します...")
+	fmt.Println()
 
 	allPassed := true
 

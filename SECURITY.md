@@ -75,6 +75,34 @@ This project includes the following security measures:
 - Regular security audits
 - Secure coding practices enforcement
 
+### Environment Variable Export Security
+
+The `devsync env export` command is designed with security in mind:
+
+1. **Safe Quoting**: Values are properly quoted and escaped for shell evaluation:
+   - Bash/Zsh: Single quotes with `'\''` escaping for embedded quotes
+   - PowerShell: Single quotes with `''` escaping for embedded quotes
+
+2. **Key Name Validation**: Environment variable names are validated to match `^[A-Z_][A-Z0-9_]*$` pattern, preventing injection attacks
+
+3. **Newline Rejection**: Values containing newlines are rejected to prevent multi-line injection attacks
+
+4. **Recommended Usage**: 
+   ```bash
+   # CORRECT: Properly quoted to prevent word splitting
+   eval "$(devsync env export)"
+   
+   # WRONG: Vulnerable to word splitting and globbing
+   eval $(devsync env export)
+   ```
+
+5. **Safe Alternative**: Use `devsync env run` to inject environment variables without `eval`:
+   ```bash
+   devsync env run your-command
+   ```
+
+6. **Idempotent RC Configuration**: Shell configuration files are modified with markers (`# >>> devsync >>>` / `# <<< devsync <<<`) to prevent duplicate entries and allow clean removal via `devsync config uninstall`
+
 ## Contact
 
 For any security-related questions or concerns, please contact:

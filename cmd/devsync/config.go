@@ -28,9 +28,17 @@ var configInitCmd = &cobra.Command{
 	RunE:  runConfigInit,
 }
 
+var configUninstallCmd = &cobra.Command{
+	Use:   "uninstall",
+	Short: "シェル設定からdevsyncを削除",
+	Long:  `シェルの設定ファイル（.bashrc, .zshrc, PowerShellプロファイル）からdevsyncのマーカーブロックを削除します。`,
+	RunE:  runConfigUninstall,
+}
+
 func init() {
 	rootCmd.AddCommand(configCmd)
 	configCmd.AddCommand(configInitCmd)
+	configCmd.AddCommand(configUninstallCmd)
 }
 
 func runConfigInit(cmd *cobra.Command, args []string) error {
@@ -348,22 +356,29 @@ func getPowerShellProfilePath(shell string) (string, error) {
 	return profilePath, nil
 }
 
-// appendToRcFile はrcファイルにsource行を追加します
+// appendToRcFile はrcファイルにsource行を追加します（マーカー付きで冪等性を保証）
 func appendToRcFile(rcFilePath, scriptPath, sourceCommand string) error {
+	const (
+		markerBegin = "# >>> devsync >>>"
+		markerEnd   = "# <<< devsync <<<"
+	)
+
 	// rcファイルが存在するか確認
 	content, err := os.ReadFile(rcFilePath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
-	// 既に追加されているかチェック
-	if strings.Contains(string(content), scriptPath) {
+	contentStr := string(content)
+
+	// 既にマーカーブロックが存在するかチェック
+	if strings.Contains(contentStr, markerBegin) {
 		fmt.Println("\n⚠️  既に設定が追加されています。スキップします。")
 		return nil
 	}
 
-	// 追加する内容
-	addition := fmt.Sprintf("\n# devsync shell integration\n%s\n", sourceCommand)
+	// 追加する内容（マーカー付き）
+	addition := fmt.Sprintf("\n%s\n%s\n%s\n", markerBegin, sourceCommand, markerEnd)
 
 	// ファイルに追記
 	f, err := os.OpenFile(rcFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -389,7 +404,7 @@ DEVSYNC_PATH="%s"
 
 # 環境変数を読み込む関数
 devsync-load-env() {
-  eval $("$DEVSYNC_PATH" env export)
+  eval "$("$DEVSYNC_PATH" env export)"
 }
 
 # dev-sync 互換関数（参考実装との互換性）
@@ -421,7 +436,7 @@ DEVSYNC_PATH="%s"
 
 # 環境変数を読み込む関数
 devsync-load-env() {
-  eval $("$DEVSYNC_PATH" env export)
+  eval "$("$DEVSYNC_PATH" env export)"
 }
 
 # dev-sync 互換関数（参考実装との互換性）
@@ -475,4 +490,100 @@ function dev-sync {
   Write-Host "✅ Dev environment is up to date." -ForegroundColor Green
 }
 `, exePath)
+}
+
+// runConfigUninstall はシェル設定からdevsyncを削除します
+func runConfigUninstall(cmd *cobra.Command, args []string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	shell := detectShell()
+	var rcFilePath string
+
+	switch shell {
+	case "powershell", "pwsh":
+		profilePath, err := getPowerShellProfilePath(shell)
+		if err != nil {
+			fmt.Printf("⚠️  PowerShell プロファイルパスの取得に失敗しました: %v\n", err)
+			return nil
+		}
+		rcFilePath = profilePath
+	case "zsh":
+		rcFilePath = filepath.Join(home, ".zshrc")
+	case "bash":
+		rcFilePath = filepath.Join(home, ".bashrc")
+	default:
+		return fmt.Errorf("未対応のシェル: %s", shell)
+	}
+
+	// ファイルが存在するか確認
+	if _, err := os.Stat(rcFilePath); os.IsNotExist(err) {
+		fmt.Printf("設定ファイルが見つかりません: %s\n", rcFilePath)
+		return nil
+	}
+
+	// マーカーブロックを削除
+	removed, err := removeDevsyncBlock(rcFilePath)
+	if err != nil {
+		return fmt.Errorf("設定の削除に失敗しました: %w", err)
+	}
+
+	if removed {
+		fmt.Printf("✅ %s からdevsyncの設定を削除しました。\n", rcFilePath)
+	} else {
+		fmt.Printf("ℹ️  %s にdevsyncの設定が見つかりませんでした。\n", rcFilePath)
+	}
+
+	return nil
+}
+
+// removeDevsyncBlock はrcファイルからdevsyncのマーカーブロックを削除します
+func removeDevsyncBlock(rcFilePath string) (bool, error) {
+	const (
+		markerBegin = "# >>> devsync >>>"
+		markerEnd   = "# <<< devsync <<<"
+	)
+
+	content, err := os.ReadFile(rcFilePath)
+	if err != nil {
+		return false, err
+	}
+
+	contentStr := string(content)
+
+	// マーカーブロックが存在しない場合
+	if !strings.Contains(contentStr, markerBegin) {
+		return false, nil
+	}
+
+	// マーカーブロックを削除
+	lines := strings.Split(contentStr, "\n")
+	var newLines []string
+	inBlock := false
+	removed := false
+
+	for _, line := range lines {
+		if strings.Contains(line, markerBegin) {
+			inBlock = true
+			removed = true
+			continue
+		}
+		if strings.Contains(line, markerEnd) {
+			inBlock = false
+			continue
+		}
+		if !inBlock {
+			newLines = append(newLines, line)
+		}
+	}
+
+	// ファイルに書き戻す
+	newContent := strings.Join(newLines, "\n")
+	if err := os.WriteFile(rcFilePath, []byte(newContent), 0644); err != nil {
+		return false, err
+	}
+
+	return removed, nil
 }

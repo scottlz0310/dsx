@@ -36,18 +36,41 @@ DevSync は、開発環境の運用作業を統合・一元化するためのク
 - `devsync config show`: 現在の設定を表示します。
 ### 環境変数
 - `devsync env export`: Bitwardenから環境変数を取得し、シェルにエクスポートします。
+- `devsync env run`: Bitwardenから環境変数を注入してコマンドを実行します。
 
 ## 🔑 環境変数の使用
+
+### 方法1: シェルに環境変数を読み込む（eval）
 
 Bitwardenから環境変数を現在のシェルに読み込むには：
 
 ```bash
 # Bitwardenから環境変数をエクスポート
-eval $(devsync env export)
+eval "$(devsync env export)"
 
 # 確認
 echo $GPAT
 ```
+
+**PowerShell:**
+```powershell
+& devsync env export | Invoke-Expression
+```
+
+### 方法2: サブプロセスに環境変数を注入する（推奨）
+
+`eval` を使わずに安全にコマンドを実行できます：
+
+```bash
+# 環境変数を注入してコマンドを実行
+devsync env run npm run build
+devsync env run go test ./...
+```
+
+この方法は以下の利点があります：
+- `eval` のリスクを回避
+- コマンドの終了コードを保持
+- 親シェルに影響を与えない
 
 **注意**: `devsync run` コマンド内では環境変数は自動的に注入されますが、親シェルには反映されません。シェルで環境変数を使用したい場合は上記のコマンドを使用してください。
 ## � 開発
