@@ -10,6 +10,11 @@ import (
 	"strings"
 )
 
+var (
+	// validExportKeyRegex は環境変数名の検証用の正規表現です
+	validExportKeyRegex = regexp.MustCompile(`^[A-Z_][A-Z0-9_]*$`)
+)
+
 // ShellType はサポートされているシェルの種類を表します。
 type ShellType string
 
@@ -85,9 +90,10 @@ func FormatForShell(envVars map[string]string, shellType ShellType) (string, err
 
 // IsValidExportKey は環境変数名がエクスポートに適しているかを検証します。
 // 大文字・アンダースコア・数字のみを許可（POSIX互換 + 慣例的に大文字推奨）
+// 注意: bitwarden.go の isValidEnvVarName は小文字も許可しますが、
+// export コマンドでは大文字のみを要求します（シェルの慣例に従う）。
 func IsValidExportKey(key string) bool {
-	// より厳格な検証: 大文字とアンダースコアで始まり、大文字・数字・アンダースコアのみ
-	return regexp.MustCompile(`^[A-Z_][A-Z0-9_]*$`).MatchString(key)
+	return validExportKeyRegex.MatchString(key)
 }
 
 // formatPosixExport はbash/zsh用のexport文を生成します。

@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 
 	"github.com/scottlz0310/devsync/internal/secret"
 	"github.com/spf13/cobra"
@@ -80,5 +82,13 @@ func runEnvRun(cmd *cobra.Command, args []string) error {
 	}
 
 	// 環境変数を注入してコマンドを実行
-	return secret.RunWithEnv(args, envVars)
+	if err := secret.RunWithEnv(args, envVars); err != nil {
+		// コマンドの終了コードを取得して終了
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			os.Exit(exitErr.ExitCode())
+		}
+		return err
+	}
+
+	return nil
 }

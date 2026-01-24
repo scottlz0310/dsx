@@ -267,6 +267,8 @@ func GetEnvVars() (map[string]string, error) {
 
 // isValidEnvVarName は環境変数名が有効かどうかを検証します。
 // 英字またはアンダースコアで始まり、英数字とアンダースコアのみを含む必要があります。
+// 注意: export.go の IsValidExportKey はより厳格で、大文字のみを要求します。
+// これはBitwardenからの読み込み時の検証なので、小文字も許可します。
 func isValidEnvVarName(name string) bool {
 	return regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`).MatchString(name)
 }

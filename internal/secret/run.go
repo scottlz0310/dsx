@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"syscall"
 )
 
 // RunWithEnv は環境変数を注入してコマンドを実行します。
@@ -38,13 +37,8 @@ func RunWithEnv(args []string, envVars map[string]string) error {
 	cmd.Stderr = os.Stderr
 
 	// コマンドを実行
-	if err := cmd.Run(); err != nil {
-		// 終了コードを保持して返す
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
-				os.Exit(status.ExitStatus())
-			}
-		}
+	err = cmd.Run()
+	if err != nil {
 		return err
 	}
 
