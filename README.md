@@ -43,7 +43,7 @@ Bitwardenから環境変数を現在のシェルに読み込むには：
 
 ```bash
 # Bitwardenから環境変数をエクスポート
-eval $(devsync env export)
+eval "$(devsync env export)"
 
 # 確認
 echo $GPAT
