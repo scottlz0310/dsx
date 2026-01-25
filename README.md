@@ -87,49 +87,40 @@ devsync env run go test ./...
 **注意**: `devsync run` コマンド内では環境変数は自動的に注入されますが、親シェルには反映されません。シェルで環境変数を使用したい場合は上記のコマンドを使用してください。
 ## 🛠 開発
 
-### 開発コマンド（PowerShell）
+### 前提条件
 
-```powershell
-# ヘルプを表示
-.\scripts\dev.ps1 -Task help
+開発には [Task](https://taskfile.dev/) (go-task) を使用します。
 
-# テスト実行
-.\scripts\dev.ps1 -Task test
+**インストール:**
+```bash
+# Go
+go install github.com/go-task/task/v3/cmd/task@latest
 
-# カバレッジレポート生成
-.\scripts\dev.ps1 -Task coverage
+# Homebrew (macOS/Linux)
+brew install go-task
 
-# 全品質チェック（CI相当）
-.\scripts\dev.ps1 -Task check
+# Scoop (Windows)
+scoop install task
 
-# コミット前チェック
-.\scripts\dev.ps1 -Task pre-commit
-
-# 開発サイクル（フォーマット→テスト→ビルド）
-.\scripts\dev.ps1 -Task dev
+# Chocolatey (Windows)
+choco install go-task
 ```
 
-### 開発コマンド（Make）
+### 開発コマンド
 
 ```bash
-make help       # 利用可能なコマンド一覧
-make test       # テスト実行
-make coverage   # カバレッジレポート生成
-make check      # 全品質チェック（CI相当）
-make pre-commit # コミット前チェック
-make dev        # 開発サイクル
-```
+task --list      # 利用可能なタスク一覧
 
-### ビルド
-
-**Linux / macOS:**
-```bash
-go build -o devsync ./cmd/devsync
-```
-
-**Windows (PowerShell):**
-```powershell
-go build -o devsync.exe ./cmd/devsync
+# よく使うコマンド
+task build       # バイナリをビルド（dist/に出力）
+task test        # テスト実行
+task lint        # リンター実行
+task fmt         # コードフォーマット
+task dev         # 開発サイクル（fmt → test → build）
+task check       # 全品質チェック（CI相当）
+task pre-commit  # コミット前チェック
+task clean       # ビルド成果物を削除
+task tidy        # go mod tidy
 ```
 
 ### 品質基準

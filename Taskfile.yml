@@ -1,0 +1,133 @@
+# https://taskfile.dev
+version: '3'
+
+vars:
+  BINARY_NAME: devsync{{if eq OS "windows"}}.exe{{end}}
+  DIST_DIR: dist
+  GO_PACKAGES: ./cmd/... ./internal/...
+
+tasks:
+  default:
+    desc: タスク一覧を表示
+    cmds:
+      - task --list
+
+  # ============================================
+  # ビルド・実行
+  # ============================================
+  build:
+    desc: バイナリをビルド（dist/に出力）
+    cmds:
+      - go build -o {{.DIST_DIR}}/{{.BINARY_NAME}} ./cmd/devsync
+    sources:
+      - ./**/*.go
+    generates:
+      - "{{.DIST_DIR}}/{{.BINARY_NAME}}"
+
+  run:
+    desc: ビルドしたバイナリで --help を実行
+    deps: [build]
+    cmds:
+      - "{{.DIST_DIR}}/{{.BINARY_NAME}} --help"
+
+  install:
+    desc: go install でバイナリをインストール
+    cmds:
+      - go install ./cmd/devsync
+
+  clean:
+    desc: ビルド成果物を削除
+    cmds:
+      - '{{if eq OS "windows"}}if exist {{.DIST_DIR}} rmdir /s /q {{.DIST_DIR}}{{else}}rm -rf {{.DIST_DIR}}{{end}}'
+      - '{{if eq OS "windows"}}if exist coverage.out del coverage.out{{else}}rm -f coverage.out{{end}}'
+      - '{{if eq OS "windows"}}if exist coverage.html del coverage.html{{else}}rm -f coverage.html{{end}}'
+
+  # ============================================
+  # コード品質
+  # ============================================
+  fmt:
+    desc: コードをフォーマット（gofmt）
+    cmds:
+      - gofmt -s -w .
+
+  fmt:check:
+    desc: フォーマットチェック（CI用）
+    cmds:
+      - gofmt -l . | findstr . && exit 1 || exit 0
+    platforms: [windows]
+
+  fmt:check:
+    desc: フォーマットチェック（CI用）
+    cmds:
+      - test -z "$(gofmt -l .)"
+    platforms: [linux, darwin]
+
+  lint:
+    desc: リンター実行（golangci-lint）
+    cmds:
+      - golangci-lint run {{.GO_PACKAGES}}
+
+  vet:
+    desc: 静的解析（go vet）
+    cmds:
+      - go vet {{.GO_PACKAGES}}
+
+  # ============================================
+  # テスト
+  # ============================================
+  test:
+    desc: 全テストを実行
+    cmds:
+      - go test {{.GO_PACKAGES}} -shuffle=on
+
+  test:v:
+    desc: 詳細出力でテスト実行
+    cmds:
+      - go test {{.GO_PACKAGES}} -shuffle=on -v
+
+  coverage:
+    desc: カバレッジレポート生成
+    cmds:
+      - go test ./internal/env ./internal/secret -coverprofile=coverage.out -covermode=atomic
+      - go tool cover -func coverage.out
+      - go tool cover -html=coverage.out -o coverage.html
+      - cmd: echo HTMLレポート生成完了 coverage.html
+
+  # ============================================
+  # 依存関係
+  # ============================================
+  tidy:
+    desc: go mod tidy 実行
+    cmds:
+      - go mod tidy
+
+  deps:
+    desc: 依存関係を更新
+    cmds:
+      - go get -u {{.GO_PACKAGES}}
+      - go mod tidy
+
+  # ============================================
+  # 開発サイクル
+  # ============================================
+  dev:
+    desc: 開発サイクル（fmt → test → build）
+    cmds:
+      - task: fmt
+      - task: test
+      - task: build
+
+  check:
+    desc: 全品質チェック（CI相当）
+    cmds:
+      - task: fmt
+      - task: vet
+      - task: test
+      - task: lint
+
+  pre-commit:
+    desc: コミット前チェック（fmt → vet → test）
+    cmds:
+      - task: fmt
+      - task: vet
+      - task: test
