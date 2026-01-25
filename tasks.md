@@ -86,8 +86,15 @@
 
 - [x] README.md と --help の更新（実装済みコマンドに合わせた使用方法の記載）
 - [x] CHANGELOG.md の作成
+- [x] 開発タスクランナー整備（Makefile, scripts/dev.ps1）
+- [x] golangci-lint 設定強化（複雑度チェック追加）
+- [ ] テストカバレッジ向上（現状18.5% → 目標50%）
+    - [ ] `internal/config` のテスト追加
+    - [ ] `internal/updater` のテスト追加（モック使用）
+    - [ ] `internal/secret` のテスト追加（Bitwarden部分はモック）
 - [ ] `repo cleanup` (マージ済みブランチ削除) の移植
 - [ ] `config show` / `config validate` コマンド
 - [ ] 通知機能の実装
 - [ ] Windows (Winget/Scoop) 対応検証
 - [ ] GoReleaser によるリリース自動化
+- [ ] GitHub Actions CI/CD 設定

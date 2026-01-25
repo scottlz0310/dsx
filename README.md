@@ -85,7 +85,40 @@ devsync env run go test ./...
 - 親シェルに影響を与えない
 
 **注意**: `devsync run` コマンド内では環境変数は自動的に注入されますが、親シェルには反映されません。シェルで環境変数を使用したい場合は上記のコマンドを使用してください。
-## � 開発
+## 🛠 開発
+
+### 開発コマンド（PowerShell）
+
+```powershell
+# ヘルプを表示
+.\scripts\dev.ps1 -Task help
+
+# テスト実行
+.\scripts\dev.ps1 -Task test
+
+# カバレッジレポート生成
+.\scripts\dev.ps1 -Task coverage
+
+# 全品質チェック（CI相当）
+.\scripts\dev.ps1 -Task check
+
+# コミット前チェック
+.\scripts\dev.ps1 -Task pre-commit
+
+# 開発サイクル（フォーマット→テスト→ビルド）
+.\scripts\dev.ps1 -Task dev
+```
+
+### 開発コマンド（Make）
+
+```bash
+make help       # 利用可能なコマンド一覧
+make test       # テスト実行
+make coverage   # カバレッジレポート生成
+make check      # 全品質チェック（CI相当）
+make pre-commit # コミット前チェック
+make dev        # 開発サイクル
+```
 
 ### ビルド
 
@@ -96,21 +129,16 @@ go build -o devsync ./cmd/devsync
 
 **Windows (PowerShell):**
 ```powershell
-$env:GOOS="windows"; $env:GOARCH="amd64"; go build -o devsync.exe ./cmd/devsync
+go build -o devsync.exe ./cmd/devsync
 ```
 
-**Windows (クロスコンパイル - Linux/macOS から):**
-```bash
-GOOS=windows GOARCH=amd64 go build -o devsync.exe ./cmd/devsync
-```
+### 品質基準
 
-### 実行
+- **カバレッジ閾値**: 30%（段階的に引き上げ予定）
+- **リンター**: golangci-lint（`.golangci.yml` で設定）
+- **静的解析**: go vet
 
-```bash
-./devsync --help
-```
-
-## �📅 ステータス
+## 📅 ステータス
 
 現在 **v0.1 計画 / 初期開発** フェーズです。
 詳細なロードマップについては [docs/Implementation_Plan.md](docs/Implementation_Plan.md) を参照してください。

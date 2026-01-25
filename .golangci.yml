@@ -29,6 +29,14 @@ linters:
     - nolintlint
     - whitespace
     - wsl
+    # 追加：複雑度・品質チェック
+    - gocyclo       # 循環的複雑度
+    - gocognit      # 認知複雑度
+    - dupl          # 重複コード検出
+    - bodyclose     # HTTPレスポンスのBody.Close()チェック
+    - errorlint     # Go 1.13+ エラーハンドリング
+    - goconst       # 定数化すべき文字列
+    - noctx         # context.Contextなしの HTTP リクエスト
 
 linters-settings:
   errcheck:
@@ -47,6 +55,18 @@ linters-settings:
       - G104 # Audit errors not checked
     severity: medium
     confidence: medium
+
+  # 循環的複雑度の閾値
+  gocyclo:
+    min-complexity: 15
+
+  # 認知複雑度の閾値
+  gocognit:
+    min-complexity: 20
+
+  # 重複コードの閾値（トークン数）
+  dupl:
+    threshold: 100
 
   gocritic:
     enabled-tags:
@@ -89,3 +109,10 @@ issues:
       linters:
         - gosec
         - errcheck
+        - dupl
+        - gocognit
+    # cmd/ 配下は複雑度を緩和
+    - path: cmd/
+      linters:
+        - gocognit
+        - gocyclo
