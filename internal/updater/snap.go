@@ -51,12 +51,20 @@ func (s *SnapUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	// 更新がない場合は特定のメッセージが返る
 	if err != nil {
 		// exit code が 0 でない場合もあるが、output を確認
+		// ロケールに依存しないよう、英語メッセージのみでチェック
 		outputStr := string(output)
-		if strings.Contains(outputStr, "All snaps up to date") || 
-		   strings.Contains(outputStr, "すべてのスナップは最新") {
+		if strings.Contains(outputStr, "All snaps up to date") {
 			return &CheckResult{
 				AvailableUpdates: 0,
 				Packages:         []PackageInfo{},
+			}, nil
+		}
+		// パース可能な出力があれば続行、そうでなければエラー
+		if len(output) > 0 {
+			packages := s.parseRefreshList(string(output))
+			return &CheckResult{
+				AvailableUpdates: len(packages),
+				Packages:         packages,
 			}, nil
 		}
 		return nil, fmt.Errorf("snap refresh --list の実行に失敗: %w", err)

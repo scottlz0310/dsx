@@ -77,7 +77,10 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 	}
 
 	// cargo-update がインストールされているか確認
-	if _, err := exec.LookPath("cargo-install-update"); err == nil {
+	// cargo-update は cargo のサブコマンドとして動作するため、
+	// cargo install-update --help で確認
+	checkCmd := exec.CommandContext(ctx, "cargo", "install-update", "--help")
+	if err := checkCmd.Run(); err == nil {
 		// cargo-update を使用（推奨）
 		cmd := exec.CommandContext(ctx, "cargo", "install-update", "-a")
 		cmd.Stdout = os.Stdout
