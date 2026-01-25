@@ -42,7 +42,7 @@ func (n *NpmUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	// npm outdated -g --json で更新可能なパッケージを取得
 	cmd := exec.CommandContext(ctx, "npm", "outdated", "-g", "--json")
 	output, err := cmd.Output()
-	
+
 	// npm outdated は更新可能なパッケージがある場合に exit code 1 を返すため、
 	// エラーを無視して output の内容を確認
 	if err != nil && len(output) == 0 {
@@ -99,7 +99,7 @@ func (n *NpmUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRes
 // JSON 形式: { "package-name": { "current": "1.0.0", "wanted": "1.1.0", "latest": "2.0.0", "location": "..." }, ... }
 func (n *NpmUpdater) parseOutdatedJSON(output []byte) []PackageInfo {
 	var packages []PackageInfo
-	
+
 	if len(output) == 0 {
 		return packages
 	}

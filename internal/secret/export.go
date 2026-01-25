@@ -97,7 +97,7 @@ func IsValidExportKey(key string) bool {
 }
 
 // formatPosixExport はbash/zsh用のexport文を生成します。
-// 単一引用符でクオートし、値の中の単一引用符は '\'' でエスケープします。
+// 単一引用符でクオートし、値の中の単一引用符は '\” でエスケープします。
 func formatPosixExport(key, value string) string {
 	// 単一引用符内では全ての文字がリテラルとして扱われる（改行以外）
 	// 単一引用符自体をエスケープするには: 'text'\''more'
@@ -106,7 +106,7 @@ func formatPosixExport(key, value string) string {
 }
 
 // formatPowerShellExport はPowerShell用の変数代入文を生成します。
-// 単一引用符でクオートし、値の中の単一引用符は '' でエスケープします。
+// 単一引用符でクオートし、値の中の単一引用符は ” でエスケープします。
 func formatPowerShellExport(key, value string) string {
 	// PowerShellでは単一引用符内で '' が単一引用符のエスケープ
 	escapedValue := strings.ReplaceAll(value, "'", "''")

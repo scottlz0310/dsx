@@ -47,7 +47,7 @@ func (c *CargoUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	}
 
 	packages := c.parseInstallList(string(output))
-	
+
 	// cargo は個別の outdated チェックがないため、
 	// AvailableUpdates は 0 とし、インストール済みパッケージのみ返す
 	// 実際の更新可否は update 実行時に判定される
@@ -108,7 +108,7 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 			}
 			result.UpdatedCount++
 		}
-		
+
 		if len(result.Errors) > 0 {
 			result.Packages = checkResult.Packages
 			result.Message = fmt.Sprintf("%d 件更新、%d 件失敗", result.UpdatedCount, result.FailedCount)
@@ -125,10 +125,13 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 // parseInstallList は "cargo install --list" の出力をパースします
 // 形式:
 // package-name v1.0.0:
-//     binary1
-//     binary2
+//
+//	binary1
+//	binary2
+//
 // another-package v2.0.0:
-//     binary3
+//
+//	binary3
 func (c *CargoUpdater) parseInstallList(output string) []PackageInfo {
 	var packages []PackageInfo
 	lines := strings.Split(output, "\n")

@@ -49,7 +49,7 @@ func (s *SnapUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	cmd := exec.CommandContext(ctx, "snap", "refresh", "--list")
 	cmd.Env = append(os.Environ(), "LANG=C", "LC_ALL=C")
 	output, err := cmd.Output()
-	
+
 	// 更新がない場合は特定のメッセージが返る
 	if err != nil {
 		// exit code が 0 でない場合もあるが、output を確認

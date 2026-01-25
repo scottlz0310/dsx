@@ -38,9 +38,18 @@ tasks:
   clean:
     desc: ビルド成果物を削除
     cmds:
-      - '{{if eq OS "windows"}}if exist {{.DIST_DIR}} rmdir /s /q {{.DIST_DIR}}{{else}}rm -rf {{.DIST_DIR}}{{end}}'
-      - '{{if eq OS "windows"}}if exist coverage.out del coverage.out{{else}}rm -f coverage.out{{end}}'
-      - '{{if eq OS "windows"}}if exist coverage.html del coverage.html{{else}}rm -f coverage.html{{end}}'
+      - cmd: cmd /c "if exist {{.DIST_DIR}} rmdir /s /q {{.DIST_DIR}}"
+        platforms: [windows]
+      - cmd: rm -rf {{.DIST_DIR}}
+        platforms: [linux, darwin]
+      - cmd: cmd /c "if exist coverage.out del coverage.out"
+        platforms: [windows]
+      - cmd: rm -f coverage.out
+        platforms: [linux, darwin]
+      - cmd: cmd /c "if exist coverage.html del coverage.html"
+        platforms: [windows]
+      - cmd: rm -f coverage.html
+        platforms: [linux, darwin]
 
   # ============================================
   # コード品質

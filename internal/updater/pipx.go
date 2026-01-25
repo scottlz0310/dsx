@@ -47,7 +47,7 @@ func (p *PipxUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	}
 
 	packages := p.parsePipxListJSON(output)
-	
+
 	// pipx は個別の outdated チェックがないため、
 	// AvailableUpdates は 0 とし、インストール済みパッケージのみ返す
 	// 実際の更新可否は upgrade-all 実行時に判定される
@@ -102,7 +102,7 @@ func (p *PipxUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRe
 // JSON 形式: { "venvs": { "package-name": { "metadata": { "main_package": { "package_version": "1.0.0" } } } } }
 func (p *PipxUpdater) parsePipxListJSON(output []byte) []PackageInfo {
 	var packages []PackageInfo
-	
+
 	if len(output) == 0 {
 		return packages
 	}
