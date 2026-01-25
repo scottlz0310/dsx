@@ -49,10 +49,12 @@ func (p *PipxUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	packages := p.parsePipxListJSON(output)
 	
 	// pipx は個別の outdated チェックがないため、
-	// インストール済みパッケージ数を返す（upgrade-all で全て確認される）
+	// AvailableUpdates は 0 とし、インストール済みパッケージのみ返す
+	// 実際の更新可否は upgrade-all 実行時に判定される
 	return &CheckResult{
-		AvailableUpdates: len(packages),
+		AvailableUpdates: 0,
 		Packages:         packages,
+		Message:          fmt.Sprintf("%d 件のインストール済みパッケージを確認（更新可否は実行時に判定）", len(packages)),
 	}, nil
 }
 
@@ -65,13 +67,13 @@ func (p *PipxUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRe
 		return nil, err
 	}
 
-	if checkResult.AvailableUpdates == 0 {
+	if len(checkResult.Packages) == 0 {
 		result.Message = "pipx でインストールされたパッケージがありません"
 		return result, nil
 	}
 
 	if opts.DryRun {
-		result.Message = fmt.Sprintf("%d 件のパッケージを確認します（DryRunモード）", checkResult.AvailableUpdates)
+		result.Message = fmt.Sprintf("%d 件のインストール済みパッケージについて更新を確認します（DryRunモード）", len(checkResult.Packages))
 		result.Packages = checkResult.Packages
 		return result, nil
 	}

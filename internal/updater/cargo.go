@@ -49,10 +49,12 @@ func (c *CargoUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	packages := c.parseInstallList(string(output))
 	
 	// cargo は個別の outdated チェックがないため、
-	// インストール済みパッケージ数を返す
+	// AvailableUpdates は 0 とし、インストール済みパッケージのみ返す
+	// 実際の更新可否は update 実行時に判定される
 	return &CheckResult{
-		AvailableUpdates: len(packages),
+		AvailableUpdates: 0,
 		Packages:         packages,
+		Message:          fmt.Sprintf("%d 件のインストール済みパッケージを確認（更新可否は実行時に判定）", len(packages)),
 	}, nil
 }
 
@@ -65,13 +67,13 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 		return nil, err
 	}
 
-	if checkResult.AvailableUpdates == 0 {
+	if len(checkResult.Packages) == 0 {
 		result.Message = "cargo でインストールされたパッケージがありません"
 		return result, nil
 	}
 
 	if opts.DryRun {
-		result.Message = fmt.Sprintf("%d 件のパッケージを確認します（DryRunモード）", checkResult.AvailableUpdates)
+		result.Message = fmt.Sprintf("%d 件のインストール済みパッケージについて更新を確認します（DryRunモード）", len(checkResult.Packages))
 		result.Packages = checkResult.Packages
 		return result, nil
 	}
@@ -100,17 +102,20 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 			cmd.Stdin = os.Stdin
 
 			if err := cmd.Run(); err != nil {
+				result.FailedCount++
 				result.Errors = append(result.Errors, fmt.Errorf("%s: %w", pkg.Name, err))
 				continue
 			}
+			result.UpdatedCount++
 		}
 		
 		if len(result.Errors) > 0 {
+			result.Packages = checkResult.Packages
+			result.Message = fmt.Sprintf("%d 件更新、%d 件失敗", result.UpdatedCount, result.FailedCount)
 			return result, fmt.Errorf("一部のパッケージ更新に失敗しました")
 		}
 	}
 
-	result.UpdatedCount = checkResult.AvailableUpdates
 	result.Packages = checkResult.Packages
 	result.Message = fmt.Sprintf("%d 件のパッケージを確認・更新しました", result.UpdatedCount)
 
@@ -135,6 +140,10 @@ func (c *CargoUpdater) parseInstallList(output string) []PackageInfo {
 		}
 
 		// "package-name v1.0.0:" 形式をパース
+		// コロンで終わることを確認
+		if !strings.HasSuffix(line, ":") {
+			continue
+		}
 		line = strings.TrimSuffix(line, ":")
 		parts := strings.Fields(line)
 		if len(parts) < 2 {
