@@ -31,3 +31,4 @@ go.work
 
 # Environment variables
 .env
+*.bck.yml

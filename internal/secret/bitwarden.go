@@ -1,6 +1,7 @@
 package secret
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -57,9 +58,9 @@ func Unlock() error {
 	}
 
 	// ログイン状態の確認
-	cmd := exec.Command("bw", "login", "--check")
+	cmd := exec.CommandContext(context.Background(), "bw", "login", "--check")
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("Bitwarden にログインしていません。'bw login' を実行してください")
+		return fmt.Errorf("bitwarden にログインしていません。'bw login' を実行してください")
 	}
 
 	// 既にセッションがある場合は状態を確認し、アンロック済みなら何もしない
@@ -76,7 +77,7 @@ func Unlock() error {
 	// アンロック実行
 	fmt.Fprintln(os.Stderr, "🔐 Bitwarden をアンロックしています...")
 
-	cmd = exec.Command("bw", "unlock", "--raw")
+	cmd = exec.CommandContext(context.Background(), "bw", "unlock", "--raw")
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
 
@@ -154,11 +155,11 @@ func checkBitwardenPrerequisites() error {
 	// ステータス確認
 	status, err := getBitwardenStatus()
 	if err != nil {
-		return fmt.Errorf("Bitwarden のステータス確認に失敗しました: %w", err)
+		return fmt.Errorf("bitwarden のステータス確認に失敗しました: %w", err)
 	}
 
 	if status != statusUnlocked {
-		return fmt.Errorf("Bitwarden がロックされています。'bw unlock' を実行してください")
+		return fmt.Errorf("bitwarden がロックされています。'bw unlock' を実行してください")
 	}
 
 	return nil
@@ -168,7 +169,7 @@ func checkBitwardenPrerequisites() error {
 func fetchBitwardenEnvItems() ([]BitwardenItem, error) {
 	fmt.Fprintln(os.Stderr, "🔑 環境変数を読み込んでいます...")
 
-	cmd := exec.Command("bw", "list", "items", "--search", "env:")
+	cmd := exec.CommandContext(context.Background(), "bw", "list", "items", "--search", "env:")
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -253,7 +254,7 @@ func getEnvValue(item *BitwardenItem) string {
 // printLoadStats は読み込み結果を表示します。
 func printLoadStats(stats *LoadStats) error {
 	if stats.Loaded == 0 && stats.Missing == 0 && stats.Invalid == 0 {
-		return fmt.Errorf("Bitwarden に env: 項目が見つかりません")
+		return fmt.Errorf("bitwarden に env: 項目が見つかりません")
 	}
 
 	fmt.Fprintf(os.Stderr, "✅ %d 個の環境変数を読み込みました。\n", stats.Loaded)
@@ -281,21 +282,21 @@ func GetEnvVars() (map[string]string, error) {
 
 	// BW_SESSIONが設定されていない場合はエラー
 	if os.Getenv("BW_SESSION") == "" {
-		return nil, fmt.Errorf("BW_SESSION が設定されていません。Bitwarden をアンロックしてください")
+		return nil, fmt.Errorf("BW_SESSION が設定されていません。bitwarden をアンロックしてください")
 	}
 
 	// ステータス確認
 	status, err := getBitwardenStatus()
 	if err != nil {
-		return nil, fmt.Errorf("Bitwarden のステータス確認に失敗しました: %w", err)
+		return nil, fmt.Errorf("bitwarden のステータス確認に失敗しました: %w", err)
 	}
 
 	if status != statusUnlocked {
-		return nil, fmt.Errorf("Bitwarden がロックされています。'bw unlock' を実行してください")
+		return nil, fmt.Errorf("bitwarden がロックされています。'bw unlock' を実行してください")
 	}
 
 	// env: プレフィックス付きの項目を検索
-	cmd := exec.Command("bw", "list", "items", "--search", "env:")
+	cmd := exec.CommandContext(context.Background(), "bw", "list", "items", "--search", "env:")
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -336,7 +337,7 @@ func GetEnvVars() (map[string]string, error) {
 	}
 
 	if len(envVars) == 0 {
-		return nil, fmt.Errorf("Bitwarden に env: 項目が見つかりません")
+		return nil, fmt.Errorf("bitwarden に env: 項目が見つかりません")
 	}
 
 	return envVars, nil
@@ -363,7 +364,7 @@ func getCustomFieldValue(fields []BitwardenCustomField, name string) string {
 
 // getBitwardenStatus は現在のBitwardenステータスを取得します。
 func getBitwardenStatus() (string, error) {
-	cmd := exec.Command("bw", "status")
+	cmd := exec.CommandContext(context.Background(), "bw", "status")
 
 	output, err := cmd.Output()
 	if err != nil {

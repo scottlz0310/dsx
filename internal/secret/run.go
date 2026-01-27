@@ -1,6 +1,7 @@
 package secret
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -30,7 +31,7 @@ func RunWithEnv(args []string, envVars map[string]string) error {
 	}
 
 	// コマンドを準備
-	cmd := exec.Command(cmdPath, cmdArgs...)
+	cmd := exec.CommandContext(context.Background(), cmdPath, cmdArgs...)
 	cmd.Env = currentEnv
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout

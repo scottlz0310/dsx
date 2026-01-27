@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -339,9 +340,9 @@ func detectShell() string {
 func getPowerShellProfilePath(shell string) (string, error) {
 	var cmd *exec.Cmd
 	if shell == "pwsh" {
-		cmd = exec.Command("pwsh", "-NoProfile", "-Command", "echo $PROFILE")
+		cmd = exec.CommandContext(context.Background(), "pwsh", "-NoProfile", "-Command", "echo $PROFILE")
 	} else {
-		cmd = exec.Command("powershell", "-NoProfile", "-Command", "echo $PROFILE")
+		cmd = exec.CommandContext(context.Background(), "powershell", "-NoProfile", "-Command", "echo $PROFILE")
 	}
 
 	output, err := cmd.Output()
