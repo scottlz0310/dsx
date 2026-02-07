@@ -55,20 +55,20 @@
     - [x] `--jobs N` フラグで並列数を指定
     - [x] マネージャごとの依存関係考慮（apt は単独実行など）
 
-## Phase 5: リポジトリ管理 (Repo)
+## Phase 5: リポジトリ管理 (Completed)
 
 旧ツール `Setup-Repository` の機能移植。
 
-- [ ] **リポジトリスキャン**
-    - [ ] 設定の `repo.roots` からリポジトリを検出
-    - [ ] `.git` ディレクトリの存在確認
-- [ ] **`repo update` コマンド**
-    - [ ] `git fetch` + `git pull --rebase` の実行
-    - [ ] サブモジュール更新対応
-    - [ ] 並列実行エンジンとの統合
-- [ ] **`repo list` コマンド**
-    - [ ] 管理下リポジトリの一覧表示
-    - [ ] ステータス表示（クリーン/ダーティ/未プッシュ）
+- [x] **リポジトリスキャン**
+    - [x] 設定の `repo.root` からリポジトリを検出
+    - [x] `.git` ディレクトリ（および worktree の `.git` ファイル）存在確認
+- [x] **`repo update` コマンド**
+    - [x] `git fetch` + `git pull --rebase` の実行
+    - [x] サブモジュール更新対応
+    - [x] 並列実行エンジンとの統合
+- [x] **`repo list` コマンド**
+    - [x] 管理下リポジトリの一覧表示
+    - [x] ステータス表示（クリーン/ダーティ/未プッシュ/追跡なし）
 
 ## Phase 6: TUI 進捗表示
 
@@ -96,6 +96,7 @@
     - [x] 不要な警告のconfig除外（gosec, fieldalignment, shadow, prealloc）
     - [x] `wsl` から `wsl_v5` へ移行（非推奨警告対応）
 - [x] 日常運用コマンドを `task check` に統一（`task daily` 追加）
+- [x] `repo update` のレビュー指摘対応（DryRun計画整合 / `.git` 判定厳格化 / submoduleフラグ整理）
 - [ ] テストカバレッジ向上（現状18.5% → 目標50%）
     - [ ] `internal/config` のテスト追加
     - [ ] `internal/updater` のテスト追加（モック使用）

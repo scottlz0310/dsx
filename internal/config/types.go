@@ -37,8 +37,9 @@ type GitHubConfig struct {
 }
 
 type RepoSyncConfig struct {
-	AutoStash bool `mapstructure:"auto_stash" yaml:"auto_stash"`
-	Prune     bool `mapstructure:"prune" yaml:"prune"`
+	AutoStash       bool `mapstructure:"auto_stash" yaml:"auto_stash"`
+	Prune           bool `mapstructure:"prune" yaml:"prune"`
+	SubmoduleUpdate bool `mapstructure:"submodule_update" yaml:"submodule_update"`
 }
 
 type RepoCleanupConfig struct {

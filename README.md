@@ -38,6 +38,23 @@ devsync sys list      # 利用可能なパッケージマネージャを一覧�
 `sys update` は `--jobs / -j` で並列数を指定できます（未指定時は `config.yaml` の `control.concurrency` を使用）。
 `apt` はパッケージロック競合を避けるため、依存関係ルールとして単独実行されます。
 
+### リポジトリ管理 (`repo`)
+```
+devsync repo update       # 管理下リポジトリを更新（fetch + pull --rebase）
+devsync repo update -j 4  # 4並列で更新
+devsync repo update -n    # ドライラン（計画のみ表示）
+devsync repo update --submodule      # submodule更新を強制有効化（設定値を上書き）
+devsync repo update --no-submodule   # submodule更新を強制無効化（設定値を上書き）
+devsync repo list         # 管理下リポジトリの一覧と状態を表示
+devsync repo list --root ~/src # ルートを上書きして一覧表示
+```
+
+`repo list` は `config.yaml` の `repo.root` 配下をスキャンし、状態を表示します。
+状態は `クリーン` / `ダーティ` / `未プッシュ` / `追跡なし` です。
+`repo update` は `fetch --all`、`pull --rebase`、必要に応じて `submodule update` を実行します。
+submodule 更新の既定値は `config.yaml` の `repo.sync.submodule_update` で制御し、
+CLI では `--submodule` / `--no-submodule` で明示的に上書きできます。
+
 ### 環境変数 (`env`)
 ```
 devsync env export    # Bitwardenから環境変数をシェル形式でエクスポート
@@ -51,8 +68,7 @@ devsync config uninstall  # シェル設定からdevsyncを削除
 ```
 
 ### 予定機能
-- `devsync repo update`: 管理下のリポジトリを更新（未実装）
-- `devsync repo list`: 管理下のリポジトリ一覧を表示（未実装）
+- `devsync repo cleanup`: マージ済みブランチの整理（未実装）
 
 ## 🔑 環境変数の使用
 

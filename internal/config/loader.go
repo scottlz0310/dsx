@@ -97,8 +97,9 @@ func Default() *Config {
 				Protocol: "https",
 			},
 			Sync: RepoSyncConfig{
-				AutoStash: true,
-				Prune:     true,
+				AutoStash:       true,
+				Prune:           true,
+				SubmoduleUpdate: true,
 			},
 			Cleanup: RepoCleanupConfig{
 				Enabled:         true,
@@ -141,6 +142,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("repo.github.protocol", "https")
 	v.SetDefault("repo.sync.auto_stash", true)
 	v.SetDefault("repo.sync.prune", true)
+	v.SetDefault("repo.sync.submodule_update", true)
 	v.SetDefault("repo.cleanup.enabled", true)
 	v.SetDefault("repo.cleanup.target", []string{"merged", "squashed"})
 	v.SetDefault("repo.cleanup.exclude_branches", []string{"main", "master", "develop"})

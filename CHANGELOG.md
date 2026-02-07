@@ -29,6 +29,21 @@
   - `cargo` (Rust ツール)
   - `snap` (Snap パッケージ)
 - 拡張可能な Updater インターフェースとレジストリパターンの採用
+
+#### リポジトリ管理機能 (`repo`)
+- `devsync repo update` - 管理下リポジトリを一括更新
+  - `git fetch --all` / `git pull --rebase` を実行
+  - `--jobs` / `-j` フラグで並列更新に対応
+  - `--dry-run` / `-n` フラグで更新計画の確認に対応
+  - `--submodule` / `--no-submodule` フラグで submodule 更新設定を明示上書き可能
+  - DryRun 時も upstream 有無を確認し、`pull` 計画表示を実挙動と一致させるよう改善
+- `devsync repo list` - 管理下リポジトリの一覧表示
+  - `config.yaml` の `repo.root` 配下をスキャン
+  - `--root` フラグでスキャンルートを上書き可能
+  - ステータス表示（クリーン / ダーティ / 未プッシュ / 追跡なし）
+- `internal/repo` パッケージを追加（検出・状態取得ロジック）
+  - `.git` 判定を厳格化（ディレクトリまたは `gitdir:` 形式ファイルのみをリポジトリとして検出）
+- `repo.sync.submodule_update` 設定を追加（デフォルト: true）
 - `internal/runner` を追加（`errgroup + semaphore` による並列実行・結果集計）
 
 #### 環境変数機能 (`env`)

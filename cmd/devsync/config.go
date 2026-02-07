@@ -142,8 +142,9 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 				Protocol: "https",
 			},
 			Sync: config.RepoSyncConfig{
-				AutoStash: true,
-				Prune:     true,
+				AutoStash:       true,
+				Prune:           true,
+				SubmoduleUpdate: true,
 			},
 			Cleanup: config.RepoCleanupConfig{
 				Enabled:         true,
