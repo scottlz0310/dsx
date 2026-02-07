@@ -31,7 +31,8 @@ var rootCmd = &cobra.Command{
 使用例:
   eval "$(devsync env export)"    # シェルに環境変数を読み込み
   devsync env run npm run build   # 環境変数を注入してビルド
-  devsync sys update -n           # ドライラン（計画のみ表示）`,
+  devsync sys update -n           # ドライラン（計画のみ表示）
+  devsync sys update --jobs 4     # 4並列で更新`,
 }
 
 // Execute はコマンド実行のエントリーポイントです

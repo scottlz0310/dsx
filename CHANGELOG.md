@@ -16,7 +16,9 @@
 - `devsync sys update` - パッケージマネージャによる一括更新
   - `--dry-run` / `-n` フラグでドライラン対応
   - `--verbose` / `-v` フラグで詳細ログ出力
+  - `--jobs` / `-j` フラグで並列実行数の指定に対応
   - `--timeout` / `-t` フラグでタイムアウト設定
+  - `apt` を単独実行に分離し、他マネージャは並列実行可能に改善
 - `devsync sys list` - 利用可能なパッケージマネージャの一覧表示
 - 対応パッケージマネージャ:
   - `apt` (Debian/Ubuntu)
@@ -27,6 +29,7 @@
   - `cargo` (Rust ツール)
   - `snap` (Snap パッケージ)
 - 拡張可能な Updater インターフェースとレジストリパターンの採用
+- `internal/runner` を追加（`errgroup + semaphore` による並列実行・結果集計）
 
 #### 環境変数機能 (`env`)
 - `devsync env export` - Bitwardenから環境変数をシェル形式でエクスポート
@@ -64,12 +67,14 @@
 - Cobra CLI フレームワークの採用
 - Viper による設定管理
 - Taskfile.yml によるタスクランナー（Windows互換）
+- `task daily` を追加し、日常運用の標準コマンドを `task check` に統一
 - golangci-lint による静的解析
   - 循環的複雑度 (gocyclo)
   - 認知複雑度 (gocognit)
   - 重複コード検出 (dupl)
   - エラーハンドリング (errorlint)
   - その他品質チェック
+- `wsl` から `wsl_v5` へ移行（非推奨警告を解消）
 - GitHub Actions CI/CD（予定）
 - DevContainer 対応
 

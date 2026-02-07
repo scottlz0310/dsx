@@ -34,6 +34,7 @@ func runDaily(cmd *cobra.Command, args []string) error {
 
 	// 1. Bitwarden のアンロック
 	fmt.Println("🔐 シークレットをアンロック中...")
+
 	if err := secret.Unlock(); err != nil {
 		fmt.Fprintf(os.Stderr, "❌ Bitwarden のアンロックに失敗: %v\n", err)
 		return err

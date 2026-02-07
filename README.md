@@ -29,10 +29,14 @@ devsync doctor        # 依存ツール（git, bw等）と環境設定の診断
 ```
 devsync sys update    # パッケージマネージャで一括更新
 devsync sys update -n # ドライラン（計画のみ表示）
+devsync sys update -j 4 # 4並列で更新
 devsync sys list      # 利用可能なパッケージマネージャを一覧表示
 ```
 
 **対応パッケージマネージャ**: apt, brew, go, npm, snap, pipx, cargo
+
+`sys update` は `--jobs / -j` で並列数を指定できます（未指定時は `config.yaml` の `control.concurrency` を使用）。
+`apt` はパッケージロック競合を避けるため、依存関係ルールとして単独実行されます。
 
 ### 環境変数 (`env`)
 ```
@@ -111,13 +115,16 @@ choco install go-task
 ```bash
 task --list      # 利用可能なタスク一覧
 
-# よく使うコマンド
+# 日常運用（まずこれ）
+task check       # 標準品質チェック（fmt → vet → test → lint）
+task daily       # task check のエイリアス
+
+# その他よく使うコマンド
 task build       # バイナリをビルド（dist/に出力）
 task test        # テスト実行
 task lint        # リンター実行
 task fmt         # コードフォーマット
 task dev         # 開発サイクル（fmt → test → build）
-task check       # 全品質チェック（CI相当）
 task pre-commit  # コミット前チェック
 task clean       # ビルド成果物を削除
 task tidy        # go mod tidy

@@ -27,7 +27,7 @@ linters:
     - unparam
     - unused
     - whitespace
-    - wsl
+    - wsl_v5
   settings:
     dupl:
       threshold: 100
@@ -85,6 +85,10 @@ linters:
         - name: unexported-return
         - name: indent-error-flow
         - name: errorf
+    wsl_v5:
+      allow-first-in-block: true
+      allow-whole-block: true
+      branch-max-lines: 4
   exclusions:
     generated: lax
     rules:

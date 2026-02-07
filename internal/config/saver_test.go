@@ -37,6 +37,7 @@ func TestSave(t *testing.T) {
 		require.NoError(t, err)
 
 		var loaded Config
+
 		err = yaml.Unmarshal(data, &loaded)
 		require.NoError(t, err)
 
@@ -75,6 +76,7 @@ func TestSave(t *testing.T) {
 		require.NoError(t, err)
 
 		var loaded Config
+
 		err = yaml.Unmarshal(data, &loaded)
 		require.NoError(t, err)
 
@@ -160,6 +162,7 @@ func TestSave(t *testing.T) {
 		require.NoError(t, err)
 
 		var loaded Config
+
 		err = yaml.Unmarshal(data, &loaded)
 		require.NoError(t, err)
 

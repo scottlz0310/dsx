@@ -92,6 +92,7 @@ var globalRegistry = &Registry{
 func Register(u Updater) {
 	globalRegistry.mu.Lock()
 	defer globalRegistry.mu.Unlock()
+
 	globalRegistry.updaters[u.Name()] = u
 }
 
@@ -99,6 +100,7 @@ func Register(u Updater) {
 func Get(name string) (Updater, bool) {
 	globalRegistry.mu.RLock()
 	defer globalRegistry.mu.RUnlock()
+
 	u, ok := globalRegistry.updaters[name]
 
 	return u, ok

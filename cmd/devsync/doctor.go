@@ -40,6 +40,7 @@ func runDoctor() {
 		// Loadを試みる
 		if _, err := config.Load(); err != nil {
 			printResult(false, fmt.Sprintf("設定ファイルの読み込みに失敗: %v", err))
+
 			allPassed = false
 		} else {
 			printResult(true, "設定ファイルは正常に読み込まれています")
@@ -56,6 +57,7 @@ func runDoctor() {
 	// Git
 	if err := checkCommand("git"); err != nil {
 		printResult(false, "git が見つかりません")
+
 		allPassed = false
 	} else {
 		printResult(true, "git")
@@ -75,6 +77,7 @@ func runDoctor() {
 		// bw コマンド
 		if err := checkCommand("bw"); err != nil {
 			printResult(false, "bw (Bitwarden CLI) が見つかりません")
+
 			allPassed = false
 		} else {
 			printResult(true, "bw (Bitwarden CLI)")
@@ -83,6 +86,7 @@ func runDoctor() {
 		// BW_SESSION
 		if os.Getenv("BW_SESSION") == "" {
 			printResult(false, "環境変数 BW_SESSION が設定されていません (ロック解除が必要です)")
+
 			allPassed = false
 		} else {
 			printResult(true, "環境変数 BW_SESSION is set")

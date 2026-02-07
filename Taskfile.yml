@@ -126,8 +126,13 @@ tasks:
       - task: test
       - task: build
 
+  daily:
+    desc: 日常運用の品質チェック（task check のエイリアス）
+    cmds:
+      - task: check
+
   check:
-    desc: 全品質チェック（CI相当）
+    desc: 日常運用の標準品質チェック（CI相当）
     cmds:
       - task: fmt
       - task: vet
@@ -135,8 +140,6 @@ tasks:
       - task: lint
 
   pre-commit:
-    desc: コミット前チェック（fmt → vet → test）
+    desc: コミット前チェック（task check を実行）
     cmds:
-      - task: fmt
-      - task: vet
-      - task: test
+      - task: check

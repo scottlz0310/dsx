@@ -43,17 +43,17 @@
     - [x] 順次実行 (まずは並列なしで確実に動くもの)
     - [x] `sys list` コマンドで利用可能マネージャを一覧表示
 
-## Phase 4: 並列実行エンジン (Next)
+## Phase 4: 並列実行エンジン (Completed)
 
 優先度: 高。`sys update` の高速化と、今後の `repo update` への基盤。
 
-- [ ] **並列実行基盤 (`internal/runner`)**
-    - [ ] `errgroup` + semaphore による並列制御
-    - [ ] Context cancel / Timeout 管理
-    - [ ] 結果集計（成功/失敗/スキップ）
-- [ ] **`sys update` への組み込み**
-    - [ ] `--jobs N` フラグで並列数を指定
-    - [ ] マネージャごとの依存関係考慮（apt は単独実行など）
+- [x] **並列実行基盤 (`internal/runner`)**
+    - [x] `errgroup` + semaphore による並列制御
+    - [x] Context cancel / Timeout 管理
+    - [x] 結果集計（成功/失敗/スキップ）
+- [x] **`sys update` への組み込み**
+    - [x] `--jobs N` フラグで並列数を指定
+    - [x] マネージャごとの依存関係考慮（apt は単独実行など）
 
 ## Phase 5: リポジトリ管理 (Repo)
 
@@ -94,6 +94,8 @@
     - [x] errorlint: errors.As/Is への移行
     - [x] gocritic: octalLiteral, assignOp, paramTypeCombine など
     - [x] 不要な警告のconfig除外（gosec, fieldalignment, shadow, prealloc）
+    - [x] `wsl` から `wsl_v5` へ移行（非推奨警告対応）
+- [x] 日常運用コマンドを `task check` に統一（`task daily` 追加）
 - [ ] テストカバレッジ向上（現状18.5% → 目標50%）
     - [ ] `internal/config` のテスト追加
     - [ ] `internal/updater` のテスト追加（モック使用）
