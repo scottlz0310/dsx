@@ -104,6 +104,7 @@
 - [x] `sys update` 実行前の sudo 事前認証（単独フェーズ前/並列フェーズ前）を追加し、`use_sudo`/`sudo` の互換設定を整備
 - [x] `snapd unavailable` 環境で `snap` を利用不可として自動スキップする判定を追加
 - [x] シェル連携スクリプトを改善（`devsync-load-env` の終了コード伝播 / `dev-sync` の `Bitwarden 解錠 → 環境変数読込 → devsync run` 導線化 / 実行パスのフォールバック）
+- [x] PowerShell 連携スクリプトの不具合修正（`devsync-load-env` の配列連結不足による `Invoke-Expression` 型エラー解消 / `dev-sync` の関数失敗判定を `$LASTEXITCODE` 依存から修正）
 - [x] `config init` の GitHub オーナー入力を `gh auth` ログイン情報で自動補完（必要時のみ手動上書き）
 - [x] `config init` の再実行時に既存 `config.yaml` の値を初期値として再編集できるよう改善
 - [x] `devsync run` の `sys` / `repo` フローをプレースホルダーから実処理へ置換（`sys update` → `repo update`）

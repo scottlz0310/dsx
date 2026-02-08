@@ -249,6 +249,9 @@ echo $GPAT
 & devsync env export | Invoke-Expression
 ```
 
+`devsync-load-env` / `dev-sync` 利用時に `Cannot convert 'System.Object[]' to the type 'System.String'` が出る場合は、
+旧版のシェル連携スクリプトが残っているため `devsync config init` を再実行して `init.ps1` を再生成してください。
+
 ### 方法2: サブプロセスに環境変数を注入する（推奨）
 
 `eval` を使わずに安全にコマンドを実行できます：

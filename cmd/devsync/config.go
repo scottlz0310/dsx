@@ -866,14 +866,14 @@ function devsync-unlock {
   $bw = Get-Command bw -ErrorAction SilentlyContinue
   if (-not $bw) {
     Write-Error "bw コマンドが見つかりません"
-    return 1
+    return $false
   }
 
   if ($env:BW_SESSION) {
     $statusJson = & bw status 2>$null
     if ($statusJson -match '"status":"unlocked"') {
       Write-Host "このシェルでは既に BW_SESSION が設定されています。"
-      return 0
+      return $true
     }
     Remove-Item Env:BW_SESSION -ErrorAction SilentlyContinue
   }
@@ -881,38 +881,42 @@ function devsync-unlock {
   $token = & bw unlock --raw
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($token)) {
     Write-Error "Bitwarden のアンロックに失敗しました。"
-    return 1
+    return $false
   }
 
   $env:BW_SESSION = $token.Trim()
   Write-Host "✅ このシェルで Bitwarden をアンロックしました。"
-  return 0
+  return $true
 }
 
 # 環境変数を読み込む関数
 function devsync-load-env {
   $envExports = & $DEVSYNC_PATH env export
-  if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+  if ($LASTEXITCODE -ne 0) { return $false }
 
-  try {
-    Invoke-Expression -Command $envExports -ErrorAction Stop
-  } catch {
-    Write-Error "環境変数の読み込み中にエラーが発生しました: $_"
-    return 1
+  $commandText = @($envExports) -join [Environment]::NewLine
+  if ([string]::IsNullOrWhiteSpace($commandText)) {
+    Write-Error "読み込む環境変数が見つかりませんでした。"
+    return $false
   }
 
-  return 0
+  try {
+    Invoke-Expression -Command $commandText -ErrorAction Stop
+  } catch {
+    Write-Error "環境変数の読み込み中にエラーが発生しました: $_"
+    return $false
+  }
+
+  return $true
 }
 
 # dev-sync 互換関数（参考実装との互換性）
 function dev-sync {
   Write-Host "🔐 シークレットをアンロック中..." -ForegroundColor Cyan
-  devsync-unlock
-  if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+  if (-not (devsync-unlock)) { return 1 }
 
   Write-Host "🔑 環境変数をシェルへ読み込み中..." -ForegroundColor Cyan
-  devsync-load-env
-  if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+  if (-not (devsync-load-env)) { return 1 }
 
   Write-Host "🚀 devsync run を実行します..." -ForegroundColor Cyan
   & $DEVSYNC_PATH run @args
