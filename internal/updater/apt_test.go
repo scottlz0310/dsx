@@ -49,6 +49,18 @@ func TestAptUpdater_Configure(t *testing.T) {
 			description: "use_sudoがfalseの場合はsudoを使用しない",
 		},
 		{
+			name:        "旧キーsudo=true",
+			cfg:         config.ManagerConfig{"sudo": true},
+			expectSudo:  true,
+			description: "旧キーsudoも後方互換で受け付ける",
+		},
+		{
+			name:        "use_sudoを優先",
+			cfg:         config.ManagerConfig{"use_sudo": false, "sudo": true},
+			expectSudo:  false,
+			description: "新キーと旧キーが両方ある場合はuse_sudoを優先する",
+		},
+		{
 			name:        "不正な型の値",
 			cfg:         config.ManagerConfig{"use_sudo": "true"}, // stringは無視される
 			expectSudo:  false,

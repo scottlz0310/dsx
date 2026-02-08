@@ -24,6 +24,8 @@ const (
 	shellBash       = "bash"
 )
 
+var errConfigInitCanceled = errors.New("config init canceled")
+
 var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "設定ファイルの管理",
@@ -111,14 +113,27 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 	}{}
 
 	// 質問実行
-	if err := survey.Ask(questions, &answers); err != nil {
-		if errors.Is(err, terminal.InterruptErr) {
+	surveyErr := survey.Ask(questions, &answers)
+	if surveyErr != nil {
+		if errors.Is(surveyErr, terminal.InterruptErr) {
+			fmt.Println("キャンセルしました。")
+			return nil
+		}
+
+		return surveyErr
+	}
+
+	repoRoot, err := prepareRepoRoot(answers.RepoRoot, askCreateRepoRoot)
+	if err != nil {
+		if errors.Is(err, errConfigInitCanceled) {
 			fmt.Println("キャンセルしました。")
 			return nil
 		}
 
 		return err
 	}
+
+	answers.RepoRoot = repoRoot
 
 	fmt.Println()
 	fmt.Println("📝 Bitwarden連携について:")
@@ -165,7 +180,7 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 	// 設定の微調整 (例: aptはsudoが必要など、デフォルト値を入れる)
 	for _, mgr := range answers.EnabledManagers {
 		if mgr == "apt" || mgr == "snap" {
-			cfg.Sys.Managers[mgr] = config.ManagerConfig{"sudo": true}
+			cfg.Sys.Managers[mgr] = config.ManagerConfig{"use_sudo": true}
 		}
 	}
 
@@ -200,6 +215,100 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 	if err := generateShellInit(home); err != nil {
 		fmt.Printf("\n⚠️  シェル初期化スクリプトの生成に失敗しました: %v\n", err)
 	}
+
+	return nil
+}
+
+func askCreateRepoRoot(path string) (bool, error) {
+	createDir := false
+	prompt := &survey.Confirm{
+		Message: fmt.Sprintf("指定したリポジトリルートが存在しません。作成しますか？\n%s", path),
+		Default: true,
+	}
+
+	if err := survey.AskOne(prompt, &createDir); err != nil {
+		if errors.Is(err, terminal.InterruptErr) {
+			return false, errConfigInitCanceled
+		}
+
+		return false, err
+	}
+
+	return createDir, nil
+}
+
+func prepareRepoRoot(input string, confirmCreate func(path string) (bool, error)) (string, error) {
+	root, err := normalizeRepoRoot(input)
+	if err != nil {
+		return "", err
+	}
+
+	if err := ensureRepoRoot(root, confirmCreate); err != nil {
+		return "", err
+	}
+
+	return root, nil
+}
+
+func normalizeRepoRoot(input string) (string, error) {
+	trimmed := strings.TrimSpace(input)
+	if trimmed == "" {
+		return "", fmt.Errorf("リポジトリルートが空です")
+	}
+
+	expanded, err := expandHomePath(trimmed)
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Clean(expanded), nil
+}
+
+func expandHomePath(path string) (string, error) {
+	if path != "~" && !strings.HasPrefix(path, "~/") {
+		return path, nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("ホームディレクトリの取得に失敗: %w", err)
+	}
+
+	if path == "~" {
+		return home, nil
+	}
+
+	return filepath.Join(home, strings.TrimPrefix(path, "~/")), nil
+}
+
+func ensureRepoRoot(path string, confirmCreate func(path string) (bool, error)) error {
+	info, err := os.Stat(path)
+	if err == nil {
+		if !info.IsDir() {
+			return fmt.Errorf("指定されたリポジトリルートはディレクトリではありません: %s", path)
+		}
+
+		return nil
+	}
+
+	if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("リポジトリルートの確認に失敗: %w", err)
+	}
+
+	createDir, err := confirmCreate(path)
+	if err != nil {
+		return err
+	}
+
+	if !createDir {
+		return errConfigInitCanceled
+	}
+
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		return fmt.Errorf("リポジトリルートの作成に失敗: %w", err)
+	}
+
+	fmt.Printf("\n✅ リポジトリルートを作成しました: %s\n", path)
 
 	return nil
 }
@@ -417,24 +526,61 @@ func getZshScript(exePath string) string {
 
 # devsync 実行ファイルのパス
 DEVSYNC_PATH="%s"
+if [[ ! -x "$DEVSYNC_PATH" ]] && command -v devsync >/dev/null 2>&1; then
+  DEVSYNC_PATH="$(command -v devsync)"
+fi
+
+# Bitwarden をこのシェルでアンロック
+devsync-unlock() {
+  if ! command -v bw >/dev/null 2>&1; then
+    echo "bw コマンドが見つかりません" >&2
+    return 1
+  fi
+
+  if [[ -n "${BW_SESSION-}" ]]; then
+    local status_json
+    status_json="$(bw status 2>/dev/null)"
+    if [[ "$status_json" == *'"status":"unlocked"'* ]]; then
+      echo "このシェルでは既に BW_SESSION が設定されています。"
+      return 0
+    fi
+    unset BW_SESSION
+  fi
+
+  local token
+  token="$(bw unlock --raw)"
+  local status=$?
+  if [[ $status -ne 0 || -z "$token" ]]; then
+    echo "Bitwarden のアンロックに失敗しました。" >&2
+    return 1
+  fi
+
+  export BW_SESSION="$token"
+  echo "✅ このシェルで Bitwarden をアンロックしました。"
+}
 
 # 環境変数を読み込む関数
 devsync-load-env() {
-  eval "$("$DEVSYNC_PATH" env export)"
+  local env_output
+  env_output="$("$DEVSYNC_PATH" env export)"
+  local status=$?
+  if [[ $status -ne 0 ]]; then
+    return $status
+  fi
+
+  eval "$env_output"
 }
 
 # dev-sync 互換関数（参考実装との互換性）
 dev-sync() {
-  echo "🔐 Unlocking secrets..."
+  echo "🔐 シークレットをアンロック中..."
+  devsync-unlock || return 1
+
+  echo "🔑 環境変数をシェルへ読み込み中..."
   devsync-load-env || return 1
 
-  echo "🛠  Updating system..."
-  # "$DEVSYNC_PATH" sys update || return 1
-
-  echo "📦 Syncing repositories..."
-  # "$DEVSYNC_PATH" repo sync || return 1
-
-  echo "✅ Dev environment is up to date."
+  echo "🚀 devsync run を実行します..."
+  "$DEVSYNC_PATH" run "$@"
 }
 
 # devsync の完了を自動ロード（オプション）
@@ -449,24 +595,63 @@ func getBashScript(exePath string) string {
 
 # devsync 実行ファイルのパス
 DEVSYNC_PATH="%s"
+if [[ ! -x "$DEVSYNC_PATH" ]] && command -v devsync >/dev/null 2>&1; then
+  DEVSYNC_PATH="$(command -v devsync)"
+fi
+
+# Bitwarden をこのシェルでアンロック
+devsync-unlock() {
+  if ! command -v bw >/dev/null 2>&1; then
+    echo "bw コマンドが見つかりません" >&2
+    return 1
+  fi
+
+  if [ -n "${BW_SESSION-}" ]; then
+    local status_json
+    status_json="$(bw status 2>/dev/null)"
+    case "$status_json" in
+      *'"status":"unlocked"'*)
+        echo "このシェルでは既に BW_SESSION が設定されています。"
+        return 0
+        ;;
+    esac
+    unset BW_SESSION
+  fi
+
+  local token
+  token="$(bw unlock --raw)"
+  local status=$?
+  if [ $status -ne 0 ] || [ -z "$token" ]; then
+    echo "Bitwarden のアンロックに失敗しました。" >&2
+    return 1
+  fi
+
+  export BW_SESSION="$token"
+  echo "✅ このシェルで Bitwarden をアンロックしました。"
+}
 
 # 環境変数を読み込む関数
 devsync-load-env() {
-  eval "$("$DEVSYNC_PATH" env export)"
+  local env_output
+  env_output="$("$DEVSYNC_PATH" env export)"
+  local status=$?
+  if [ $status -ne 0 ]; then
+    return $status
+  fi
+
+  eval "$env_output"
 }
 
 # dev-sync 互換関数（参考実装との互換性）
 dev-sync() {
-  echo "🔐 Unlocking secrets..."
+  echo "🔐 シークレットをアンロック中..."
+  devsync-unlock || return 1
+
+  echo "🔑 環境変数をシェルへ読み込み中..."
   devsync-load-env || return 1
 
-  echo "🛠  Updating system..."
-  # "$DEVSYNC_PATH" sys update || return 1
-
-  echo "📦 Syncing repositories..."
-  # "$DEVSYNC_PATH" repo sync || return 1
-
-  echo "✅ Dev environment is up to date."
+  echo "🚀 devsync run を実行します..."
+  "$DEVSYNC_PATH" run "$@"
 }
 `, exePath)
 }
@@ -483,27 +668,69 @@ func getPowerShellScript(exePath string) string {
 
 # devsync 実行ファイルのパス
 $DEVSYNC_PATH = "%s"
+if (-not (Test-Path $DEVSYNC_PATH)) {
+  $resolved = Get-Command devsync -ErrorAction SilentlyContinue
+  if ($resolved) {
+    $DEVSYNC_PATH = $resolved.Source
+  }
+}
+
+# Bitwarden をこのシェルでアンロック
+function devsync-unlock {
+  $bw = Get-Command bw -ErrorAction SilentlyContinue
+  if (-not $bw) {
+    Write-Error "bw コマンドが見つかりません"
+    return 1
+  }
+
+  if ($env:BW_SESSION) {
+    $statusJson = & bw status 2>$null
+    if ($statusJson -match '"status":"unlocked"') {
+      Write-Host "このシェルでは既に BW_SESSION が設定されています。"
+      return 0
+    }
+    Remove-Item Env:BW_SESSION -ErrorAction SilentlyContinue
+  }
+
+  $token = & bw unlock --raw
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($token)) {
+    Write-Error "Bitwarden のアンロックに失敗しました。"
+    return 1
+  }
+
+  $env:BW_SESSION = $token.Trim()
+  Write-Host "✅ このシェルで Bitwarden をアンロックしました。"
+  return 0
+}
 
 # 環境変数を読み込む関数
 function devsync-load-env {
-  & $DEVSYNC_PATH env export | Invoke-Expression
+  $envExports = & $DEVSYNC_PATH env export
+  if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+
+  try {
+    Invoke-Expression -Command $envExports -ErrorAction Stop
+  } catch {
+    Write-Error "環境変数の読み込み中にエラーが発生しました: $_"
+    return 1
+  }
+
+  return 0
 }
 
 # dev-sync 互換関数（参考実装との互換性）
 function dev-sync {
-  Write-Host "🔐 Unlocking secrets..." -ForegroundColor Cyan
+  Write-Host "🔐 シークレットをアンロック中..." -ForegroundColor Cyan
+  devsync-unlock
+  if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+
+  Write-Host "🔑 環境変数をシェルへ読み込み中..." -ForegroundColor Cyan
   devsync-load-env
-  if ($LASTEXITCODE -ne 0) { return }
+  if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
 
-  Write-Host "🛠  Updating system..." -ForegroundColor Cyan
-  # & $DEVSYNC_PATH sys update
-  # if ($LASTEXITCODE -ne 0) { return }
-
-  Write-Host "📦 Syncing repositories..." -ForegroundColor Cyan
-  # & $DEVSYNC_PATH repo sync
-  # if ($LASTEXITCODE -ne 0) { return }
-
-  Write-Host "✅ Dev environment is up to date." -ForegroundColor Green
+  Write-Host "🚀 devsync run を実行します..." -ForegroundColor Cyan
+  & $DEVSYNC_PATH run @args
+  return $LASTEXITCODE
 }
 `, exePath)
 }

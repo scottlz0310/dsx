@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestResolveTUIEnabledByTerminal(t *testing.T) {
 	t.Parallel()
@@ -59,6 +62,56 @@ func TestResolveTUIEnabledByTerminal(t *testing.T) {
 
 			if (warn != "") != tc.wantWarn {
 				t.Fatalf("resolveTUIEnabledByTerminal() warning = %q, wantWarn=%v", warn, tc.wantWarn)
+			}
+		})
+	}
+}
+
+func TestBuildNoTargetTUIMessage(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name       string
+		requested  bool
+		command    string
+		wantEmpty  bool
+		wantPhrase string
+	}{
+		{
+			name:      "未指定なら空文字",
+			requested: false,
+			command:   "sys update",
+			wantEmpty: true,
+		},
+		{
+			name:       "指定時は説明文を返す",
+			requested:  true,
+			command:    "repo update",
+			wantEmpty:  false,
+			wantPhrase: "repo update の対象が0件",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := buildNoTargetTUIMessage(tc.requested, tc.command)
+			if tc.wantEmpty {
+				if got != "" {
+					t.Fatalf("buildNoTargetTUIMessage() = %q, want empty", got)
+				}
+
+				return
+			}
+
+			if got == "" {
+				t.Fatalf("buildNoTargetTUIMessage() = empty, want message")
+			}
+
+			if !strings.Contains(got, tc.wantPhrase) {
+				t.Fatalf("buildNoTargetTUIMessage() = %q, want contains %q", got, tc.wantPhrase)
 			}
 		})
 	}

@@ -156,3 +156,37 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("secrets.provider", "bitwarden")
 	v.SetDefault("secrets.items", []string{})
 }
+
+// ConfigPath はデフォルトの設定ファイルパスを返します。
+func ConfigPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("ホームディレクトリの取得に失敗: %w", err)
+	}
+
+	return filepath.Join(home, ".config", "devsync", "config.yaml"), nil
+}
+
+// ConfigFileExists は設定ファイルの存在有無を返します。
+// path には判定対象の設定ファイルパスが入ります。
+func ConfigFileExists() (exists bool, path string, err error) {
+	path, err = ConfigPath()
+	if err != nil {
+		return false, "", err
+	}
+
+	info, err := os.Stat(path)
+	if err == nil {
+		if info.IsDir() {
+			return false, path, fmt.Errorf("設定ファイルのパスがディレクトリです: %s", path)
+		}
+
+		return true, path, nil
+	}
+
+	if errors.Is(err, os.ErrNotExist) {
+		return false, path, nil
+	}
+
+	return false, path, fmt.Errorf("設定ファイルの状態確認に失敗: %w", err)
+}

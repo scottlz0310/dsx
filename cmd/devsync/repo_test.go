@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"fmt"
+	"os"
+	"strings"
+	"testing"
+)
 
 func TestResolveRepoJobs(t *testing.T) {
 	t.Parallel()
@@ -163,6 +168,63 @@ func TestBuildRepoJobDisplayName(t *testing.T) {
 			got := buildRepoJobDisplayName(tc.root, tc.repoPath)
 			if got != tc.want {
 				t.Fatalf("buildRepoJobDisplayName(%q, %q) = %q, want %q", tc.root, tc.repoPath, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestWrapRepoRootError(t *testing.T) {
+	t.Parallel()
+
+	notFoundErr := fmt.Errorf("ルートディレクトリにアクセスできません: %w", os.ErrNotExist)
+
+	testCases := []struct {
+		name           string
+		err            error
+		root           string
+		rootOverridden bool
+		configExists   bool
+		configPath     string
+		wantHint       bool
+	}{
+		{
+			name:           "設定未初期化なら config init を案内",
+			err:            notFoundErr,
+			root:           "/tmp/src",
+			rootOverridden: false,
+			configExists:   false,
+			configPath:     "/tmp/.config/devsync/config.yaml",
+			wantHint:       true,
+		},
+		{
+			name:           "設定ファイルがあれば案内しない",
+			err:            notFoundErr,
+			root:           "/tmp/src",
+			rootOverridden: false,
+			configExists:   true,
+			configPath:     "/tmp/.config/devsync/config.yaml",
+			wantHint:       false,
+		},
+		{
+			name:           "root上書き時は案内しない",
+			err:            notFoundErr,
+			root:           "/tmp/src",
+			rootOverridden: true,
+			configExists:   false,
+			configPath:     "/tmp/.config/devsync/config.yaml",
+			wantHint:       false,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			wrapped := wrapRepoRootError(tc.err, tc.root, tc.rootOverridden, tc.configExists, tc.configPath)
+
+			if hasHint := strings.Contains(wrapped.Error(), "devsync config init"); hasHint != tc.wantHint {
+				t.Fatalf("wrapRepoRootError() hint = %v, want %v. got=%q", hasHint, tc.wantHint, wrapped.Error())
 			}
 		})
 	}

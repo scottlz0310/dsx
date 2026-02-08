@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/scottlz0310/devsync/internal/config"
 )
@@ -30,7 +31,22 @@ func (s *SnapUpdater) DisplayName() string {
 
 func (s *SnapUpdater) IsAvailable() bool {
 	_, err := exec.LookPath("snap")
-	return err == nil
+	if err != nil {
+		return false
+	}
+
+	// snapd が利用できない環境では snap コマンドがハング/失敗しやすいため除外する。
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "snap", "version")
+
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+
+	return !isSnapdUnavailable(string(output))
 }
 
 func (s *SnapUpdater) Configure(cfg config.ManagerConfig) error {
@@ -39,6 +55,12 @@ func (s *SnapUpdater) Configure(cfg config.ManagerConfig) error {
 	}
 
 	if useSudo, ok := cfg["use_sudo"].(bool); ok {
+		s.useSudo = useSudo
+		return nil
+	}
+
+	// 旧キー `sudo` との後方互換
+	if useSudo, ok := cfg["sudo"].(bool); ok {
 		s.useSudo = useSudo
 	}
 
@@ -176,4 +198,17 @@ func (s *SnapUpdater) parseRefreshList(output string) []PackageInfo {
 	}
 
 	return packages
+}
+
+func isSnapdUnavailable(output string) bool {
+	normalized := strings.ToLower(output)
+
+	for _, line := range strings.Split(normalized, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "snapd") && strings.Contains(trimmed, "unavailable") {
+			return true
+		}
+	}
+
+	return false
 }

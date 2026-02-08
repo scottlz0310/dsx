@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"sync"
 	"time"
@@ -87,8 +88,12 @@ func runSysUpdate(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "⚠️  %v\n", err)
 	}
 
+	useTUI, warning := resolveTUIEnabled(sysTUI)
+	printTUIWarning(warning)
+
 	// 有効なマネージャがない場合は利用可能なものを表示
 	if len(enabledUpdaters) == 0 {
+		printNoTargetTUIMessage(sysTUI, "sys update")
 		printNoManagerHelp()
 
 		return nil
@@ -101,8 +106,6 @@ func runSysUpdate(cmd *cobra.Command, args []string) error {
 
 	jobs := resolveSysJobs(cfg.Control.Concurrency, sysJobs)
 	exclusiveUpdaters, parallelUpdaters := splitUpdatersForExecution(enabledUpdaters)
-	useTUI, warning := resolveTUIEnabled(sysTUI)
-	printTUIWarning(warning)
 
 	if useTUI {
 		fmt.Println("🖥️  TUI 進捗表示を有効化しました")
@@ -112,6 +115,14 @@ func runSysUpdate(cmd *cobra.Command, args []string) error {
 	var stats updateStats
 
 	if len(exclusiveUpdaters) > 0 {
+		if phaseRequiresSudo(exclusiveUpdaters, cfg.Sys.Managers) {
+			if err := ensureSudoAuthentication(ctx, "単独実行フェーズ"); err != nil {
+				return err
+			}
+
+			fmt.Println()
+		}
+
 		fmt.Println("🔒 依存関係の都合で単独実行するマネージャがあります（apt）。")
 		fmt.Println()
 
@@ -123,6 +134,14 @@ func runSysUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(parallelUpdaters) > 0 {
+		if phaseRequiresSudo(parallelUpdaters, cfg.Sys.Managers) {
+			if err := ensureSudoAuthentication(ctx, "並列実行フェーズ"); err != nil {
+				return err
+			}
+
+			fmt.Println()
+		}
+
 		mergeUpdateStats(&stats, executeParallelUpdaters(ctx, parallelUpdaters, opts, jobs, useTUI))
 	}
 
@@ -401,6 +420,71 @@ func mergeUpdateStats(dst *updateStats, src updateStats) {
 	dst.Errors = append(dst.Errors, src.Errors...)
 }
 
+func phaseRequiresSudo(updaters []updater.Updater, managers map[string]config.ManagerConfig) bool {
+	for _, u := range updaters {
+		if updaterRequiresSudo(u.Name(), managers) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func updaterRequiresSudo(name string, managers map[string]config.ManagerConfig) bool {
+	if !isSudoManagedUpdater(name) {
+		return false
+	}
+
+	useSudo, configured := resolveManagerUseSudo(name, managers)
+	if configured {
+		return useSudo
+	}
+
+	return true
+}
+
+func isSudoManagedUpdater(name string) bool {
+	return name == "apt" || name == "snap"
+}
+
+func resolveManagerUseSudo(name string, managers map[string]config.ManagerConfig) (useSudo, configured bool) {
+	if managers == nil {
+		return false, false
+	}
+
+	managerCfg, ok := managers[name]
+	if !ok {
+		return false, false
+	}
+
+	if value, ok := managerCfg["use_sudo"].(bool); ok {
+		return value, true
+	}
+
+	if value, ok := managerCfg["sudo"].(bool); ok {
+		return value, true
+	}
+
+	return false, false
+}
+
+func ensureSudoAuthentication(ctx context.Context, phase string) error {
+	fmt.Printf("🔐 sudo 認証を確認します（%s）...\n", phase)
+
+	cmd := exec.CommandContext(ctx, "sudo", "-v")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("sudo 認証に失敗しました（%s）: %w", phase, err)
+	}
+
+	fmt.Println("✅ sudo 認証を確認しました。")
+
+	return nil
+}
+
 // printUpdaterHeader はマネージャのヘッダーを表示します。
 func printUpdaterHeader(u updater.Updater) {
 	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
@@ -480,10 +564,7 @@ func runSysList(cmd *cobra.Command, args []string) error {
 			available = "✅"
 		}
 
-		enabled := "  "
-		if enabledSet[u.Name()] {
-			enabled = "✅"
-		}
+		enabled := enabledMark(enabledSet[u.Name()])
 
 		fmt.Printf("%-10s | %-25s | %s       | %s\n",
 			u.Name(), u.DisplayName(), available, enabled)
@@ -493,4 +574,12 @@ func runSysList(cmd *cobra.Command, args []string) error {
 	fmt.Println("💡 マネージャを有効化するには config.yaml の sys.enable を編集してください。")
 
 	return nil
+}
+
+func enabledMark(enabled bool) string {
+	if enabled {
+		return "✅"
+	}
+
+	return "❌"
 }

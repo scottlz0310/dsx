@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -63,12 +64,7 @@ func init() {
 }
 
 func runRepoList(cmd *cobra.Command, args []string) error {
-	cfg, err := config.Load()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  設定ファイルの読み込みに失敗（デフォルト設定を使用）: %v\n", err)
-
-		cfg = config.Default()
-	}
+	cfg, configExists, configPath := loadRepoConfig()
 
 	root := cfg.Repo.Root
 	if cmd.Flags().Changed("root") {
@@ -90,7 +86,7 @@ func runRepoList(cmd *cobra.Command, args []string) error {
 
 	repos, err := repomgr.List(ctx, root)
 	if err != nil {
-		return err
+		return wrapRepoRootError(err, root, cmd.Flags().Changed("root"), configExists, configPath)
 	}
 
 	if len(repos) == 0 {
@@ -108,12 +104,7 @@ func runRepoList(cmd *cobra.Command, args []string) error {
 }
 
 func runRepoUpdate(cmd *cobra.Command, args []string) error {
-	cfg, err := config.Load()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  設定ファイルの読み込みに失敗（デフォルト設定を使用）: %v\n", err)
-
-		cfg = config.Default()
-	}
+	cfg, configExists, configPath := loadRepoConfig()
 
 	root := cfg.Repo.Root
 	if cmd.Flags().Changed("root") {
@@ -135,10 +126,11 @@ func runRepoUpdate(cmd *cobra.Command, args []string) error {
 
 	repoPaths, err := repomgr.Discover(root)
 	if err != nil {
-		return err
+		return wrapRepoRootError(err, root, cmd.Flags().Changed("root"), configExists, configPath)
 	}
 
 	if len(repoPaths) == 0 {
+		printNoTargetTUIMessage(repoUpdateTUI, "repo update")
 		fmt.Printf("📝 更新対象のリポジトリが見つかりませんでした: %s\n", root)
 		return nil
 	}
@@ -180,6 +172,44 @@ func runRepoUpdate(cmd *cobra.Command, args []string) error {
 	fmt.Println("✅ リポジトリ更新が完了しました")
 
 	return nil
+}
+
+func loadRepoConfig() (cfg *config.Config, configExists bool, configPath string) {
+	configExists, configPath, stateErr := config.ConfigFileExists()
+	if stateErr != nil {
+		fmt.Fprintf(os.Stderr, "⚠️  設定ファイル状態の確認に失敗: %v\n", stateErr)
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "⚠️  設定ファイルの読み込みに失敗（デフォルト設定を使用）: %v\n", err)
+
+		cfg = config.Default()
+	}
+
+	return cfg, configExists, configPath
+}
+
+func wrapRepoRootError(err error, root string, rootOverridden, configExists bool, configPath string) error {
+	if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	if rootOverridden || configExists {
+		return err
+	}
+
+	pathNote := ""
+	if configPath != "" {
+		pathNote = fmt.Sprintf("（設定ファイル: %s）", configPath)
+	}
+
+	return fmt.Errorf(
+		"repo.root (%s) が見つかりません。設定ファイルが未初期化の可能性があります%s。まず `devsync config init` を実行してください: %w",
+		root,
+		pathNote,
+		err,
+	)
 }
 
 func buildRepoUpdateOptions(cmd *cobra.Command, cfg *config.Config) (repomgr.UpdateOptions, error) {

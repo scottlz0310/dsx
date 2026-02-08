@@ -34,20 +34,25 @@ func runDoctor() {
 	// 1. 設定ファイルのチェック
 	fmt.Println("📋 設定ファイル:")
 
-	if cfg := config.Get(); cfg != nil {
-		printResult(true, "設定ファイルは正常に読み込まれています")
-	} else {
-		// Loadを試みる
-		if _, err := config.Load(); err != nil {
-			printResult(false, fmt.Sprintf("設定ファイルの読み込みに失敗: %v", err))
+	configExists, configPath, configStateErr := config.ConfigFileExists()
+	if configStateErr != nil {
+		printResult(false, fmt.Sprintf("設定ファイル状態の確認に失敗: %v", configStateErr))
 
-			allPassed = false
-		} else {
-			printResult(true, "設定ファイルは正常に読み込まれています")
-		}
+		allPassed = false
 	}
 
-	cfg := config.Get()
+	cfg, loadErr := config.Load()
+	switch {
+	case loadErr != nil:
+		printResult(false, fmt.Sprintf("設定ファイルの読み込みに失敗: %v", loadErr))
+
+		allPassed = false
+	case configStateErr == nil:
+		printResult(true, buildDoctorConfigStatusMessage(configExists, configPath))
+	default:
+		printResult(true, "設定値の読み込みは成功しました（設定ファイル状態は要確認）")
+	}
+
 	if cfg == nil {
 		fmt.Println("\n❌ 重大なエラー: 設定がロードできないため、以降のチェックを中断します")
 		os.Exit(1)
@@ -89,7 +94,7 @@ func runDoctor() {
 
 			allPassed = false
 		} else {
-			printResult(true, "環境変数 BW_SESSION is set")
+			printResult(true, "環境変数 BW_SESSION が設定されています")
 		}
 	} else {
 		fmt.Println("   ⚪ スキップ (設定で無効化されています)")
@@ -116,4 +121,12 @@ func printResult(ok bool, message string) {
 	} else {
 		color.Red("  ❌ %s", message)
 	}
+}
+
+func buildDoctorConfigStatusMessage(configExists bool, configPath string) string {
+	if configExists {
+		return fmt.Sprintf("設定ファイルを読み込みました: %s", configPath)
+	}
+
+	return fmt.Sprintf("設定ファイルは未作成です（デフォルト値で実行中）: %s", configPath)
 }

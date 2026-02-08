@@ -5,7 +5,9 @@ package updater
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/scottlz0310/devsync/internal/config"
@@ -144,6 +146,8 @@ func GetEnabled(cfg *config.SysConfig) ([]Updater, error) {
 
 	var notFound []string
 
+	var unavailable []string
+
 	for _, name := range cfg.Enable {
 		u, ok := Get(name)
 		if !ok {
@@ -153,6 +157,7 @@ func GetEnabled(cfg *config.SysConfig) ([]Updater, error) {
 
 		if !u.IsAvailable() {
 			// 利用不可のマネージャは警告のみでスキップ
+			unavailable = append(unavailable, name)
 			continue
 		}
 		// マネージャ固有の設定を適用
@@ -165,9 +170,28 @@ func GetEnabled(cfg *config.SysConfig) ([]Updater, error) {
 		result = append(result, u)
 	}
 
-	if len(notFound) > 0 {
-		return result, fmt.Errorf("未知のマネージャが指定されています: %v", notFound)
+	warnErr := buildEnableWarning(notFound, unavailable)
+	if warnErr != nil {
+		return result, warnErr
 	}
 
 	return result, nil
+}
+
+func buildEnableWarning(notFound, unavailable []string) error {
+	if len(notFound) == 0 && len(unavailable) == 0 {
+		return nil
+	}
+
+	parts := make([]string, 0, 2)
+
+	if len(unavailable) > 0 {
+		parts = append(parts, fmt.Sprintf("未インストールまたは利用不可のためスキップ: %v", unavailable))
+	}
+
+	if len(notFound) > 0 {
+		parts = append(parts, fmt.Sprintf("未知のマネージャが指定されています: %v", notFound))
+	}
+
+	return errors.New(strings.Join(parts, " / "))
 }

@@ -194,3 +194,58 @@ func TestGet(t *testing.T) {
 		assert.Same(t, cfg1, cfg2)
 	})
 }
+
+func TestConfigPath(t *testing.T) {
+	t.Run("HOME から設定ファイルパスを生成", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		t.Setenv("HOME", tmpDir)
+
+		path, err := ConfigPath()
+		require.NoError(t, err)
+
+		expected := filepath.Join(tmpDir, ".config", "devsync", "config.yaml")
+		assert.Equal(t, expected, path)
+	})
+}
+
+func TestConfigFileExists(t *testing.T) {
+	t.Run("設定ファイルがない場合", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		t.Setenv("HOME", tmpDir)
+
+		exists, path, err := ConfigFileExists()
+		require.NoError(t, err)
+
+		assert.False(t, exists)
+		assert.Equal(t, filepath.Join(tmpDir, ".config", "devsync", "config.yaml"), path)
+	})
+
+	t.Run("設定ファイルがある場合", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		t.Setenv("HOME", tmpDir)
+
+		configPath := filepath.Join(tmpDir, ".config", "devsync", "config.yaml")
+		require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
+		require.NoError(t, os.WriteFile(configPath, []byte("version: 1\n"), 0o644))
+
+		exists, path, err := ConfigFileExists()
+		require.NoError(t, err)
+
+		assert.True(t, exists)
+		assert.Equal(t, configPath, path)
+	})
+
+	t.Run("設定ファイルパスがディレクトリの場合はエラー", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		t.Setenv("HOME", tmpDir)
+
+		configPath := filepath.Join(tmpDir, ".config", "devsync", "config.yaml")
+		require.NoError(t, os.MkdirAll(configPath, 0o755))
+
+		exists, path, err := ConfigFileExists()
+		require.Error(t, err)
+
+		assert.False(t, exists)
+		assert.Equal(t, configPath, path)
+	})
+}

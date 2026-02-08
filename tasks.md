@@ -98,6 +98,12 @@
     - [x] `wsl` から `wsl_v5` へ移行（非推奨警告対応）
 - [x] 日常運用コマンドを `task check` に統一（`task daily` 追加）
 - [x] `repo update` のレビュー指摘対応（DryRun計画整合 / `.git` 判定厳格化 / submoduleフラグ整理）
+- [x] 初回運用導線の改善（`config init` 誘導 / `doctor` 設定表示の明確化 / エラー重複解消 / `sys list` 有効列の明示 / `--tui` 対象0件メッセージ）
+- [x] `sys.enable` に未インストールのマネージャが含まれる場合の警告スキップ動作を整備（処理継続）
+- [x] `config init` で `repo.root` 未存在時の作成確認導線を追加（拒否時は終了）
+- [x] `sys update` 実行前の sudo 事前認証（単独フェーズ前/並列フェーズ前）を追加し、`use_sudo`/`sudo` の互換設定を整備
+- [x] `snapd unavailable` 環境で `snap` を利用不可として自動スキップする判定を追加
+- [x] シェル連携スクリプトを改善（`devsync-load-env` の終了コード伝播 / `dev-sync` の `Bitwarden 解錠 → 環境変数読込 → devsync run` 導線化 / 実行パスのフォールバック）
 - [ ] テストカバレッジ向上（現状18.5% → 目標50%）
     - [ ] `internal/config` のテスト追加
     - [ ] `internal/updater` のテスト追加（モック使用）

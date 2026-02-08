@@ -40,6 +40,12 @@ func (a *AptUpdater) Configure(cfg config.ManagerConfig) error {
 
 	if useSudo, ok := cfg["use_sudo"].(bool); ok {
 		a.useSudo = useSudo
+		return nil
+	}
+
+	// 旧キー `sudo` との後方互換
+	if useSudo, ok := cfg["sudo"].(bool); ok {
+		a.useSudo = useSudo
 	}
 
 	return nil

@@ -79,6 +79,25 @@
 - コンテナ内実行の自動検出 (`IsContainer`)
 - OS/環境に応じた推奨パッケージマネージャのリコメンド
 
+### Changed
+
+- 初回運用時の導線を改善
+  - `repo list` / `repo update` で `repo.root` が未存在かつ設定未初期化の場合、`devsync config init` を明示的に案内
+  - `doctor` で「設定ファイルあり / なし（デフォルト値運用）」を区別して表示
+- コマンドエラーの二重表示を解消（`rootCmd` のエラー出力ポリシーを整理）
+- `sys list` の「有効」列を `✅/❌` 表示に変更
+- `sys update --tui` / `repo update --tui` で対象0件時に「TUI未起動」の理由を明示
+- `sys.enable` に未インストールのマネージャが含まれる場合、警告を表示してスキップし、処理を継続するよう改善
+- `sys update` で sudo が必要なマネージャ（`apt` / `snap`）を実行する前に、単独フェーズ・並列フェーズごとに `sudo -v` で事前認証するよう改善
+- `apt` / `snap` の manager 設定で `use_sudo` と旧キー `sudo` の両方を受け付けるよう改善
+- `snap` の可用性判定を強化し、`snapd unavailable` の環境では利用不可として自動スキップするよう改善
+- `config init` が生成するシェル連携スクリプトを改善
+  - `devsync-load-env` が `devsync env export` の失敗時に正しく終了コードを返すよう修正
+  - `dev-sync` 互換関数を `Bitwarden 解錠 → 環境変数を親シェルへ読み込み → devsync run` の順で実行するよう改善
+  - 設定された実行パスが無効な場合に `command -v devsync`（PowerShell は `Get-Command`）へフォールバック
+- `config init` で指定した `repo.root` が未存在の場合に作成確認を追加（拒否時は保存せず終了）
+- README の初回セットアップ手順に `devsync config init` 必須を明記
+
 ### Infrastructure
 
 - Go 1.25 による開発環境

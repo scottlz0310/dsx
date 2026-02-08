@@ -50,10 +50,33 @@ go build -o dist/devsync ./cmd/devsync
 
 ### 初期設定
 
+初回セットアップでは、まず設定ファイルを生成してください。
+`config init` で指定した `repo.root` が未存在の場合は、作成確認が表示されます（拒否時はそのまま終了します）。
+
 ```bash
 devsync config init
 devsync doctor
 ```
+
+### シェル連携（自動設定）
+
+`devsync config init` では、シェル起動時に `~/.config/devsync/init.bash`（zshは `init.zsh`）を読み込む設定を
+`~/.bashrc` / `~/.zshrc` に自動追記できます。
+
+```bash
+# 反映確認（bash）
+grep -n ">>> devsync >>>" ~/.bashrc
+source ~/.bashrc
+
+# 関数確認
+type devsync-load-env
+type dev-sync
+```
+
+- `devsync-load-env`: Bitwarden の `env:` 項目を現在のシェルへ読み込み
+- `dev-sync`: Bitwarden 解錠 → 環境変数を親シェルへ読み込み → `devsync run` 実行（引数はそのまま渡されます）
+
+`devsync` バイナリの配置先を変更した場合は、`devsync config init` を再実行してシェル連携スクリプトを再生成してください。
 
 ## 📋 コマンド一覧
 
@@ -77,6 +100,9 @@ devsync sys list      # 利用可能なパッケージマネージャを一覧�
 `sys update` は `--jobs / -j` で並列数を指定できます（未指定時は `config.yaml` の `control.concurrency` を使用）。
 `apt` はパッケージロック競合を避けるため、依存関係ルールとして単独実行されます。
 `--tui` を指定すると、Bubble Tea ベースの進捗UI（マルチ進捗バー・リアルタイムログ・失敗ハイライト）を表示します。
+`apt` / `snap` など sudo が必要な更新は、単独フェーズ・並列フェーズの開始前に `sudo -v` で事前認証を確認します。
+`snapd unavailable` の環境では `snap` を利用不可として自動スキップします。
+`sys.enable` に未インストールのマネージャが含まれている場合は、警告を表示してスキップし、利用可能なマネージャのみ継続実行します。
 
 ### リポジトリ管理 (`repo`)
 ```
@@ -116,6 +142,14 @@ devsync config uninstall  # シェル設定からdevsyncを削除
 
 日次運用を想定した、実行順の確認手順です。
 
+### 0. 初回のみ: 設定ファイルを生成（必須）
+
+```bash
+devsync config init
+```
+
+`repo list` / `repo update` は `repo.root` 設定を利用するため、初回は先に `config init` を実行してください。
+
 ### 1. 依存関係と設定の確認
 
 ```bash
@@ -133,14 +167,31 @@ devsync repo update -n --tui
 
 非TTY環境（CIやリダイレクト実行）では、`--tui` は通常表示へ自動フォールバックします。
 
-### 3. 本実行（通常運用）
+### 3. `run` の環境変数注入セクション確認
+
+```bash
+# シェル連携が有効なことを確認
+source ~/.bashrc
+type dev-sync
+
+# devsync run の先頭ジョブ（Bitwarden unlock / 環境変数注入）を確認
+dev-sync
+# もしくはサブプロセス実行のみを確認
+devsync run
+```
+
+`dev-sync` は最初に Bitwarden のアンロックと環境変数注入を実行し、親シェルにも環境変数を反映したうえで `devsync run` を実行します。
+`devsync run` 単体で実行した場合は、サブプロセス内のみ環境変数が注入されます。
+この時点では `sys` / `repo` の統合処理は段階的実装中のため、プレースホルダー表示になる場合があります。
+
+### 4. 本実行（通常運用）
 
 ```bash
 devsync sys update --tui -j 4
 devsync repo update --tui -j 4
 ```
 
-### 4. 結果確認
+### 5. 結果確認
 
 - 失敗件数が 0 か
 - スキップ理由が想定どおりか（キャンセル/タイムアウトなど）
@@ -180,7 +231,7 @@ devsync env run go test ./...
 - コマンドの終了コードを保持
 - 親シェルに影響を与えない
 
-**注意**: `devsync run` コマンド内では環境変数は自動的に注入されますが、親シェルには反映されません。シェルで環境変数を使用したい場合は上記のコマンドを使用してください。
+**注意**: `devsync run` 単体では親シェルに環境変数は反映されません。親シェルでも利用したい場合は `eval "$(devsync env export)"` または `devsync-load-env` / `dev-sync` を使用してください。
 ## 🛠 開発
 
 ### 前提条件

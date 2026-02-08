@@ -9,8 +9,10 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "devsync",
-	Short: "DevSync: 開発環境運用ツール",
+	Use:           "devsync",
+	Short:         "DevSync: 開発環境運用ツール",
+	SilenceErrors: true,
+	SilenceUsage:  true,
 	Long: `DevSync は開発環境の運用作業を統合する CLI ツールです。
 
 日次運用:

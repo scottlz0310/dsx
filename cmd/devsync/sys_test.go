@@ -201,3 +201,139 @@ func TestExecuteUpdatesParallel_NonContextErrorIsFailed(t *testing.T) {
 		t.Fatalf("Errors[0] = %q, want update failure", stats.Errors[0].Error())
 	}
 }
+
+func TestEnabledMark(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		enabled bool
+		want    string
+	}{
+		{
+			name:    "有効",
+			enabled: true,
+			want:    "✅",
+		},
+		{
+			name:    "無効",
+			enabled: false,
+			want:    "❌",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := enabledMark(tc.enabled)
+			if got != tc.want {
+				t.Fatalf("enabledMark(%v) = %q, want %q", tc.enabled, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestUpdaterRequiresSudo(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name     string
+		updater  string
+		managers map[string]config.ManagerConfig
+		want     bool
+	}{
+		{
+			name:    "aptはデフォルトでsudo必要",
+			updater: "apt",
+			managers: map[string]config.ManagerConfig{
+				"apt": {},
+			},
+			want: true,
+		},
+		{
+			name:    "aptはuse_sudo=falseでsudo不要",
+			updater: "apt",
+			managers: map[string]config.ManagerConfig{
+				"apt": {"use_sudo": false},
+			},
+			want: false,
+		},
+		{
+			name:    "snapはsudo=falseでsudo不要（旧キー互換）",
+			updater: "snap",
+			managers: map[string]config.ManagerConfig{
+				"snap": {"sudo": false},
+			},
+			want: false,
+		},
+		{
+			name:    "brewはsudo不要",
+			updater: "brew",
+			want:    false,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := updaterRequiresSudo(tc.updater, tc.managers)
+			if got != tc.want {
+				t.Fatalf("updaterRequiresSudo(%q) = %v, want %v", tc.updater, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestPhaseRequiresSudo(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name     string
+		updaters []updater.Updater
+		managers map[string]config.ManagerConfig
+		want     bool
+	}{
+		{
+			name: "aptを含む場合はsudo必要",
+			updaters: []updater.Updater{
+				stubUpdater{name: "apt"},
+				stubUpdater{name: "go"},
+			},
+			want: true,
+		},
+		{
+			name: "snapがsudo無効なら不要",
+			updaters: []updater.Updater{
+				stubUpdater{name: "snap"},
+			},
+			managers: map[string]config.ManagerConfig{
+				"snap": {"use_sudo": false},
+			},
+			want: false,
+		},
+		{
+			name: "sudo対象がなければ不要",
+			updaters: []updater.Updater{
+				stubUpdater{name: "brew"},
+				stubUpdater{name: "go"},
+			},
+			want: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := phaseRequiresSudo(tc.updaters, tc.managers)
+			if got != tc.want {
+				t.Fatalf("phaseRequiresSudo() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

@@ -34,3 +34,20 @@ func printTUIWarning(warning string) {
 
 	fmt.Fprintln(os.Stderr, warning)
 }
+
+func buildNoTargetTUIMessage(requested bool, commandName string) string {
+	if !requested {
+		return ""
+	}
+
+	return fmt.Sprintf("ℹ️  --tui が指定されましたが、%s の対象が0件のため TUI は起動しません。", commandName)
+}
+
+func printNoTargetTUIMessage(requested bool, commandName string) {
+	message := buildNoTargetTUIMessage(requested, commandName)
+	if message == "" {
+		return
+	}
+
+	fmt.Fprintln(os.Stderr, message)
+}

@@ -182,7 +182,9 @@ func TestGetEnabled(t *testing.T) {
 		}
 
 		result, err := GetEnabled(cfg)
-		require.NoError(t, err)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "未インストールまたは利用不可のためスキップ")
+		assert.Contains(t, err.Error(), "brew")
 		assert.Len(t, result, 1)
 		assert.Equal(t, "apt", result[0].Name())
 	})
@@ -204,6 +206,29 @@ func TestGetEnabled(t *testing.T) {
 		assert.Contains(t, err.Error(), "unknown1")
 		assert.Contains(t, err.Error(), "unknown2")
 		// aptは正常に返される
+		assert.Len(t, result, 1)
+		assert.Equal(t, "apt", result[0].Name())
+	})
+
+	t.Run("未知と利用不可が混在しても利用可能なものだけ返す", func(t *testing.T) {
+		clearRegistry()
+
+		available := &mockUpdater{name: "apt", available: true}
+		unavailable := &mockUpdater{name: "brew", available: false}
+		Register(available)
+		Register(unavailable)
+
+		cfg := &config.SysConfig{
+			Enable:   []string{"apt", "brew", "unknown"},
+			Managers: make(map[string]config.ManagerConfig),
+		}
+
+		result, err := GetEnabled(cfg)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "未インストールまたは利用不可のためスキップ")
+		assert.Contains(t, err.Error(), "brew")
+		assert.Contains(t, err.Error(), "未知のマネージャが指定されています")
+		assert.Contains(t, err.Error(), "unknown")
 		assert.Len(t, result, 1)
 		assert.Equal(t, "apt", result[0].Name())
 	})
