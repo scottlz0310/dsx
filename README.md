@@ -17,6 +17,44 @@ DevSync は、開発環境の運用作業を統合・一元化するためのク
 - **インタラクティブ UI**: Survey (ウィザード) / Bubble Tea (TUI)
 - **並列制御**: errgroup + semaphore
 
+## 📦 インストール
+
+### 前提ツール
+
+- Go 1.25 以上
+- `git`
+- `gh` (GitHub CLI, `repo` 系運用時に推奨)
+- `bw` (Bitwarden CLI, `env` / `run` 運用時に推奨)
+
+### インストール方法（推奨: go install）
+
+```bash
+go install github.com/scottlz0310/devsync/cmd/devsync@latest
+```
+
+`$GOPATH/bin`（通常は `~/go/bin`）に `devsync` が配置されます。  
+PATH未設定の場合は、シェルの設定ファイルに追加してください。
+
+```bash
+export PATH="$HOME/go/bin:$PATH"
+```
+
+### ローカルビルドで使う場合
+
+```bash
+git clone https://github.com/scottlz0310/devsync.git
+cd devsync
+go build -o dist/devsync ./cmd/devsync
+./dist/devsync --help
+```
+
+### 初期設定
+
+```bash
+devsync config init
+devsync doctor
+```
+
 ## 📋 コマンド一覧
 
 ### メインコマンド
@@ -30,6 +68,7 @@ devsync doctor        # 依存ツール（git, bw等）と環境設定の診断
 devsync sys update    # パッケージマネージャで一括更新
 devsync sys update -n # ドライラン（計画のみ表示）
 devsync sys update -j 4 # 4並列で更新
+devsync sys update --tui # Bubble Teaで進捗を表示
 devsync sys list      # 利用可能なパッケージマネージャを一覧表示
 ```
 
@@ -37,12 +76,14 @@ devsync sys list      # 利用可能なパッケージマネージャを一覧�
 
 `sys update` は `--jobs / -j` で並列数を指定できます（未指定時は `config.yaml` の `control.concurrency` を使用）。
 `apt` はパッケージロック競合を避けるため、依存関係ルールとして単独実行されます。
+`--tui` を指定すると、Bubble Tea ベースの進捗UI（マルチ進捗バー・リアルタイムログ・失敗ハイライト）を表示します。
 
 ### リポジトリ管理 (`repo`)
 ```
 devsync repo update       # 管理下リポジトリを更新（fetch + pull --rebase）
 devsync repo update -j 4  # 4並列で更新
 devsync repo update -n    # ドライラン（計画のみ表示）
+devsync repo update --tui # Bubble Teaで進捗を表示
 devsync repo update --submodule      # submodule更新を強制有効化（設定値を上書き）
 devsync repo update --no-submodule   # submodule更新を強制無効化（設定値を上書き）
 devsync repo list         # 管理下リポジトリの一覧と状態を表示
@@ -54,6 +95,7 @@ devsync repo list --root ~/src # ルートを上書きして一覧表示
 `repo update` は `fetch --all`、`pull --rebase`、必要に応じて `submodule update` を実行します。
 submodule 更新の既定値は `config.yaml` の `repo.sync.submodule_update` で制御し、
 CLI では `--submodule` / `--no-submodule` で明示的に上書きできます。
+`--tui` 指定時は、更新の進捗・ログ・失敗状態をインタラクティブに表示します。
 
 ### 環境変数 (`env`)
 ```
@@ -69,6 +111,40 @@ devsync config uninstall  # シェル設定からdevsyncを削除
 
 ### 予定機能
 - `devsync repo cleanup`: マージ済みブランチの整理（未実装）
+
+## 🧪 日常運用（マニュアルテスト手順）
+
+日次運用を想定した、実行順の確認手順です。
+
+### 1. 依存関係と設定の確認
+
+```bash
+devsync doctor
+devsync sys list
+devsync repo list
+```
+
+### 2. Dry-run で計画確認（本実行前）
+
+```bash
+devsync sys update -n --tui
+devsync repo update -n --tui
+```
+
+非TTY環境（CIやリダイレクト実行）では、`--tui` は通常表示へ自動フォールバックします。
+
+### 3. 本実行（通常運用）
+
+```bash
+devsync sys update --tui -j 4
+devsync repo update --tui -j 4
+```
+
+### 4. 結果確認
+
+- 失敗件数が 0 か
+- スキップ理由が想定どおりか（キャンセル/タイムアウトなど）
+- 必要に応じて `--verbose` で詳細ログを再確認
 
 ## 🔑 環境変数の使用
 

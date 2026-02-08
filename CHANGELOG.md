@@ -18,6 +18,7 @@
   - `--verbose` / `-v` フラグで詳細ログ出力
   - `--jobs` / `-j` フラグで並列実行数の指定に対応
   - `--timeout` / `-t` フラグでタイムアウト設定
+  - `--tui` フラグで Bubble Tea による進捗表示（マルチ進捗バー・リアルタイムログ・失敗ハイライト）に対応
   - `apt` を単独実行に分離し、他マネージャは並列実行可能に改善
 - `devsync sys list` - 利用可能なパッケージマネージャの一覧表示
 - 対応パッケージマネージャ:
@@ -35,6 +36,7 @@
   - `git fetch --all` / `git pull --rebase` を実行
   - `--jobs` / `-j` フラグで並列更新に対応
   - `--dry-run` / `-n` フラグで更新計画の確認に対応
+  - `--tui` フラグで Bubble Tea による進捗表示（マルチ進捗バー・リアルタイムログ・失敗ハイライト）に対応
   - `--submodule` / `--no-submodule` フラグで submodule 更新設定を明示上書き可能
   - DryRun 時も upstream 有無を確認し、`pull` 計画表示を実挙動と一致させるよう改善
 - `devsync repo list` - 管理下リポジトリの一覧表示
@@ -43,6 +45,7 @@
   - ステータス表示（クリーン / ダーティ / 未プッシュ / 追跡なし）
 - `internal/repo` パッケージを追加（検出・状態取得ロジック）
   - `.git` 判定を厳格化（ディレクトリまたは `gitdir:` 形式ファイルのみをリポジトリとして検出）
+- `internal/tui` パッケージを追加（Bubble Tea ベースの進捗UI）
 - `repo.sync.submodule_update` 設定を追加（デフォルト: true）
 - `internal/runner` を追加（`errgroup + semaphore` による並列実行・結果集計）
 
@@ -96,6 +99,7 @@
 ### Documentation
 
 - README.md - プロジェクト概要と使用方法
+- README.md に利用者向けインストール手順と日常運用（マニュアルテスト）手順を追記
 - Implementation_Plan.md - 設計ドキュメント
 - Legacy_Migration_Analysis.md - 旧ツールからの移行分析
 - AGENTS.md - AIエージェント運用ガイドライン

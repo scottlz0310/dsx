@@ -237,3 +237,153 @@ func cloneJobs(jobs []Job, runCount *int32) []Job {
 
 	return result
 }
+
+func TestExecuteWithEvents(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name                 string
+		jobs                 []Job
+		wantTotal            int
+		wantStartedEventMin  int
+		wantFinishedEventMin int
+	}{
+		{
+			name: "成功と失敗で完了イベントを通知",
+			jobs: []Job{
+				{
+					Name: "ok",
+					Run: func(context.Context) error {
+						return nil
+					},
+				},
+				{
+					Name: "ng",
+					Run: func(context.Context) error {
+						return errors.New("expected failure")
+					},
+				},
+			},
+			wantTotal:            2,
+			wantStartedEventMin:  2,
+			wantFinishedEventMin: 2,
+		},
+		{
+			name: "nilジョブでも完了イベントを通知",
+			jobs: []Job{
+				{
+					Name: "nil-job",
+					Run:  nil,
+				},
+			},
+			wantTotal:            1,
+			wantStartedEventMin:  0,
+			wantFinishedEventMin: 1,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			queuedEvents := 0
+			startedEvents := 0
+			finishedEvents := 0
+			finishedStatusByName := make(map[string]ResultStatus)
+
+			summary := ExecuteWithEvents(context.Background(), 2, tc.jobs, func(event Event) {
+				switch event.Type {
+				case EventQueued:
+					queuedEvents++
+				case EventStarted:
+					startedEvents++
+				case EventFinished:
+					finishedEvents++
+					finishedStatusByName[event.JobName] = event.Status
+				default:
+					t.Fatalf("未知のイベント種別: %v", event.Type)
+				}
+			})
+
+			if summary.Total != tc.wantTotal {
+				t.Fatalf("Total = %d, want %d", summary.Total, tc.wantTotal)
+			}
+
+			if queuedEvents != tc.wantTotal {
+				t.Fatalf("queued events = %d, want %d", queuedEvents, tc.wantTotal)
+			}
+
+			if startedEvents < tc.wantStartedEventMin {
+				t.Fatalf("started events = %d, want >= %d", startedEvents, tc.wantStartedEventMin)
+			}
+
+			if finishedEvents < tc.wantFinishedEventMin {
+				t.Fatalf("finished events = %d, want >= %d", finishedEvents, tc.wantFinishedEventMin)
+			}
+
+			for index, result := range summary.Results {
+				if result.Name == "" {
+					t.Fatalf("summary.Results[%d].Name is empty", index)
+				}
+
+				got, ok := finishedStatusByName[result.Name]
+				if !ok {
+					t.Fatalf("ジョブ %q の完了イベントがありません", result.Name)
+				}
+
+				if got != result.Status {
+					t.Fatalf("ジョブ %q のステータス不一致: event=%s result=%s", result.Name, got, result.Status)
+				}
+			}
+		})
+	}
+}
+
+func TestExecuteWithEvents_JobNameFallback(t *testing.T) {
+	t.Parallel()
+
+	summary := ExecuteWithEvents(context.Background(), 1, []Job{
+		{
+			Run: func(context.Context) error {
+				return nil
+			},
+		},
+	}, nil)
+
+	if len(summary.Results) != 1 {
+		t.Fatalf("results length = %d, want 1", len(summary.Results))
+	}
+
+	wantName := "job-1"
+	if summary.Results[0].Name != wantName {
+		t.Fatalf("result name = %q, want %q", summary.Results[0].Name, wantName)
+	}
+}
+
+func TestExecuteWithEvents_EventTimestamp(t *testing.T) {
+	t.Parallel()
+
+	var hasZeroTimestamp bool
+
+	summary := ExecuteWithEvents(context.Background(), 1, []Job{
+		{
+			Name: "time-check",
+			Run: func(context.Context) error {
+				return nil
+			},
+		},
+	}, func(event Event) {
+		if event.Timestamp.IsZero() {
+			hasZeroTimestamp = true
+		}
+	})
+
+	if hasZeroTimestamp {
+		t.Fatalf("イベントにゼロ時刻が含まれています")
+	}
+
+	if summary.Success != 1 {
+		t.Fatalf("Success = %d, want 1", summary.Success)
+	}
+}

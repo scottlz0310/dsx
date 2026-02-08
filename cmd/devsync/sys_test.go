@@ -162,7 +162,7 @@ func TestExecuteUpdatesParallel_ContextCanceledIsNotFailed(t *testing.T) {
 		},
 	}
 
-	stats := executeUpdatesParallel(context.Background(), updaters, updater.UpdateOptions{}, 2)
+	stats := executeUpdatesParallel(context.Background(), updaters, updater.UpdateOptions{}, 2, false)
 
 	if stats.Failed != 0 {
 		t.Fatalf("Failed = %d, want 0", stats.Failed)
@@ -187,7 +187,7 @@ func TestExecuteUpdatesParallel_NonContextErrorIsFailed(t *testing.T) {
 		},
 	}
 
-	stats := executeUpdatesParallel(context.Background(), updaters, updater.UpdateOptions{}, 2)
+	stats := executeUpdatesParallel(context.Background(), updaters, updater.UpdateOptions{}, 2, false)
 
 	if stats.Failed != 1 {
 		t.Fatalf("Failed = %d, want 1", stats.Failed)

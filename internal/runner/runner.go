@@ -46,8 +46,36 @@ type Summary struct {
 	Results []Result
 }
 
+// EventType は実行中に通知されるイベント種別です。
+type EventType string
+
+const (
+	EventQueued   EventType = "queued"
+	EventStarted  EventType = "started"
+	EventFinished EventType = "finished"
+)
+
+// Event はジョブ実行中に発火する通知イベントです。
+type Event struct {
+	Type      EventType
+	JobIndex  int
+	JobName   string
+	Status    ResultStatus
+	Err       error
+	Duration  time.Duration
+	Timestamp time.Time
+}
+
+// EventHandler はジョブ実行イベントを受け取るコールバックです。
+type EventHandler func(Event)
+
 // Execute はジョブを指定並列数で実行し、結果を返します。
 func Execute(ctx context.Context, maxJobs int, jobs []Job) Summary {
+	return ExecuteWithEvents(ctx, maxJobs, jobs, nil)
+}
+
+// ExecuteWithEvents はジョブを指定並列数で実行し、イベント通知つきで結果を返します。
+func ExecuteWithEvents(ctx context.Context, maxJobs int, jobs []Job, onEvent EventHandler) Summary {
 	summary := Summary{
 		Total:   len(jobs),
 		Results: make([]Result, len(jobs)),
@@ -62,7 +90,20 @@ func Execute(ctx context.Context, maxJobs int, jobs []Job) Summary {
 	sem := semaphore.NewWeighted(int64(maxJobs))
 	group, groupCtx := errgroup.WithContext(ctx)
 
-	var mu sync.Mutex
+	var (
+		mu      sync.Mutex
+		eventMu sync.Mutex
+	)
+
+	emit := func(event Event) {
+		if onEvent == nil {
+			return
+		}
+
+		eventMu.Lock()
+		onEvent(event)
+		eventMu.Unlock()
+	}
 
 	for index, job := range jobs {
 		i := index
@@ -70,23 +111,51 @@ func Execute(ctx context.Context, maxJobs int, jobs []Job) Summary {
 		start := time.Now()
 		name := normalizeJobName(i, currentJob.Name)
 
+		emit(Event{
+			Type:      EventQueued,
+			JobIndex:  i,
+			JobName:   name,
+			Timestamp: time.Now(),
+		})
+
 		if currentJob.Run == nil {
-			recordResult(&mu, &summary, i, Result{
+			result := Result{
 				Name:     name,
 				Status:   StatusFailed,
 				Err:      fmt.Errorf("ジョブ実体が nil です"),
 				Duration: time.Since(start),
+			}
+
+			recordResult(&mu, &summary, i, result)
+			emit(Event{
+				Type:      EventFinished,
+				JobIndex:  i,
+				JobName:   name,
+				Status:    result.Status,
+				Err:       result.Err,
+				Duration:  result.Duration,
+				Timestamp: time.Now(),
 			})
 
 			continue
 		}
 
 		if err := sem.Acquire(groupCtx, 1); err != nil {
-			recordResult(&mu, &summary, i, Result{
+			result := Result{
 				Name:     name,
 				Status:   StatusSkipped,
 				Err:      err,
 				Duration: time.Since(start),
+			}
+			recordResult(&mu, &summary, i, result)
+			emit(Event{
+				Type:      EventFinished,
+				JobIndex:  i,
+				JobName:   name,
+				Status:    result.Status,
+				Err:       result.Err,
+				Duration:  result.Duration,
+				Timestamp: time.Now(),
 			})
 
 			continue
@@ -97,24 +166,52 @@ func Execute(ctx context.Context, maxJobs int, jobs []Job) Summary {
 			defer sem.Release(1)
 
 			if err := groupCtx.Err(); err != nil {
-				recordResult(&mu, &summary, i, Result{
+				result := Result{
 					Name:     name,
 					Status:   StatusSkipped,
 					Err:      err,
 					Duration: time.Since(start),
+				}
+				recordResult(&mu, &summary, i, result)
+				emit(Event{
+					Type:      EventFinished,
+					JobIndex:  i,
+					JobName:   name,
+					Status:    result.Status,
+					Err:       result.Err,
+					Duration:  result.Duration,
+					Timestamp: time.Now(),
 				})
 
 				return nil
 			}
 
+			emit(Event{
+				Type:      EventStarted,
+				JobIndex:  i,
+				JobName:   name,
+				Timestamp: time.Now(),
+			})
+
 			err := currentJob.Run(groupCtx)
 			status := resolveStatus(err)
 
-			recordResult(&mu, &summary, i, Result{
+			result := Result{
 				Name:     name,
 				Status:   status,
 				Err:      err,
 				Duration: time.Since(start),
+			}
+
+			recordResult(&mu, &summary, i, result)
+			emit(Event{
+				Type:      EventFinished,
+				JobIndex:  i,
+				JobName:   name,
+				Status:    result.Status,
+				Err:       result.Err,
+				Duration:  result.Duration,
+				Timestamp: time.Now(),
 			})
 
 			// errgroup の fail-fast を無効化するため、エラーを返さない。

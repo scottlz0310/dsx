@@ -20,6 +20,7 @@ var (
 	sysVerbose bool
 	sysJobs    int
 	sysTimeout string
+	sysTUI     bool
 )
 
 // sysCmd はシステム関連コマンドのルートです
@@ -66,6 +67,7 @@ func init() {
 	sysUpdateCmd.Flags().BoolVarP(&sysVerbose, "verbose", "v", false, "詳細なログを出力")
 	sysUpdateCmd.Flags().IntVarP(&sysJobs, "jobs", "j", 0, "並列実行数（0以下の場合は設定値または1を使用）")
 	sysUpdateCmd.Flags().StringVarP(&sysTimeout, "timeout", "t", "10m", "全体のタイムアウト時間")
+	sysUpdateCmd.Flags().BoolVar(&sysTUI, "tui", false, "Bubble Tea の進捗UIを表示")
 }
 
 func runSysUpdate(cmd *cobra.Command, args []string) error {
@@ -99,23 +101,29 @@ func runSysUpdate(cmd *cobra.Command, args []string) error {
 
 	jobs := resolveSysJobs(cfg.Control.Concurrency, sysJobs)
 	exclusiveUpdaters, parallelUpdaters := splitUpdatersForExecution(enabledUpdaters)
+	useTUI, warning := resolveTUIEnabled(sysTUI)
+	printTUIWarning(warning)
+
+	if useTUI {
+		fmt.Println("🖥️  TUI 進捗表示を有効化しました")
+		fmt.Println()
+	}
 
 	var stats updateStats
 
 	if len(exclusiveUpdaters) > 0 {
 		fmt.Println("🔒 依存関係の都合で単独実行するマネージャがあります（apt）。")
 		fmt.Println()
-		mergeUpdateStats(&stats, executeUpdates(ctx, exclusiveUpdaters, opts))
+
+		if useTUI {
+			mergeUpdateStats(&stats, executeUpdatesParallel(ctx, exclusiveUpdaters, opts, 1, true))
+		} else {
+			mergeUpdateStats(&stats, executeUpdates(ctx, exclusiveUpdaters, opts))
+		}
 	}
 
 	if len(parallelUpdaters) > 0 {
-		if jobs > 1 {
-			fmt.Printf("⚡ %d 並列で更新します。\n", jobs)
-			fmt.Println()
-			mergeUpdateStats(&stats, executeUpdatesParallel(ctx, parallelUpdaters, opts, jobs))
-		} else {
-			mergeUpdateStats(&stats, executeUpdates(ctx, parallelUpdaters, opts))
-		}
+		mergeUpdateStats(&stats, executeParallelUpdaters(ctx, parallelUpdaters, opts, jobs, useTUI))
 	}
 
 	// サマリー表示
@@ -232,14 +240,43 @@ func executeUpdates(ctx context.Context, updaters []updater.Updater, opts update
 	return stats
 }
 
+func executeParallelUpdaters(ctx context.Context, updaters []updater.Updater, opts updater.UpdateOptions, jobs int, useTUI bool) updateStats {
+	switch {
+	case useTUI:
+		parallelJobs := jobs
+		if parallelJobs <= 0 {
+			parallelJobs = 1
+		}
+
+		return executeUpdatesParallel(ctx, updaters, opts, parallelJobs, true)
+	case jobs > 1:
+		fmt.Printf("⚡ %d 並列で更新します。\n", jobs)
+		fmt.Println()
+		return executeUpdatesParallel(ctx, updaters, opts, jobs, false)
+	default:
+		return executeUpdates(ctx, updaters, opts)
+	}
+}
+
 // executeUpdatesParallel はマネージャ更新を並列実行し、統計を返します。
-func executeUpdatesParallel(ctx context.Context, updaters []updater.Updater, opts updater.UpdateOptions, jobs int) updateStats {
+func executeUpdatesParallel(ctx context.Context, updaters []updater.Updater, opts updater.UpdateOptions, jobs int, useTUI bool) updateStats {
 	var (
 		stats    updateStats
 		statsMu  sync.Mutex
 		outputMu sync.Mutex
 	)
 
+	execJobs := buildUpdaterJobs(updaters, opts, useTUI, &stats, &statsMu, &outputMu)
+	summary := runJobsWithOptionalTUI(ctx, "sys update 進捗", jobs, execJobs, useTUI)
+
+	if summary.Skipped > 0 {
+		stats.Errors = append(stats.Errors, fmt.Errorf("キャンセルまたはタイムアウトにより %d 件をスキップしました", summary.Skipped))
+	}
+
+	return stats
+}
+
+func buildUpdaterJobs(updaters []updater.Updater, opts updater.UpdateOptions, useTUI bool, stats *updateStats, statsMu, outputMu *sync.Mutex) []runner.Job {
 	execJobs := make([]runner.Job, 0, len(updaters))
 
 	for _, updaterItem := range updaters {
@@ -248,55 +285,78 @@ func executeUpdatesParallel(ctx context.Context, updaters []updater.Updater, opt
 		execJobs = append(execJobs, runner.Job{
 			Name: u.Name(),
 			Run: func(jobCtx context.Context) error {
-				outputMu.Lock()
-				printUpdaterHeader(u)
-				outputMu.Unlock()
-
-				result, err := u.Update(jobCtx, opts)
-				if err != nil {
-					if isContextCancellation(err) {
-						return err
-					}
-
-					outputMu.Lock()
-					fmt.Fprintf(os.Stderr, "❌ エラー: %v\n", err)
-					outputMu.Unlock()
-
-					statsMu.Lock()
-
-					stats.Errors = append(stats.Errors, fmt.Errorf("%s: %w", u.Name(), err))
-					stats.Failed++
-
-					statsMu.Unlock()
-
-					return err
-				}
-
-				outputMu.Lock()
-				printUpdaterResult(result)
-				fmt.Println()
-				outputMu.Unlock()
-
-				statsMu.Lock()
-
-				stats.Updated += result.UpdatedCount
-				stats.Failed += result.FailedCount
-				stats.Errors = append(stats.Errors, result.Errors...)
-
-				statsMu.Unlock()
-
-				return nil
+				return runUpdaterJob(jobCtx, u, opts, useTUI, stats, statsMu, outputMu)
 			},
 		})
 	}
 
-	summary := runner.Execute(ctx, jobs, execJobs)
+	return execJobs
+}
 
-	if summary.Skipped > 0 {
-		stats.Errors = append(stats.Errors, fmt.Errorf("キャンセルまたはタイムアウトにより %d 件をスキップしました", summary.Skipped))
+func runUpdaterJob(jobCtx context.Context, u updater.Updater, opts updater.UpdateOptions, useTUI bool, stats *updateStats, statsMu, outputMu *sync.Mutex) error {
+	printUpdaterHeaderIfNeeded(u, useTUI, outputMu)
+
+	result, err := u.Update(jobCtx, opts)
+	if err != nil {
+		return handleUpdaterError(u, err, useTUI, stats, statsMu, outputMu)
 	}
 
-	return stats
+	printUpdaterResultIfNeeded(result, useTUI, outputMu)
+	mergeUpdaterResult(stats, statsMu, result)
+
+	return nil
+}
+
+func printUpdaterHeaderIfNeeded(u updater.Updater, useTUI bool, outputMu *sync.Mutex) {
+	if useTUI {
+		return
+	}
+
+	outputMu.Lock()
+	printUpdaterHeader(u)
+	outputMu.Unlock()
+}
+
+func handleUpdaterError(u updater.Updater, err error, useTUI bool, stats *updateStats, statsMu, outputMu *sync.Mutex) error {
+	if isContextCancellation(err) {
+		return err
+	}
+
+	if !useTUI {
+		outputMu.Lock()
+		fmt.Fprintf(os.Stderr, "❌ エラー: %v\n", err)
+		outputMu.Unlock()
+	}
+
+	statsMu.Lock()
+
+	stats.Errors = append(stats.Errors, fmt.Errorf("%s: %w", u.Name(), err))
+	stats.Failed++
+
+	statsMu.Unlock()
+
+	return err
+}
+
+func printUpdaterResultIfNeeded(result *updater.UpdateResult, useTUI bool, outputMu *sync.Mutex) {
+	if useTUI {
+		return
+	}
+
+	outputMu.Lock()
+	printUpdaterResult(result)
+	fmt.Println()
+	outputMu.Unlock()
+}
+
+func mergeUpdaterResult(stats *updateStats, statsMu *sync.Mutex, result *updater.UpdateResult) {
+	statsMu.Lock()
+
+	stats.Updated += result.UpdatedCount
+	stats.Failed += result.FailedCount
+	stats.Errors = append(stats.Errors, result.Errors...)
+
+	statsMu.Unlock()
 }
 
 func resolveSysJobs(configJobs, flagJobs int) int {

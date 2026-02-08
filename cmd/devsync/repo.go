@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"text/tabwriter"
 	"time"
@@ -22,6 +23,7 @@ var (
 	repoUpdateDryRun      bool
 	repoUpdateSubmodules  bool
 	repoUpdateNoSubmodule bool
+	repoUpdateTUI         bool
 )
 
 var repoCmd = &cobra.Command{
@@ -57,6 +59,7 @@ func init() {
 	repoUpdateCmd.Flags().BoolVarP(&repoUpdateDryRun, "dry-run", "n", false, "実際の更新は行わず、計画のみ表示")
 	repoUpdateCmd.Flags().BoolVar(&repoUpdateSubmodules, "submodule", false, "submodule update を有効化する（設定値を上書き）")
 	repoUpdateCmd.Flags().BoolVar(&repoUpdateNoSubmodule, "no-submodule", false, "submodule update を無効化する（設定値を上書き）")
+	repoUpdateCmd.Flags().BoolVar(&repoUpdateTUI, "tui", false, "Bubble Tea の進捗UIを表示")
 }
 
 func runRepoList(cmd *cobra.Command, args []string) error {
@@ -140,6 +143,46 @@ func runRepoUpdate(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	opts, err := buildRepoUpdateOptions(cmd, cfg)
+	if err != nil {
+		return err
+	}
+
+	jobs := resolveRepoJobs(cfg.Control.Concurrency, repoUpdateJobs)
+	useTUI, warning := resolveTUIEnabled(repoUpdateTUI)
+	printTUIWarning(warning)
+
+	if useTUI {
+		fmt.Println("🖥️  TUI 進捗表示を有効化しました")
+	}
+
+	fmt.Printf("🔄 リポジトリ更新を開始します (%d件, 並列=%d)\n", len(repoPaths), jobs)
+
+	if opts.DryRun {
+		fmt.Println("📋 DryRun モード: 実際の更新は行いません")
+	}
+
+	fmt.Println()
+
+	execJobs := buildRepoUpdateJobs(root, repoPaths, opts, useTUI)
+	summary := runJobsWithOptionalTUI(ctx, "repo update 進捗", jobs, execJobs, useTUI)
+
+	printRepoUpdateSummary(summary)
+
+	if summary.Failed > 0 {
+		return fmt.Errorf("%d 件のリポジトリ更新に失敗しました", summary.Failed)
+	}
+
+	if summary.Skipped > 0 {
+		return fmt.Errorf("キャンセルまたはタイムアウトにより %d 件をスキップしました", summary.Skipped)
+	}
+
+	fmt.Println("✅ リポジトリ更新が完了しました")
+
+	return nil
+}
+
+func buildRepoUpdateOptions(cmd *cobra.Command, cfg *config.Config) (repomgr.UpdateOptions, error) {
 	opts := repomgr.UpdateOptions{
 		Prune:           cfg.Repo.Sync.Prune,
 		AutoStash:       cfg.Repo.Sync.AutoStash,
@@ -156,58 +199,73 @@ func runRepoUpdate(cmd *cobra.Command, args []string) error {
 
 	submoduleUpdate, err := resolveRepoSubmoduleUpdate(opts.SubmoduleUpdate, enableSubmodule, disableSubmodule)
 	if err != nil {
-		return err
+		return repomgr.UpdateOptions{}, err
 	}
 
 	opts.SubmoduleUpdate = submoduleUpdate
 
-	jobs := resolveRepoJobs(cfg.Control.Concurrency, repoUpdateJobs)
+	return opts, nil
+}
 
-	fmt.Printf("🔄 リポジトリ更新を開始します (%d件, 並列=%d)\n", len(repoPaths), jobs)
+func buildRepoUpdateJobs(root string, repoPaths []string, opts repomgr.UpdateOptions, useTUI bool) []runner.Job {
+	var outputMu sync.Mutex
 
-	if opts.DryRun {
-		fmt.Println("📋 DryRun モード: 実際の更新は行いません")
+	nameCounts := make(map[string]int, len(repoPaths))
+	for _, path := range repoPaths {
+		displayName := buildRepoJobDisplayName(root, path)
+		nameCounts[displayName]++
 	}
 
-	fmt.Println()
-
-	var (
-		outputMu sync.Mutex
-		execJobs = make([]runner.Job, 0, len(repoPaths))
-	)
-
+	execJobs := make([]runner.Job, 0, len(repoPaths))
 	for _, path := range repoPaths {
 		repoPath := path
-		repoName := filepath.Base(repoPath)
+
+		repoName := buildRepoJobDisplayName(root, repoPath)
+		if nameCounts[repoName] > 1 {
+			// 同名衝突時はフルパスで表示して一意性を担保する。
+			repoName = filepath.Clean(repoPath)
+		}
 
 		execJobs = append(execJobs, runner.Job{
 			Name: repoName,
 			Run: func(jobCtx context.Context) error {
 				updateResult, updateErr := repomgr.Update(jobCtx, repoPath, opts)
-
-				outputMu.Lock()
-				printRepoUpdateResult(repoName, updateResult, updateErr)
-				outputMu.Unlock()
+				if !useTUI {
+					outputMu.Lock()
+					printRepoUpdateResult(repoName, updateResult, updateErr)
+					outputMu.Unlock()
+				}
 
 				return updateErr
 			},
 		})
 	}
 
-	summary := runner.Execute(ctx, jobs, execJobs)
-	printRepoUpdateSummary(summary)
+	return execJobs
+}
 
-	if summary.Failed > 0 {
-		return fmt.Errorf("%d 件のリポジトリ更新に失敗しました", summary.Failed)
+func buildRepoJobDisplayName(root, repoPath string) string {
+	cleanRepoPath := filepath.Clean(repoPath)
+
+	rel, err := filepath.Rel(root, cleanRepoPath)
+	if err != nil {
+		return filepath.Base(cleanRepoPath)
 	}
 
-	if summary.Skipped > 0 {
-		return fmt.Errorf("キャンセルまたはタイムアウトにより %d 件をスキップしました", summary.Skipped)
+	cleanRel := filepath.Clean(rel)
+	if cleanRel == "." {
+		return cleanRel
 	}
 
-	fmt.Println("✅ リポジトリ更新が完了しました")
+	if cleanRel == ".." || strings.HasPrefix(cleanRel, ".."+string(filepath.Separator)) {
+		return filepath.Base(cleanRepoPath)
+	}
 
-	return nil
+	if cleanRel == "" {
+		return filepath.Base(cleanRepoPath)
+	}
+
+	return cleanRel
 }
 
 func printRepoTable(repos []repomgr.Info) error {

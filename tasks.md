@@ -70,21 +70,22 @@
     - [x] 管理下リポジトリの一覧表示
     - [x] ステータス表示（クリーン/ダーティ/未プッシュ/追跡なし）
 
-## Phase 6: TUI 進捗表示
+## Phase 6: TUI 進捗表示 (Completed)
 
 ユーザー体験の向上。並列実行と組み合わせて効果を発揮。
 
-- [ ] **Bubble Tea による進捗UI**
-    - [ ] マルチプログレスバー表示
-    - [ ] リアルタイムログ出力
-    - [ ] エラー時のハイライト表示
-- [ ] **既存コマンドへの統合**
-    - [ ] `sys update` への適用
-    - [ ] `repo update` への適用
+- [x] **Bubble Tea による進捗UI**
+    - [x] マルチプログレスバー表示
+    - [x] リアルタイムログ出力
+    - [x] エラー時のハイライト表示
+- [x] **既存コマンドへの統合**
+    - [x] `sys update` への適用
+    - [x] `repo update` への適用
 
 ## Backlog / 改善
 
 - [x] README.md と --help の更新（実装済みコマンドに合わせた使用方法の記載）
+- [x] README.md にインストール手順と日常運用（マニュアルテスト）手順を追記
 - [x] CHANGELOG.md の作成
 - [x] 開発タスクランナー整備（Makefile → Taskfile.yml に移行）
 - [x] golangci-lint 設定強化（複雑度チェック追加）
@@ -103,7 +104,24 @@
     - [ ] `internal/secret` のテスト追加（Bitwarden部分はモック）
 - [ ] `repo cleanup` (マージ済みブランチ削除) の移植
 - [ ] `config show` / `config validate` コマンド
+- [ ] `sys` パッケージマネージャ対応を `sysup` 同等以上へ拡張
+    - [ ] 既存実装（`apt` / `brew` / `go` / `npm` / `snap` / `pipx` / `cargo`）との差分棚卸し
+    - [ ] Linux向け `flatpak` / `fwupdmgr` Updater の実装
+    - [ ] Node系 `pnpm` / `nvm` Updater の実装
+    - [ ] 追加ツール `uv tool` / `rustup` / `gem` Updater の実装
+    - [ ] Windows向け `winget` / `scoop` Updater の実装と実機検証
+    - [ ] `sys list` / `README.md` / `config init` への反映
+    - [ ] 各Updaterの dry-run / timeout / エラー分類の統合テスト
 - [ ] 通知機能の実装
 - [ ] Windows (Winget/Scoop) 対応検証
 - [ ] GoReleaser によるリリース自動化
 - [ ] GitHub Actions CI/CD 設定
+- [ ] `sys update` / `repo update` の E2E テスト整備
+    - [ ] `--tui` 指定時の終了コードとサマリー整合を確認
+    - [ ] 非TTY環境での `--tui` 自動フォールバック挙動を確認
+- [ ] TUI UX 改善
+    - [ ] 失敗ジョブの詳細エラー表示（展開表示）を追加
+    - [ ] 長時間実行向けにログ保存オプション（ファイル出力）を追加
+- [ ] runner イベント基盤の活用拡張
+    - [ ] `devsync run`（将来 `tool update`）への進捗UI適用
+    - [ ] 通知機能向けイベントフックの追加

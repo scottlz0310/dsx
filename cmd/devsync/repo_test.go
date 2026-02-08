@@ -119,3 +119,51 @@ func TestResolveRepoSubmoduleUpdate(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildRepoJobDisplayName(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name     string
+		root     string
+		repoPath string
+		want     string
+	}{
+		{
+			name:     "root直下は相対パス",
+			root:     "/work/src",
+			repoPath: "/work/src/devsync",
+			want:     "devsync",
+		},
+		{
+			name:     "ネストしたパスは相対表示",
+			root:     "/work/src",
+			repoPath: "/work/src/team-a/api",
+			want:     "team-a/api",
+		},
+		{
+			name:     "root自身はドット表示",
+			root:     "/work/src",
+			repoPath: "/work/src",
+			want:     ".",
+		},
+		{
+			name:     "root外はベース名表示",
+			root:     "/work/src",
+			repoPath: "/opt/repos/sample",
+			want:     "sample",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := buildRepoJobDisplayName(tc.root, tc.repoPath)
+			if got != tc.want {
+				t.Fatalf("buildRepoJobDisplayName(%q, %q) = %q, want %q", tc.root, tc.repoPath, got, tc.want)
+			}
+		})
+	}
+}
