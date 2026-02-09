@@ -116,15 +116,13 @@ func TestUpdateDryRunPlan(t *testing.T) {
 			name:               "upstreamなしはpull計画を除外",
 			setupRepo:          createLocalRepoWithoutUpstream,
 			expectPullCommand:  false,
-			expectSkipContains: "upstream が未設定",
+			expectSkipContains: skipPullNoUpstreamMessage,
 		},
 		{
-			name: "upstream確認失敗時はpull計画を除外して継続",
-			setupRepo: func(t *testing.T) string {
-				return t.TempDir()
-			},
+			name:               "リポジトリ状態の判定失敗時はpull計画を除外して継続",
+			setupRepo:          createBrokenWorktreeRepo,
 			expectPullCommand:  false,
-			expectSkipContains: "upstream の確認に失敗",
+			expectSkipContains: "リポジトリ状態の判定に失敗",
 		},
 	}
 
@@ -169,6 +167,108 @@ func TestUpdateDryRunPlan(t *testing.T) {
 	}
 }
 
+func TestUpdateSkipsOnUnsafeRepoState(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name               string
+		setupRepo          func(t *testing.T) string
+		expectSkipContains string
+	}{
+		{
+			name:               "tracked の未コミット変更がある場合はスキップ",
+			setupRepo:          createRepoWithUpstreamAndDirtyTracked,
+			expectSkipContains: "未コミットの変更があるため pull/submodule をスキップ",
+		},
+		{
+			name:               "untracked の未コミット変更がある場合はスキップ",
+			setupRepo:          createRepoWithUpstreamAndDirtyUntracked,
+			expectSkipContains: "未コミットの変更があるため pull/submodule をスキップ",
+		},
+		{
+			name:               "stash が残っている場合はスキップ",
+			setupRepo:          createRepoWithUpstreamAndStash,
+			expectSkipContains: "stash が残っているため pull/submodule をスキップ",
+		},
+		{
+			name:               "detached HEAD の場合はスキップ",
+			setupRepo:          createRepoWithUpstreamAndDetachedHEAD,
+			expectSkipContains: "detached HEAD のため pull/submodule をスキップ",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			repoPath := tc.setupRepo(t)
+
+			result, err := Update(context.Background(), repoPath, UpdateOptions{
+				Prune:           true,
+				AutoStash:       true,
+				SubmoduleUpdate: false,
+				DryRun:          true,
+			})
+			if err != nil {
+				t.Fatalf("Update() error = %v", err)
+			}
+
+			if result == nil {
+				t.Fatalf("Update() result is nil")
+			}
+
+			if len(result.Commands) == 0 {
+				t.Fatalf("Update() commands should not be empty")
+			}
+
+			if !hasCommandContaining(result.Commands, " fetch --all --prune") {
+				t.Fatalf("fetch コマンドが計画に含まれていません: %v", result.Commands)
+			}
+
+			if hasCommandContaining(result.Commands, " pull --rebase") {
+				t.Fatalf("危険状態のはずなのに pull コマンドが計画に含まれています: %v", result.Commands)
+			}
+
+			if !hasMessageContaining(result.SkippedMessages, tc.expectSkipContains) {
+				t.Fatalf("skipメッセージに %q が含まれていません: %v", tc.expectSkipContains, result.SkippedMessages)
+			}
+		})
+	}
+}
+
+func TestUpdateSkipsOnUnsafeRepoStateNonDryRun(t *testing.T) {
+	t.Parallel()
+
+	repoPath := createRepoWithUpstreamAndDirtyTracked(t)
+
+	result, err := Update(context.Background(), repoPath, UpdateOptions{
+		Prune:           true,
+		AutoStash:       true,
+		SubmoduleUpdate: true,
+		DryRun:          false,
+	})
+	if err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+
+	if result == nil {
+		t.Fatalf("Update() result is nil")
+	}
+
+	if hasCommandContaining(result.Commands, " pull --rebase") {
+		t.Fatalf("危険状態のはずなのに pull コマンドが計画に含まれています: %v", result.Commands)
+	}
+
+	if hasCommandContaining(result.Commands, " submodule update") {
+		t.Fatalf("危険状態のはずなのに submodule update コマンドが計画に含まれています: %v", result.Commands)
+	}
+
+	if !hasMessageContaining(result.SkippedMessages, "pull/submodule をスキップ") {
+		t.Fatalf("skipメッセージに %q が含まれていません: %v", "pull/submodule をスキップ", result.SkippedMessages)
+	}
+}
+
 func createLocalRepoWithoutUpstream(t *testing.T) string {
 	t.Helper()
 
@@ -184,6 +284,20 @@ func createLocalRepoWithoutUpstream(t *testing.T) string {
 
 	runGit(t, repoPath, "add", "README.md")
 	runGit(t, repoPath, "commit", "-m", "initial commit")
+
+	return repoPath
+}
+
+func createBrokenWorktreeRepo(t *testing.T) string {
+	t.Helper()
+
+	repoPath := t.TempDir()
+
+	// .git が壊れているワークツリーを模擬する（Discover の検出対象になり得るケース）。
+	filePath := filepath.Join(repoPath, ".git")
+	if err := os.WriteFile(filePath, []byte("gitdir: /path/to/nowhere\n"), 0o644); err != nil {
+		t.Fatalf("failed to write .git file: %v", err)
+	}
 
 	return repoPath
 }
@@ -210,8 +324,61 @@ func createRepoWithUpstream(t *testing.T) string {
 	runGit(t, sourcePath, "commit", "-m", "initial commit")
 	runGit(t, sourcePath, "push", "-u", "origin", "HEAD")
 	runGit(t, "", "clone", remotePath, workPath)
+	runGit(t, workPath, "config", "user.email", "devsync-test@example.com")
+	runGit(t, workPath, "config", "user.name", "devsync-test")
 
 	return workPath
+}
+
+func createRepoWithUpstreamAndDirtyTracked(t *testing.T) string {
+	t.Helper()
+
+	repoPath := createRepoWithUpstream(t)
+
+	filePath := filepath.Join(repoPath, "README.md")
+	if err := os.WriteFile(filePath, []byte("# upstream\nmodified\n"), 0o644); err != nil {
+		t.Fatalf("failed to modify file: %v", err)
+	}
+
+	return repoPath
+}
+
+func createRepoWithUpstreamAndDirtyUntracked(t *testing.T) string {
+	t.Helper()
+
+	repoPath := createRepoWithUpstream(t)
+
+	filePath := filepath.Join(repoPath, "UNTRACKED.txt")
+	if err := os.WriteFile(filePath, []byte("untracked\n"), 0o644); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+
+	return repoPath
+}
+
+func createRepoWithUpstreamAndStash(t *testing.T) string {
+	t.Helper()
+
+	repoPath := createRepoWithUpstream(t)
+
+	filePath := filepath.Join(repoPath, "README.md")
+	if err := os.WriteFile(filePath, []byte("# upstream\nstash\n"), 0o644); err != nil {
+		t.Fatalf("failed to modify file: %v", err)
+	}
+
+	runGit(t, repoPath, "stash", "push", "-m", "devsync-test")
+
+	return repoPath
+}
+
+func createRepoWithUpstreamAndDetachedHEAD(t *testing.T) string {
+	t.Helper()
+
+	repoPath := createRepoWithUpstream(t)
+
+	runGit(t, repoPath, "checkout", "--detach", "HEAD")
+
+	return repoPath
 }
 
 func runGit(t *testing.T, repoPath string, args ...string) {

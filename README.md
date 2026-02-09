@@ -163,7 +163,7 @@ devsync config uninstall  # シェル設定からdevsyncを削除
 ### 既知の制約
 
 - `repo` 系は安全側優先のため、運用状態によっては更新をスキップする（例: upstream 未設定など）
-- `repo sync` のエッジケース（未コミット変更、stash、detached HEAD、非標準追跡ブランチ）は段階的に安定化中
+- `repo update` は未コミット変更/stash/detached HEAD を検出した場合は安全側にスキップする（非標準追跡ブランチ運用は段階的に安定化中）
 - `sys` パッケージマネージャ対応は `sysup` 同等以上へ拡張中（追加対応は `tasks.md` 管理）
 
 ## 🧪 日常運用（マニュアルテスト手順）
