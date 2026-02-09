@@ -113,6 +113,11 @@ func TestUpdateDryRunPlan(t *testing.T) {
 			expectPullCommand: true,
 		},
 		{
+			name:              "ローカルブランチ名が異なってもデフォルト追跡ならpull計画を含む",
+			setupRepo:         createRepoWithDifferentLocalBranchTrackingDefault,
+			expectPullCommand: true,
+		},
+		{
 			name:               "upstreamなしはpull計画を除外",
 			setupRepo:          createLocalRepoWithoutUpstream,
 			expectPullCommand:  false,
@@ -195,6 +200,21 @@ func TestUpdateSkipsOnUnsafeRepoState(t *testing.T) {
 			setupRepo:          createRepoWithUpstreamAndDetachedHEAD,
 			expectSkipContains: "detached HEAD のため pull/submodule をスキップ",
 		},
+		{
+			name:               "リモートのデフォルトブランチが判定できない場合はスキップ",
+			setupRepo:          createRepoWithUpstreamWithoutRemoteHead,
+			expectSkipContains: skipPullDefaultBranchDetectFailedMessage,
+		},
+		{
+			name:               "upstream が <remote>/<branch> 形式でない場合はスキップ",
+			setupRepo:          createRepoWithUpstreamAndLocalUpstreamRef,
+			expectSkipContains: skipPullUpstreamDetectFailedMessage,
+		},
+		{
+			name:               "デフォルトブランチ以外を追跡している場合はスキップ",
+			setupRepo:          createRepoWithNonDefaultUpstream,
+			expectSkipContains: skipPullNonDefaultUpstreamMessage,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -266,6 +286,71 @@ func TestUpdateSkipsOnUnsafeRepoStateNonDryRun(t *testing.T) {
 
 	if !hasMessageContaining(result.SkippedMessages, "pull/submodule をスキップ") {
 		t.Fatalf("skipメッセージに %q が含まれていません: %v", "pull/submodule をスキップ", result.SkippedMessages)
+	}
+}
+
+func TestUpdateSkipsOnNonDefaultTrackingNonDryRun(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name               string
+		setupRepo          func(t *testing.T) string
+		expectSkipContains string
+	}{
+		{
+			name:               "デフォルトブランチ以外を追跡している場合はスキップ",
+			setupRepo:          createRepoWithNonDefaultUpstream,
+			expectSkipContains: skipPullNonDefaultUpstreamMessage,
+		},
+		{
+			name:               "リモートのデフォルトブランチが判定できない場合はスキップ",
+			setupRepo:          createRepoWithUpstreamWithoutRemoteHead,
+			expectSkipContains: skipPullDefaultBranchDetectFailedMessage,
+		},
+		{
+			name:               "upstream が <remote>/<branch> 形式でない場合はスキップ",
+			setupRepo:          createRepoWithUpstreamAndLocalUpstreamRef,
+			expectSkipContains: skipPullUpstreamDetectFailedMessage,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			repoPath := tc.setupRepo(t)
+
+			result, err := Update(context.Background(), repoPath, UpdateOptions{
+				Prune:           true,
+				AutoStash:       true,
+				SubmoduleUpdate: true,
+				DryRun:          false,
+			})
+			if err != nil {
+				t.Fatalf("Update() error = %v", err)
+			}
+
+			if result == nil {
+				t.Fatalf("Update() result is nil")
+			}
+
+			if !hasCommandContaining(result.Commands, " fetch --all --prune") {
+				t.Fatalf("fetch コマンドが計画に含まれていません: %v", result.Commands)
+			}
+
+			if hasCommandContaining(result.Commands, " pull --rebase") {
+				t.Fatalf("安全側スキップのはずなのに pull コマンドが計画に含まれています: %v", result.Commands)
+			}
+
+			if hasCommandContaining(result.Commands, " submodule update") {
+				t.Fatalf("安全側スキップのはずなのに submodule update コマンドが計画に含まれています: %v", result.Commands)
+			}
+
+			if !hasMessageContaining(result.SkippedMessages, tc.expectSkipContains) {
+				t.Fatalf("skipメッセージに %q が含まれていません: %v", tc.expectSkipContains, result.SkippedMessages)
+			}
+		})
 	}
 }
 
@@ -379,6 +464,83 @@ func createRepoWithUpstreamAndDetachedHEAD(t *testing.T) string {
 	runGit(t, repoPath, "checkout", "--detach", "HEAD")
 
 	return repoPath
+}
+
+func createRepoWithUpstreamAndLocalUpstreamRef(t *testing.T) string {
+	t.Helper()
+
+	repoPath := createRepoWithUpstream(t)
+
+	branch, err := getCurrentBranchName(context.Background(), repoPath)
+	if err != nil {
+		t.Fatalf("failed to detect branch name: %v", err)
+	}
+
+	// upstream をローカルブランチに設定し、@{u} が "<remote>/<branch>" 形式にならない状態を模擬する。
+	runGit(t, repoPath, "branch", "devsync-test-local-upstream-target")
+	runGit(t, repoPath, "branch", "--set-upstream-to=devsync-test-local-upstream-target", branch)
+
+	return repoPath
+}
+
+func createRepoWithUpstreamWithoutRemoteHead(t *testing.T) string {
+	t.Helper()
+
+	repoPath := createRepoWithUpstream(t)
+
+	// Update() は先に fetch を実行するため、fetch 後も remote HEAD が復元されない状態を作る。
+	// remote.origin.followRemoteHEAD=never により、fetch が refs/remotes/origin/HEAD を再生成しないようにする。
+	runGit(t, repoPath, "config", "remote.origin.followRemoteHEAD", "never")
+
+	runGit(t, repoPath, "symbolic-ref", "-d", "refs/remotes/origin/HEAD")
+
+	return repoPath
+}
+
+func createRepoWithNonDefaultUpstream(t *testing.T) string {
+	t.Helper()
+
+	repoPath := createRepoWithUpstream(t)
+
+	runGit(t, repoPath, "checkout", "-b", "devsync-test-feature")
+
+	filePath := filepath.Join(repoPath, "README.md")
+	if err := os.WriteFile(filePath, []byte("# upstream\nfeature\n"), 0o644); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+
+	runGit(t, repoPath, "add", "README.md")
+	runGit(t, repoPath, "commit", "-m", "feature commit")
+	runGit(t, repoPath, "push", "-u", "origin", "HEAD")
+
+	return repoPath
+}
+
+func createRepoWithDifferentLocalBranchTrackingDefault(t *testing.T) string {
+	t.Helper()
+
+	repoPath := createRepoWithUpstream(t)
+	defaultBranch := getOriginDefaultBranchName(t, repoPath)
+
+	runGit(t, repoPath, "checkout", "-b", "devsync-test-local-default", "--track", "origin/"+defaultBranch)
+
+	return repoPath
+}
+
+func getOriginDefaultBranchName(t *testing.T, repoPath string) string {
+	t.Helper()
+
+	defaultRef, err := getRemoteDefaultRef(context.Background(), repoPath, "origin")
+	if err != nil {
+		t.Fatalf("failed to detect origin default branch: %v", err)
+	}
+
+	_, branch, ok := strings.Cut(defaultRef, "/")
+	if !ok || branch == "" {
+		t.Fatalf("failed to parse origin default branch: %q", defaultRef)
+	}
+
+	return branch
 }
 
 func runGit(t *testing.T, repoPath string, args ...string) {

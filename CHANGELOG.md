@@ -21,6 +21,7 @@
 - PowerShell 連携スクリプトの `dev-sync` で `devsync-unlock` / `devsync-load-env` の成否判定を `$LASTEXITCODE` 依存から関数戻り値判定に変更し、失敗時に後続処理へ進まないよう修正
 - `repo update` のジョブ表示名を Windows でも `/` 区切りで表示するよう統一
 - `repo update` で未コミット変更（tracked/untracked）/stash 残存/detached HEAD を検出した場合、pull/submodule を行わず安全側にスキップして理由を表示するよう改善
+- `repo update` でデフォルトブランチ以外を追跡している場合、pull/submodule を行わず安全側にスキップするよう改善
 ### Fixed
 
 - Windows 環境で `go test ./...` が失敗する問題を修正（ホームディレクトリ環境変数のテスト分離、`gh` 実行モックの Windows 互換化など）
