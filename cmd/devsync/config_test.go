@@ -479,6 +479,7 @@ func TestGeneratedShellScripts(t *testing.T) {
 			buildScript: getBashScript,
 			requiredPhrases: []string{
 				`command -v devsync`,
+				`bw login --check`,
 				`token="$(bw unlock --raw)"`,
 				`env_output="$("$DEVSYNC_PATH" env export)"`,
 				`if [ $status -ne 0 ]; then`,
@@ -492,6 +493,7 @@ func TestGeneratedShellScripts(t *testing.T) {
 			buildScript: getZshScript,
 			requiredPhrases: []string{
 				`command -v devsync`,
+				`bw login --check`,
 				`token="$(bw unlock --raw)"`,
 				`env_output="$("$DEVSYNC_PATH" env export)"`,
 				`if [[ $status -ne 0 ]]; then`,
@@ -505,6 +507,7 @@ func TestGeneratedShellScripts(t *testing.T) {
 			buildScript: getPowerShellScript,
 			requiredPhrases: []string{
 				`Get-Command devsync`,
+				`bw login --check`,
 				`$token = & bw unlock --raw`,
 				`$envExports = & $DEVSYNC_PATH env export`,
 				`$commandText = @($envExports) -join [Environment]::NewLine`,

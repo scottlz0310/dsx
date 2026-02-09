@@ -877,6 +877,11 @@ devsync-unlock() {
     unset BW_SESSION
   fi
 
+  if ! bw login --check >/dev/null 2>&1; then
+    echo "Bitwarden CLI にログインしていません。まず bw login を実行してください。" >&2
+    return 1
+  fi
+
   local token
   token="$(bw unlock --raw)"
   local status=$?
@@ -946,6 +951,11 @@ devsync-unlock() {
         ;;
     esac
     unset BW_SESSION
+  fi
+
+  if ! bw login --check >/dev/null 2>&1; then
+    echo "Bitwarden CLI にログインしていません。まず bw login を実行してください。" >&2
+    return 1
   fi
 
   local token
@@ -1020,6 +1030,12 @@ function devsync-unlock {
       return $true
     }
     Remove-Item Env:BW_SESSION -ErrorAction SilentlyContinue
+  }
+
+  $null = & bw login --check 2>$null
+  if ($LASTEXITCODE -ne 0) {
+    Write-Error "Bitwarden CLI にログインしていません。まず bw login を実行してください。"
+    return $false
   }
 
   $token = & bw unlock --raw
