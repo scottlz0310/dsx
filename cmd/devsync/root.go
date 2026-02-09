@@ -34,8 +34,11 @@ var rootCmd = &cobra.Command{
   devsync env run       環境変数を注入してコマンドを実行
 
 設定管理:
-  devsync config init   対話形式で設定ファイルを生成
-  devsync doctor        依存ツールと環境の診断
+  devsync config init       対話形式で設定ファイルを生成
+  devsync config show       設定を表示
+  devsync config validate   設定を検証
+  devsync config uninstall  シェル設定からdevsyncを削除
+  devsync doctor            依存ツールと環境の診断
 
 使用例:
   eval "$(devsync env export)"    # シェルに環境変数を読み込み

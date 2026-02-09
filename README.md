@@ -144,6 +144,8 @@ devsync env run       # 環境変数を注入してコマンドを実行
 ### 設定管理 (`config`)
 ```
 devsync config init       # 対話形式のウィザードで設定ファイルを生成
+devsync config show       # 現在の設定を表示（YAML）
+devsync config validate   # 設定内容を検証
 devsync config uninstall  # シェル設定からdevsyncを削除
 ```
 

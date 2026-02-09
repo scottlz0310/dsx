@@ -11,6 +11,7 @@
 - gitleaks によるシークレット混入チェックを追加（GitHub Actions / `task secrets`）
 - `config.yaml` に `ui.tui` を追加し、`--tui` なしでも進捗TUIを既定で有効化できるように改善
 - `sys update` / `repo update` に `--no-tui` を追加（設定より優先してTUIを無効化）
+- `config show` / `config validate` を追加（設定の表示と妥当性チェック）
 
 ### Changed
 

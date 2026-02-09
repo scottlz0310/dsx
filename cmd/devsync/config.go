@@ -19,7 +19,9 @@ import (
 	"github.com/scottlz0310/devsync/internal/config"
 
 	"github.com/scottlz0310/devsync/internal/env"
+	"github.com/scottlz0310/devsync/internal/updater"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 // シェルタイプ定数
@@ -75,10 +77,26 @@ var configUninstallCmd = &cobra.Command{
 	RunE:  runConfigUninstall,
 }
 
+var configShowCmd = &cobra.Command{
+	Use:   "show",
+	Short: "現在の設定を表示",
+	Long:  `現在の設定（設定ファイル + 環境変数を反映した値）を YAML 形式で表示します。`,
+	RunE:  runConfigShow,
+}
+
+var configValidateCmd = &cobra.Command{
+	Use:   "validate",
+	Short: "設定内容を検証",
+	Long:  `設定内容の妥当性（パスの存在、値の範囲、未対応値など）を検証します。`,
+	RunE:  runConfigValidate,
+}
+
 func init() {
 	rootCmd.AddCommand(configCmd)
 	configCmd.AddCommand(configInitCmd)
 	configCmd.AddCommand(configUninstallCmd)
+	configCmd.AddCommand(configShowCmd)
+	configCmd.AddCommand(configValidateCmd)
 }
 
 func runConfigInit(cmd *cobra.Command, args []string) error {
@@ -124,6 +142,102 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 	// シェル初期化スクリプトの生成
 	if err := generateShellInit(home); err != nil {
 		fmt.Printf("\n⚠️  シェル初期化スクリプトの生成に失敗しました: %v\n", err)
+	}
+
+	return nil
+}
+
+func runConfigShow(cmd *cobra.Command, args []string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("設定ファイルの読み込みに失敗しました: %w", err)
+	}
+
+	exists, path, stateErr := config.ConfigFileExists()
+	if stateErr != nil {
+		fmt.Fprintf(os.Stderr, "⚠️  設定ファイル状態の確認に失敗しました: %v\n", stateErr)
+	}
+
+	fmt.Printf("📋 設定ファイル: %s\n", path)
+
+	switch {
+	case stateErr != nil:
+		fmt.Println("⚠️  設定ファイル状態は要確認です（設定値は表示します）")
+	case exists:
+		fmt.Println("✅ 設定ファイルを読み込みました")
+	default:
+		fmt.Println("⚪ 設定ファイルは未作成です（デフォルト値で表示します）")
+	}
+
+	yamlBytes, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("設定の整形に失敗しました: %w", err)
+	}
+
+	fmt.Println("\n---")
+	fmt.Print(string(yamlBytes))
+
+	return nil
+}
+
+func runConfigValidate(cmd *cobra.Command, args []string) error {
+	fmt.Println("🔍 設定の検証を開始します...")
+	fmt.Println()
+
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("設定ファイルの読み込みに失敗しました: %w", err)
+	}
+
+	exists, path, stateErr := config.ConfigFileExists()
+	if stateErr != nil {
+		fmt.Fprintf(os.Stderr, "⚠️  設定ファイル状態の確認に失敗しました: %v\n", stateErr)
+	}
+
+	fmt.Printf("📋 設定ファイル: %s\n", path)
+
+	switch {
+	case stateErr != nil:
+		fmt.Println("⚠️  設定ファイル状態は要確認です（設定値は検証します）")
+	case exists:
+		fmt.Println("✅ 設定ファイルを読み込みました")
+	default:
+		fmt.Println("⚪ 設定ファイルは未作成です（デフォルト値で検証します）")
+	}
+
+	knownManagers := make(map[string]struct{})
+	for _, u := range updater.All() {
+		knownManagers[u.Name()] = struct{}{}
+	}
+
+	result := config.Validate(cfg, config.ValidateOptions{
+		KnownSysManagers: knownManagers,
+	})
+
+	if len(result.Warnings) > 0 {
+		fmt.Println("\n⚠️  警告:")
+
+		for _, w := range result.Warnings {
+			fmt.Printf("  - %s\n", w.String())
+		}
+	}
+
+	if len(result.Errors) > 0 {
+		fmt.Println("\n❌ エラー:")
+
+		for _, e := range result.Errors {
+			fmt.Printf("  - %s\n", e.String())
+		}
+
+		fmt.Println("\n修正後に `devsync config init` を再実行するか、設定ファイルを編集してから再実行してください。")
+
+		return fmt.Errorf("設定にエラーがあります（%d件）", len(result.Errors))
+	}
+
+	fmt.Println("\n✅ 設定の検証に成功しました。")
+
+	if !exists {
+		fmt.Println("   まだ設定ファイルを作成していない場合は `devsync config init` の実行を推奨します。")
 	}
 
 	return nil
