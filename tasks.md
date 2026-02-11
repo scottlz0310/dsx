@@ -136,7 +136,7 @@
     - [x] 既存実装（`apt` / `brew` / `go` / `npm` / `snap` / `pipx` / `cargo`）との差分棚卸し
     - [x] Linux向け `flatpak` / `fwupdmgr` Updater の実装
     - [x] Node系 `pnpm` / `nvm` Updater の実装
-    - [ ] 追加ツール `uv tool` / `rustup` / `gem` Updater の実装
+    - [x] 追加ツール `uv tool` / `rustup` / `gem` Updater の実装
     - [ ] Windows向け `winget` / `scoop` Updater の実装と実機検証
     - [x] `sys list` / `README.md` / `config init` への反映
     - [ ] 各Updaterの dry-run / timeout / エラー分類の統合テスト

@@ -158,7 +158,7 @@ devsync sys update --no-tui # TUIを無効化（設定より優先）
 devsync sys list      # 利用可能なパッケージマネージャを一覧表示
 ```
 
-**対応パッケージマネージャ**: apt, brew, go, npm, pnpm, nvm, snap, flatpak, fwupdmgr, pipx, cargo
+**対応パッケージマネージャ**: apt, brew, go, npm, pnpm, nvm, snap, flatpak, fwupdmgr, pipx, cargo, uv, rustup, gem
 
 `sys update` は `--jobs / -j` で並列数を指定できます（未指定時は `config.yaml` の `control.concurrency` を使用）。
 `apt` はパッケージロック競合を避けるため、依存関係ルールとして単独実行されます。

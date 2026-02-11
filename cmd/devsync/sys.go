@@ -51,6 +51,9 @@ var sysUpdateCmd = &cobra.Command{
   - fwupdmgr  (Linux Firmware)
   - pipx      (Python CLI ツール)
   - cargo     (Rust ツール)
+  - uv        (Python CLI ツール)
+  - rustup    (Rust ツールチェーン)
+  - gem       (Ruby Gems)
 
 例:
   devsync sys update           # 設定に基づいて更新

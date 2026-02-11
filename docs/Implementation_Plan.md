@@ -23,7 +23,7 @@
 
 - `devsync run`（Bitwarden解錠 → env注入 → `sys update` → `repo update`）まで到達
 - `repo update` は並列実行 + サブモジュール更新に対応
-- `sys update` は主要マネージャを実装済み（apt/brew/go/npm/pnpm/nvm/pipx/cargo/snap/flatpak/fwupdmgr）
+- `sys update` は主要マネージャを実装済み（apt/brew/go/npm/pnpm/nvm/pipx/cargo/snap/flatpak/fwupdmgr/uv/rustup/gem）
 - 進捗UIは `--tui` で起動（設定 `ui.tui` で既定ON/OFFも可能）
 
 ## 3. CLI コマンド設計（v0.1 時点）
@@ -131,5 +131,6 @@ secrets:
 - [ ] `sys` マネージャ拡張（flatpak/fwupdmgr/pnpm/nvm/uv/rustup/gem/winget/scoop 等）
   - 進捗（第1弾）: `flatpak` / `fwupdmgr` を追加し、`config init` / `sys list` / README の対応マネージャ表記を更新済み
   - 進捗（第2弾）: `pnpm` / `nvm` を追加し、`config init` / `sys update` / README の対応マネージャ表記を更新済み
-  - 残件（第3弾以降）: `uv tool` / `rustup` / `gem` / `winget` / `scoop` と統合テスト
+  - 進捗（第3弾）: `uv tool` / `rustup` / `gem` を追加し、`config init` / `sys list` / README の対応マネージャ表記を更新済み
+  - 残件（第4弾以降）: `winget` / `scoop` と統合テスト
 - [ ] リリース/CI（GoReleaser/GitHub Actions/E2E）

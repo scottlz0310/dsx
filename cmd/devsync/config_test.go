@@ -338,7 +338,9 @@ func TestLoadExistingConfigForInit(t *testing.T) {
 func TestBuildConfigInitDefaults(t *testing.T) {
 	t.Parallel()
 
-	promptOptions := []string{"apt", "brew", "go", "npm", "pnpm", "nvm", "snap", "flatpak", "fwupdmgr", "pipx", "cargo"}
+	promptOptions := []string{
+		"apt", "brew", "go", "npm", "pnpm", "nvm", "snap", "flatpak", "fwupdmgr", "pipx", "cargo", "uv", "rustup", "gem",
+	}
 
 	testCases := []struct {
 		name                string
