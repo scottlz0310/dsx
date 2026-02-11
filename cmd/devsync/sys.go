@@ -44,6 +44,8 @@ var sysUpdateCmd = &cobra.Command{
   - brew      (macOS/Linux Homebrew)
   - go        (Go ツール)
   - npm       (Node.js グローバルパッケージ)
+  - pnpm      (Node.js グローバルパッケージ)
+  - nvm       (Node.js バージョン管理)
   - snap      (Ubuntu Snap パッケージ)
   - flatpak   (Linux Flatpak)
   - fwupdmgr  (Linux Firmware)

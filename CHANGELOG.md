@@ -14,6 +14,7 @@
 - `config show` / `config validate` を追加（設定の表示と妥当性チェック）
 - `repo cleanup` を追加（マージ済みローカルブランチの整理、squashed 判定対応）
 - `sys update` の対応マネージャに `flatpak` / `fwupdmgr` を追加
+- `sys update` の対応マネージャに `pnpm` / `nvm` を追加
 
 ### Changed
 
@@ -22,6 +23,7 @@
 - `README.md` にアンインストール手順を追記
 - `docs/Implementation_Plan.md` を現状の実装進捗に合わせて更新
 - `config init` のシステムマネージャ選択肢に `flatpak` / `fwupdmgr` を追加
+- `config init` のシステムマネージャ選択肢に `pnpm` / `nvm` を追加
 - CLI バージョン番号を `v0.1.0-alpha` に設定し、`devsync --version` で確認可能に変更
 - PowerShell 連携スクリプトの `devsync-load-env` で `env export` の複数行出力を正しく連結して `Invoke-Expression` に渡すよう修正（`System.Object[]` 型エラーを解消）
 - PowerShell 連携スクリプトの `dev-sync` で `devsync-unlock` / `devsync-load-env` の成否判定を `$LASTEXITCODE` 依存から関数戻り値判定に変更し、失敗時に後続処理へ進まないよう修正
