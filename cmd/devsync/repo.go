@@ -39,7 +39,10 @@ var (
 	repoExecCommandStep     = exec.CommandContext
 )
 
-const githubRepoListLimit = 1000
+const (
+	githubRepoListLimit        = 1000
+	githubPullRequestListLimit = 200
+)
 
 type bootstrapResult struct {
 	ReadyPaths  []string
@@ -460,6 +463,13 @@ func bootstrapReposFromGitHub(ctx context.Context, root string, cfg *config.Conf
 
 	repos, err := repoListGitHubReposStep(ctx, owner)
 	if err != nil {
+		if isGitHubRateLimitError(err) {
+			fmt.Fprintf(os.Stderr, "⚠️  GitHub のレート制限によりリポジトリ一覧の取得をスキップします: %v\n", err)
+			fmt.Fprintln(os.Stderr, "📝 GitHub からの補完は行わず、ローカルに存在するリポジトリのみ更新を継続します。")
+			fmt.Println()
+			return bootstrapResult{}, nil
+		}
+
 		return bootstrapResult{}, err
 	}
 
@@ -545,9 +555,9 @@ func listGitHubRepos(ctx context.Context, owner string) ([]githubRepo, error) {
 		return nil, fmt.Errorf("gh コマンドが見つかりません: %w", err)
 	}
 
-	cmd := repoExecCommandStep(
+	output, stderr, err := runGhOutputWithRetry(
 		ctx,
-		"gh",
+		"",
 		"repo",
 		"list",
 		owner,
@@ -556,15 +566,9 @@ func listGitHubRepos(ctx context.Context, owner string) ([]githubRepo, error) {
 		"--json",
 		"name,url,sshUrl,isArchived",
 	)
-
-	output, err := cmd.Output()
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			stderr := strings.TrimSpace(string(exitErr.Stderr))
-			if stderr != "" {
-				return nil, fmt.Errorf("gh repo list の実行に失敗しました (owner=%s): %w: %s", owner, err, stderr)
-			}
+		if strings.TrimSpace(stderr) != "" {
+			return nil, fmt.Errorf("gh repo list の実行に失敗しました (owner=%s): %w: %s", owner, err, strings.TrimSpace(stderr))
 		}
 
 		return nil, fmt.Errorf("gh repo list の実行に失敗しました (owner=%s): %w", owner, err)

@@ -414,6 +414,40 @@ func TestBootstrapReposFromGitHub(t *testing.T) {
 			t.Fatalf("clone step should not be called in dry-run mode")
 		}
 	})
+
+	t.Run("GitHubのレート制限時は補完をスキップして継続", func(t *testing.T) {
+		root := t.TempDir()
+
+		repoListGitHubReposStep = func(ctx context.Context, owner string) ([]githubRepo, error) {
+			return nil, errors.New("exceeded retry limit, last status: 429 Too Many Requests")
+		}
+
+		cloneCalled := false
+		repoCloneRepoStep = func(ctx context.Context, cloneURL, targetPath string) error {
+			cloneCalled = true
+			return nil
+		}
+
+		got, err := bootstrapReposFromGitHub(context.Background(), root, &config.Config{
+			Repo: config.RepoConfig{
+				GitHub: config.GitHubConfig{
+					Owner:    "owner",
+					Protocol: "https",
+				},
+			},
+		}, false)
+		if err != nil {
+			t.Fatalf("bootstrapReposFromGitHub() unexpected error: %v", err)
+		}
+
+		if len(got.ReadyPaths) != 0 || got.PlannedOnly != 0 {
+			t.Fatalf("unexpected bootstrap result: %#v", got)
+		}
+
+		if cloneCalled {
+			t.Fatalf("clone step should not be called when rate limit happens")
+		}
+	})
 }
 
 func TestMergeRepoPaths(t *testing.T) {

@@ -226,7 +226,7 @@ func TestListMergedPRHeads_LimitWarning(t *testing.T) {
 		var b strings.Builder
 		b.WriteString("[")
 
-		for i := range githubRepoListLimit {
+		for i := range githubPullRequestListLimit {
 			if i > 0 {
 				b.WriteString(",")
 			}
@@ -252,8 +252,8 @@ func TestListMergedPRHeads_LimitWarning(t *testing.T) {
 		t.Fatalf("Warning should not be empty")
 	}
 
-	if len(got.Heads) != githubRepoListLimit {
-		t.Fatalf("Heads length = %d, want %d", len(got.Heads), githubRepoListLimit)
+	if len(got.Heads) != githubPullRequestListLimit {
+		t.Fatalf("Heads length = %d, want %d", len(got.Heads), githubPullRequestListLimit)
 	}
 }
 
@@ -481,7 +481,7 @@ func assertGHPullRequestListArgs(t *testing.T, name string, gotArgs []string, ba
 		"--base",
 		baseBranch,
 		"--limit",
-		strconv.Itoa(githubRepoListLimit),
+		strconv.Itoa(githubPullRequestListLimit),
 		"--json",
 		"headRefName,headRefOid,mergedAt",
 	}

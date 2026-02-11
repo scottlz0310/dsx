@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -245,9 +244,9 @@ func listMergedPRHeads(ctx context.Context, repoPath, baseBranch string) (merged
 		return mergedPRHeadsResult{}, fmt.Errorf("gh コマンドが見つかりません: %w", err)
 	}
 
-	cmd := repoExecCommandStep(
+	output, stderr, err := runGhOutputWithRetry(
 		ctx,
-		"gh",
+		repoPath,
 		"pr",
 		"list",
 		"--state",
@@ -255,19 +254,12 @@ func listMergedPRHeads(ctx context.Context, repoPath, baseBranch string) (merged
 		"--base",
 		baseBranch,
 		"--limit",
-		strconv.Itoa(githubRepoListLimit),
+		strconv.Itoa(githubPullRequestListLimit),
 		"--json",
 		"headRefName,headRefOid,mergedAt",
 	)
-	cmd.Dir = repoPath
-
-	var stderr bytes.Buffer
-
-	cmd.Stderr = &stderr
-
-	output, err := cmd.Output()
 	if err != nil {
-		msg := strings.TrimSpace(stderr.String())
+		msg := strings.TrimSpace(stderr)
 		if msg != "" {
 			return mergedPRHeadsResult{}, fmt.Errorf("gh pr list の実行に失敗しました: %w: %s", err, msg)
 		}
@@ -300,10 +292,10 @@ func listMergedPRHeads(ctx context.Context, repoPath, baseBranch string) (merged
 		result[branch] = strings.TrimSpace(pr.HeadRefOID)
 	}
 
-	if len(prs) == githubRepoListLimit {
+	if len(prs) == githubPullRequestListLimit {
 		return mergedPRHeadsResult{
 			Heads:   result,
-			Warning: fmt.Sprintf("⚠️  gh pr list の取得件数が上限 (%d件) に達しました。squashed 判定が一部欠ける可能性があります。", githubRepoListLimit),
+			Warning: fmt.Sprintf("⚠️  gh pr list の取得件数が上限 (%d件) に達しました。squashed 判定が一部欠ける可能性があります。", githubPullRequestListLimit),
 		}, nil
 	}
 

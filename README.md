@@ -83,6 +83,62 @@ type dev-sync
 
 `devsync` バイナリの配置先を変更した場合は、`devsync config init` を再実行してシェル連携スクリプトを再生成してください。
 
+## 🗑 アンインストール
+
+`devsync config uninstall` は **シェル設定から devsync のマーカーブロックを削除するだけ** です（バイナリや設定ファイルは削除しません）。
+
+### 1. シェル連携の解除（推奨）
+
+`config init` が追記した `# >>> devsync >>>` / `# <<< devsync <<<` のブロックを削除します。
+
+```bash
+devsync config uninstall
+```
+
+注意:
+- `devsync config uninstall` は「いま実行しているシェル」を自動判定して削除します。bash/zsh/PowerShell それぞれで解除したい場合は、そのシェルから実行してください。
+- 解除後はシェルを再起動するか、設定を再読み込みしてください（例: bash/zsh は `source ~/.bashrc`、PowerShell は `. $PROFILE`）。
+
+### 2. 設定ファイル・生成ファイルの削除（任意）
+
+- 設定ファイル: `~/.config/devsync/config.yaml`
+- シェル連携スクリプト: `~/.config/devsync/init.bash` / `init.zsh` / `init.ps1`
+
+完全に削除する場合は、`~/.config/devsync` ディレクトリごと削除してください。
+
+```bash
+rm -rf ~/.config/devsync
+```
+
+**PowerShell:**
+```powershell
+Remove-Item -Recurse -Force (Join-Path $HOME '.config/devsync') -ErrorAction SilentlyContinue
+```
+
+### 3. devsync バイナリの削除
+
+#### go install でインストールした場合
+
+`devsync` の実体パスを確認して削除します。
+
+```bash
+command -v devsync
+rm -f "$(command -v devsync)"
+```
+
+**PowerShell:**
+```powershell
+(Get-Command devsync).Source
+Remove-Item -Force (Get-Command devsync).Source
+```
+
+補足:
+- `devsync` が PATH 上で見つからない場合は、通常 `$(go env GOPATH)/bin`（または `go env GOBIN` が設定されている場合はそのディレクトリ）にあります。
+
+#### ローカルビルドで使っていた場合
+
+`dist/devsync`（または配置先のバイナリ）を削除してください。
+
 ## 📋 コマンド一覧
 
 ### メインコマンド
@@ -258,6 +314,10 @@ devsync repo update --tui -j 4
    - `devsync sys update -n --tui`
    - `devsync repo update -n --tui`
 5. 必要に応じて `setup-repo` で整合を取り、再度 `devsync repo update` を実行
+6. GitHub のレート制限（`429 Too Many Requests` / `secondary rate limit`）が出る場合:
+   - 数十秒〜数分待ってから再実行
+   - `repo cleanup` で頻発する場合は並列数を下げる（例: `devsync repo cleanup -j 1`）
+   - どうしても復旧できない場合は `repo.cleanup.target` から `squashed` を外し、`merged` のみで運用（GitHub API 呼び出しを抑制）
 
 ## 🔑 環境変数の使用
 

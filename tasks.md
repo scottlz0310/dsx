@@ -86,6 +86,8 @@
 
 - [x] README.md と --help の更新（実装済みコマンドに合わせた使用方法の記載）
 - [x] README.md にインストール手順と日常運用（マニュアルテスト）手順を追記
+- [x] README.md にアンインストール手順を追記
+- [x] GitHub レート制限（429/secondary rate limit）時の `gh` リトライ/スロットリングと、`repo update` の GitHub 補完スキップによる復帰導線を追加
 - [x] CHANGELOG.md の作成
 - [x] 開発タスクランナー整備（Makefile → Taskfile.yml に移行）
 - [x] golangci-lint 設定強化（複雑度チェック追加）

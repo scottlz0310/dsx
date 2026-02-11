@@ -18,6 +18,7 @@
 
 - `README.md` に Alpha の既知の制約、`setup-repo` 併用の推奨運用、復旧手順（`config init` 再実行 / `repo.root` 見直し）を追記
 - `README.md` に `setup-repo` との比較手動チェック（移行期間の確認観点）を追記
+- `README.md` にアンインストール手順を追記
 - `docs/Implementation_Plan.md` を現状の実装進捗に合わせて更新
 - CLI バージョン番号を `v0.1.0-alpha` に設定し、`devsync --version` で確認可能に変更
 - PowerShell 連携スクリプトの `devsync-load-env` で `env export` の複数行出力を正しく連結して `Invoke-Expression` に渡すよう修正（`System.Object[]` 型エラーを解消）
@@ -31,6 +32,7 @@
 - Windows/PowerShell 環境で `config init` が PowerShell プロファイルパスを文字化けして誤ったフォルダを作成する問題を修正（Base64 経由で取得）
 - Windows 環境で Git の `core.autocrlf` により Go ファイルが CRLF になり `task lint` の gofmt チェックが失敗する問題を回避（`.gitattributes` で LF 固定）
 - Bitwarden CLI に未ログインの状態で `dev-sync` を実行すると、タイムアウトまで待って失敗する問題を修正（未ログインを即検知し、`bw login` を案内して終了）
+- GitHub のレート制限（`429 Too Many Requests` / `secondary rate limit`）発生時に `gh` 呼び出しをリトライ/スロットリングし、`repo update` の GitHub 補完はレート制限時にスキップして処理を継続するよう改善
 
 ### Infrastructure
 
