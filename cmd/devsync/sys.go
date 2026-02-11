@@ -40,9 +40,15 @@ var sysUpdateCmd = &cobra.Command{
 システムパッケージを最新版に更新します。
 
 対応マネージャ:
-  - apt    (Debian/Ubuntu)
-  - brew   (macOS/Linux Homebrew)
-  - go     (Go ツール)
+  - apt       (Debian/Ubuntu)
+  - brew      (macOS/Linux Homebrew)
+  - go        (Go ツール)
+  - npm       (Node.js グローバルパッケージ)
+  - snap      (Ubuntu Snap パッケージ)
+  - flatpak   (Linux Flatpak)
+  - fwupdmgr  (Linux Firmware)
+  - pipx      (Python CLI ツール)
+  - cargo     (Rust ツール)
 
 例:
   devsync sys update           # 設定に基づいて更新

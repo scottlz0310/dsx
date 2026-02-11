@@ -133,12 +133,12 @@
 - [x] `repo cleanup` (マージ済みブランチ削除) の移植
 - [x] `config show` / `config validate` コマンド
 - [ ] `sys` パッケージマネージャ対応を `sysup` 同等以上へ拡張
-    - [ ] 既存実装（`apt` / `brew` / `go` / `npm` / `snap` / `pipx` / `cargo`）との差分棚卸し
-    - [ ] Linux向け `flatpak` / `fwupdmgr` Updater の実装
+    - [x] 既存実装（`apt` / `brew` / `go` / `npm` / `snap` / `pipx` / `cargo`）との差分棚卸し
+    - [x] Linux向け `flatpak` / `fwupdmgr` Updater の実装
     - [ ] Node系 `pnpm` / `nvm` Updater の実装
     - [ ] 追加ツール `uv tool` / `rustup` / `gem` Updater の実装
     - [ ] Windows向け `winget` / `scoop` Updater の実装と実機検証
-    - [ ] `sys list` / `README.md` / `config init` への反映
+    - [x] `sys list` / `README.md` / `config init` への反映
     - [ ] 各Updaterの dry-run / timeout / エラー分類の統合テスト
 - [ ] 通知機能の実装
 - [x] Windows/PowerShell で `config init` がプロファイルパスを文字化けして誤ったフォルダを作成する問題を修正

@@ -33,7 +33,7 @@ const (
 
 var errConfigInitCanceled = errors.New("config init canceled")
 
-var availableSystemManagers = []string{"apt", "brew", "go", "npm", "snap", "pipx", "cargo"}
+var availableSystemManagers = []string{"apt", "brew", "go", "npm", "snap", "flatpak", "fwupdmgr", "pipx", "cargo"}
 
 // テストで対話入力や外部依存を差し替えるためのフック
 var (

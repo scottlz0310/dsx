@@ -19,11 +19,11 @@
 - [x] `doctor` で依存コマンドや基本疎通を確認できる
 - [x] TUI（Bubble Tea）で並列実行の進捗を表示できる
 
-## 2. 現状（2026-02-09 時点）
+## 2. 現状（2026-02-11 時点）
 
 - `devsync run`（Bitwarden解錠 → env注入 → `sys update` → `repo update`）まで到達
 - `repo update` は並列実行 + サブモジュール更新に対応
-- `sys update` は主要マネージャを実装済み（apt/brew/go/npm/snap/pipx/cargo）
+- `sys update` は主要マネージャを実装済み（apt/brew/go/npm/pipx/cargo/snap/flatpak/fwupdmgr）
 - 進捗UIは `--tui` で起動（設定 `ui.tui` で既定ON/OFFも可能）
 
 ## 3. CLI コマンド設計（v0.1 時点）
@@ -129,4 +129,6 @@ secrets:
 - [x] テスト拡充（`internal/config` / `internal/secret` / `internal/updater`）
 - [x] `repo cleanup` の移植
 - [ ] `sys` マネージャ拡張（flatpak/fwupdmgr/pnpm/nvm/uv/rustup/gem/winget/scoop 等）
+  - 進捗（第1弾）: `flatpak` / `fwupdmgr` を追加し、`config init` / `sys list` / README の対応マネージャ表記を更新済み
+  - 残件（第2弾以降）: `pnpm` / `nvm` / `uv tool` / `rustup` / `gem` / `winget` / `scoop` と統合テスト
 - [ ] リリース/CI（GoReleaser/GitHub Actions/E2E）
