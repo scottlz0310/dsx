@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 const (
@@ -50,16 +51,47 @@ func Update(ctx context.Context, repoPath string, opts UpdateOptions) (*UpdateRe
 		}
 	}
 
+	// fetch 完了後、安全性チェックと upstream 確認を並列で実行する。
+	// upstream 結果は安全性チェックでスキップされなかった場合にのみ使用する。
+	type upstreamResult struct {
+		checked     bool
+		hasUpstream bool
+		err         error
+	}
+
+	var (
+		skipMessages []string
+		stateErr     error
+		upstream     upstreamResult
+		wg           sync.WaitGroup
+	)
+
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+
+		skipMessages, stateErr = detectUnsafeRepoState(ctx, cleanPath)
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		up, _, err := getAheadCount(ctx, cleanPath)
+		upstream = upstreamResult{checked: err == nil, hasUpstream: up, err: err}
+	}()
+
+	wg.Wait()
+
 	// 安全側優先:
 	// 破壊的操作（pull/rebase など）につながり得る状態は、理由を表示してスキップする。
-	skipMessages, err := detectUnsafeRepoState(ctx, cleanPath)
-	if err != nil {
+	if stateErr != nil {
 		if opts.DryRun {
-			result.SkippedMessages = append(result.SkippedMessages, fmt.Sprintf("リポジトリ状態の判定に失敗したため更新をスキップしました: %v", err))
+			result.SkippedMessages = append(result.SkippedMessages, fmt.Sprintf("リポジトリ状態の判定に失敗したため更新をスキップしました: %v", stateErr))
 			return result, nil
 		}
 
-		return result, fmt.Errorf("リポジトリ状態の判定に失敗: %w", err)
+		return result, fmt.Errorf("リポジトリ状態の判定に失敗: %w", stateErr)
 	}
 
 	if len(skipMessages) > 0 {
@@ -67,9 +99,12 @@ func Update(ctx context.Context, repoPath string, opts UpdateOptions) (*UpdateRe
 		return result, nil
 	}
 
-	if err := inspectUpstream(ctx, cleanPath, opts, result); err != nil {
-		return result, err
+	// upstream 結果を result に反映
+	if upstream.err != nil && !opts.DryRun {
+		return result, fmt.Errorf("upstream 確認に失敗: %w", upstream.err)
 	}
+
+	applyUpstreamResult(result, upstream.checked, upstream.hasUpstream, upstream.err, opts)
 
 	if err := planAndRunPull(ctx, cleanPath, opts, result); err != nil {
 		return result, err
@@ -82,22 +117,18 @@ func Update(ctx context.Context, repoPath string, opts UpdateOptions) (*UpdateRe
 	return result, nil
 }
 
-func inspectUpstream(ctx context.Context, repoPath string, opts UpdateOptions, result *UpdateResult) error {
-	upstream, _, err := getAheadCount(ctx, repoPath)
+// applyUpstreamResult は並列実行で取得した upstream 結果を result に反映します。
+func applyUpstreamResult(result *UpdateResult, checked, hasUpstream bool, err error, opts UpdateOptions) {
 	if err != nil {
-		if !opts.DryRun {
-			return fmt.Errorf("upstream 確認に失敗: %w", err)
+		if opts.DryRun {
+			result.SkippedMessages = append(result.SkippedMessages, fmt.Sprintf("upstream の確認に失敗したため pull の計画をスキップしました: %v", err))
 		}
 
-		result.SkippedMessages = append(result.SkippedMessages, fmt.Sprintf("upstream の確認に失敗したため pull の計画をスキップしました: %v", err))
-
-		return nil
+		return
 	}
 
-	result.UpstreamChecked = true
-	result.HasUpstream = upstream
-
-	return nil
+	result.UpstreamChecked = checked
+	result.HasUpstream = hasUpstream
 }
 
 func planAndRunPull(ctx context.Context, repoPath string, opts UpdateOptions, result *UpdateResult) error {
@@ -183,43 +214,116 @@ func runGitCommand(ctx context.Context, repoPath string, args ...string) error {
 	return nil
 }
 
-func detectUnsafeRepoState(ctx context.Context, repoPath string) ([]string, error) {
-	messages := make([]string, 0, 3)
+// repoStateCheckResult は並列で実行する安全性チェックの結果を保持します。
+type repoStateCheckResult struct {
+	dirty    bool
+	hasStash bool
+	detached bool
+}
 
-	dirty, err := isDirty(ctx, repoPath)
+func detectUnsafeRepoState(ctx context.Context, repoPath string) ([]string, error) {
+	// isDirty / hasStash / isDetachedHEAD は互いに独立なので並列実行する。
+	result, err := runParallelStateChecks(ctx, repoPath)
 	if err != nil {
 		return nil, err
 	}
 
-	if dirty {
+	messages := buildUnsafeMessages(ctx, repoPath, result)
+
+	return messages, nil
+}
+
+// runParallelStateChecks は isDirty, hasStash, isDetachedHEAD を並列実行します。
+func runParallelStateChecks(ctx context.Context, repoPath string) (repoStateCheckResult, error) {
+	var (
+		result repoStateCheckResult
+		mu     sync.Mutex
+		errs   []error
+		wg     sync.WaitGroup
+	)
+
+	wg.Add(3)
+
+	go func() {
+		defer wg.Done()
+
+		dirty, err := isDirty(ctx, repoPath)
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		if err != nil {
+			errs = append(errs, err)
+			return
+		}
+
+		result.dirty = dirty
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		stash, err := hasStash(ctx, repoPath)
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		if err != nil {
+			errs = append(errs, err)
+			return
+		}
+
+		result.hasStash = stash
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		detached, err := isDetachedHEAD(ctx, repoPath)
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		if err != nil {
+			errs = append(errs, err)
+			return
+		}
+
+		result.detached = detached
+	}()
+
+	wg.Wait()
+
+	if len(errs) > 0 {
+		return repoStateCheckResult{}, errors.Join(errs...)
+	}
+
+	return result, nil
+}
+
+// buildUnsafeMessages はチェック結果からスキップメッセージを構築します。
+func buildUnsafeMessages(ctx context.Context, repoPath string, result repoStateCheckResult) []string {
+	messages := make([]string, 0, 3)
+
+	if result.dirty {
 		messages = append(messages, "未コミットの変更があるため pull/submodule をスキップしました（tracked/untracked を含む）")
 	}
 
-	hasStash, err := hasStash(ctx, repoPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if hasStash {
+	if result.hasStash {
 		messages = append(messages, "stash が残っているため pull/submodule をスキップしました（git stash list で確認してください）")
 	}
 
-	detached, err := isDetachedHEAD(ctx, repoPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if detached {
+	if result.detached {
 		messages = append(messages, "detached HEAD のため pull/submodule をスキップしました（ブランチをチェックアウトしてください）")
 	}
 
-	if !detached {
+	if !result.detached {
 		if msg := detectNonDefaultTrackingBranch(ctx, repoPath); msg != "" {
 			messages = append(messages, msg)
 		}
 	}
 
-	return messages, nil
+	return messages
 }
 
 func detectNonDefaultTrackingBranch(ctx context.Context, repoPath string) string {

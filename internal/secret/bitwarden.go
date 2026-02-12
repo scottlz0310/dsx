@@ -8,12 +8,38 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // Bitwarden ステータス定数
 const (
 	statusUnlocked = "unlocked"
 )
+
+// debugLog はデバッグログを出力します。DEVSYNC_DEBUG=1 で有効化されます。
+func debugLog(format string, args ...interface{}) {
+	if os.Getenv("DEVSYNC_DEBUG") != "1" {
+		return
+	}
+
+	msg := fmt.Sprintf(format, args...)
+	fmt.Fprintf(os.Stderr, "[DEBUG %s] %s\n", time.Now().Format("15:04:05.000"), msg)
+}
+
+// debugTimerStart はデバッグ計測用タイマーを開始します。
+func debugTimerStart(label string) func() {
+	if os.Getenv("DEVSYNC_DEBUG") != "1" {
+		return func() {}
+	}
+
+	start := time.Now()
+
+	debugLog("%s: 開始", label)
+
+	return func() {
+		debugLog("%s: 完了 (%s)", label, time.Since(start).Round(time.Millisecond))
+	}
+}
 
 // BitwardenItem は `bw list items` のJSON出力の構造体です。
 type BitwardenItem struct {
@@ -52,21 +78,30 @@ type LoadStats struct {
 // Unlock はBitwardenのアンロックを行い、BW_SESSIONを設定します。
 // 参考実装: bw-unlock 関数
 func Unlock() error {
+	defer debugTimerStart("Unlock 全体")()
+
 	// bwコマンドの存在確認
 	if _, err := exec.LookPath("bw"); err != nil {
 		return fmt.Errorf("bw コマンドが見つかりません。Bitwarden CLI をインストールしてください")
 	}
 
 	// ログイン状態の確認
+	done := debugTimerStart("bw login --check")
+
 	cmd := exec.CommandContext(context.Background(), "bw", "login", "--check")
 	if err := cmd.Run(); err != nil {
+		done()
+
 		return fmt.Errorf("bitwarden にログインしていません。'bw login' を実行してください")
 	}
+
+	done()
 
 	// 既にセッションがある場合は状態を確認し、アンロック済みなら何もしない
 	if os.Getenv("BW_SESSION") != "" {
 		status, err := getBitwardenStatus()
 		if err == nil && status == statusUnlocked {
+			debugLog("BW_SESSION 設定済み＋unlocked → スキップ")
 			fmt.Fprintln(os.Stderr, "このシェルでは既に BW_SESSION が設定されています。")
 			return nil
 		}
@@ -77,11 +112,15 @@ func Unlock() error {
 	// アンロック実行
 	fmt.Fprintln(os.Stderr, "🔐 Bitwarden をアンロックしています...")
 
+	done = debugTimerStart("bw unlock --raw")
 	cmd = exec.CommandContext(context.Background(), "bw", "unlock", "--raw")
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
 
 	output, err := cmd.Output()
+
+	done()
+
 	if err != nil {
 		return fmt.Errorf("bw unlock が失敗しました: %w", err)
 	}
@@ -109,6 +148,8 @@ func Unlock() error {
 // LoadEnv はBitwardenから "env:" プレフィックス付きの項目を取得し、環境変数に設定します。
 // 参考実装: bw-load-env 関数
 func LoadEnv() (*LoadStats, error) {
+	defer debugTimerStart("LoadEnv 全体")()
+
 	stats := &LoadStats{}
 
 	// 事前チェック
@@ -168,6 +209,8 @@ func checkBitwardenPrerequisites() error {
 // fetchBitwardenEnvItems はBitwardenからenv:プレフィックス付きの項目を取得します。
 func fetchBitwardenEnvItems() ([]BitwardenItem, error) {
 	fmt.Fprintln(os.Stderr, "🔑 環境変数を読み込んでいます...")
+
+	defer debugTimerStart("bw list items --search env:")()
 
 	cmd := exec.CommandContext(context.Background(), "bw", "list", "items", "--search", "env:")
 
@@ -273,6 +316,8 @@ func printLoadStats(stats *LoadStats) error {
 // GetEnvVars はBitwardenから環境変数を取得し、map形式で返します。
 // devsync env export コマンドで使用します。
 func GetEnvVars() (map[string]string, error) {
+	defer debugTimerStart("GetEnvVars 全体")()
+
 	envVars := make(map[string]string)
 
 	// bwコマンドの存在確認
@@ -296,9 +341,13 @@ func GetEnvVars() (map[string]string, error) {
 	}
 
 	// env: プレフィックス付きの項目を検索
+	done := debugTimerStart("bw list items --search env: (GetEnvVars)")
 	cmd := exec.CommandContext(context.Background(), "bw", "list", "items", "--search", "env:")
 
 	output, err := cmd.Output()
+
+	done()
+
 	if err != nil {
 		return nil, fmt.Errorf("bw list items が失敗しました: %w", err)
 	}
@@ -364,6 +413,8 @@ func getCustomFieldValue(fields []BitwardenCustomField, name string) string {
 
 // getBitwardenStatus は現在のBitwardenステータスを取得します。
 func getBitwardenStatus() (string, error) {
+	defer debugTimerStart("bw status")()
+
 	cmd := exec.CommandContext(context.Background(), "bw", "status")
 
 	output, err := cmd.Output()

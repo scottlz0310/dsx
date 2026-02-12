@@ -19,6 +19,12 @@
 
 ### Changed
 
+- `devsync run` の Bitwarden 重複呼び出しを削減：シェル関数側で既にアンロック済み・環境変数読み込み済みの場合、Go バイナリ側で `bw status` / `bw list items` の再実行をスキップ（`DEVSYNC_ENV_LOADED` マーカーにより判定）
+- `devsync run` で `secrets.enabled` 設定を参照し、シークレット管理が無効な場合は bw 操作を完全にスキップするよう改善
+- `devsync run` で Bitwarden アンロック失敗時に処理を中断せず、シークレット読み込みをスキップしてシステム更新・リポジトリ同期を続行するよう改善
+- `DEVSYNC_DEBUG=1` 環境変数で bw コマンドの実行時刻・所要時間をタイムスタンプ付きで出力するデバッグログを追加
+- `repo update` のリポジトリ安全性チェック（isDirty/hasStash/isDetachedHEAD）を並列実行に変更し、リポジトリあたりの待ち時間を削減
+- `repo update` の安全性チェックと upstream 確認を fetch 完了後に並列実行するよう改善
 - `README.md` に Alpha の既知の制約、`setup-repo` 併用の推奨運用、復旧手順（`config init` 再実行 / `repo.root` 見直し）を追記
 - `README.md` に `setup-repo` との比較手動チェック（移行期間の確認観点）を追記
 - `README.md` にアンインストール手順を追記
