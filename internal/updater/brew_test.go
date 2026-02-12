@@ -1,6 +1,10 @@
 package updater
 
 import (
+	"context"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/scottlz0310/devsync/internal/config"
@@ -185,5 +189,238 @@ python@3.11 (3.11.4_1) < 3.11.5`,
 				assert.Equal(t, expected.NewVersion, result[i].NewVersion, "New version mismatch at index %d", i)
 			}
 		})
+	}
+}
+
+func TestBrewUpdater_Check(t *testing.T) {
+	testCases := []struct {
+		name        string
+		mode        string
+		wantUpdates int
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:        "更新候補あり",
+			mode:        "updates",
+			wantUpdates: 2,
+			wantErr:     false,
+		},
+		{
+			name:        "更新なし",
+			mode:        "none",
+			wantUpdates: 0,
+			wantErr:     false,
+		},
+		{
+			name:        "brew update 失敗",
+			mode:        "update_error",
+			wantUpdates: 0,
+			wantErr:     true,
+			errContains: "brew update に失敗",
+		},
+		{
+			name:        "brew outdated 失敗",
+			mode:        "outdated_error",
+			wantUpdates: 0,
+			wantErr:     true,
+			errContains: "brew outdated に失敗",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			fakeDir := t.TempDir()
+			writeFakeBrewCommand(t, fakeDir)
+
+			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+			t.Setenv("DEVSYNC_TEST_BREW_MODE", tc.mode)
+
+			b := &BrewUpdater{}
+			got, err := b.Check(context.Background())
+
+			if tc.wantErr {
+				assert.Error(t, err)
+
+				if tc.errContains != "" && err != nil {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.wantUpdates, got.AvailableUpdates)
+		})
+	}
+}
+
+func TestBrewUpdater_Update(t *testing.T) {
+	testCases := []struct {
+		name        string
+		mode        string
+		opts        UpdateOptions
+		wantUpdated int
+		wantErr     bool
+		errContains string
+		msgContains string
+		wantErrors  int // result.Errors の件数
+	}{
+		{
+			name:        "DryRunは更新せず計画表示",
+			mode:        "updates",
+			opts:        UpdateOptions{DryRun: true},
+			wantUpdated: 0,
+			wantErr:     false,
+			msgContains: "DryRunモード",
+		},
+		{
+			name:        "対象なし",
+			mode:        "none",
+			opts:        UpdateOptions{},
+			wantUpdated: 0,
+			wantErr:     false,
+			msgContains: "すべてのパッケージは最新です",
+		},
+		{
+			name:        "更新成功",
+			mode:        "updates",
+			opts:        UpdateOptions{},
+			wantUpdated: 2,
+			wantErr:     false,
+			msgContains: "2 件のパッケージを更新しました",
+		},
+		{
+			name:        "更新失敗",
+			mode:        "upgrade_error",
+			opts:        UpdateOptions{},
+			wantUpdated: 2, // Check は成功するため UpdatedCount は設定される
+			wantErr:     false,
+			wantErrors:  2, // brew upgrade と brew upgrade --cask の両方が失敗
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			fakeDir := t.TempDir()
+			writeFakeBrewCommand(t, fakeDir)
+
+			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+			t.Setenv("DEVSYNC_TEST_BREW_MODE", tc.mode)
+
+			b := &BrewUpdater{}
+			got, err := b.Update(context.Background(), tc.opts)
+
+			if tc.wantErr {
+				assert.Error(t, err)
+
+				if tc.errContains != "" && err != nil {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.NotNil(t, got)
+			assert.Equal(t, tc.wantUpdated, got.UpdatedCount)
+
+			if tc.msgContains != "" {
+				assert.Contains(t, got.Message, tc.msgContains)
+			}
+
+			if tc.wantErrors > 0 {
+				assert.Len(t, got.Errors, tc.wantErrors)
+			}
+		})
+	}
+}
+
+func writeFakeBrewCommand(t *testing.T, dir string) {
+	t.Helper()
+
+	var (
+		fileName string
+		content  string
+	)
+
+	if runtime.GOOS == "windows" {
+		fileName = "brew.cmd"
+		content = `@echo off
+set mode=%DEVSYNC_TEST_BREW_MODE%
+if "%1"=="update" goto doupdate
+if "%1"=="outdated" goto dooutdated
+if "%1"=="upgrade" goto doupgrade
+if "%1"=="cleanup" goto docleanup
+echo invalid args 1>&2
+exit /b 1
+:doupdate
+if "%mode%"=="update_error" (
+  echo brew update failed 1>&2
+  exit /b 1
+)
+exit /b 0
+:dooutdated
+if "%mode%"=="outdated_error" (
+  echo brew outdated failed 1>&2
+  exit /b 1
+)
+if "%mode%"=="none" (
+  exit /b 0
+)
+echo vim (8.2) ^< 9.0
+echo curl (7.88) ^< 8.5
+exit /b 0
+:doupgrade
+if "%mode%"=="upgrade_error" (
+  echo brew upgrade failed 1>&2
+  exit /b 1
+)
+exit /b 0
+:docleanup
+exit /b 0
+`
+	} else {
+		fileName = "brew"
+		content = `#!/bin/sh
+mode="${DEVSYNC_TEST_BREW_MODE}"
+case "$1" in
+  update)
+    if [ "${mode}" = "update_error" ]; then
+      echo "brew update failed" 1>&2; exit 1
+    fi
+    exit 0 ;;
+  outdated)
+    if [ "${mode}" = "outdated_error" ]; then
+      echo "brew outdated failed" 1>&2; exit 1
+    fi
+    if [ "${mode}" = "none" ]; then exit 0; fi
+    echo "vim (8.2) < 9.0"
+    echo "curl (7.88) < 8.5"
+    exit 0 ;;
+  upgrade)
+    if [ "${mode}" = "upgrade_error" ]; then
+      echo "brew upgrade failed" 1>&2; exit 1
+    fi
+    exit 0 ;;
+  cleanup)
+    exit 0 ;;
+  *)
+    echo "invalid args" 1>&2; exit 1 ;;
+esac
+`
+	}
+
+	fullPath := filepath.Join(dir, fileName)
+	if err := os.WriteFile(fullPath, []byte(content), 0o755); err != nil {
+		t.Fatalf("fake brew command write failed: %v", err)
+	}
+
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(fullPath, 0o755); err != nil {
+			t.Fatalf("fake brew command chmod failed: %v", err)
+		}
 	}
 }

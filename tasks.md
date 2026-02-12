@@ -139,7 +139,7 @@
     - [x] 追加ツール `uv tool` / `rustup` / `gem` Updater の実装
     - [x] Windows向け `winget` / `scoop` Updater の実装と実機検証
     - [x] `sys list` / `README.md` / `config init` への反映
-    - [ ] 各Updaterの dry-run / timeout / エラー分類の統合テスト
+    - [x] 各Updaterの dry-run / timeout / エラー分類の統合テスト
 - [ ] 通知機能の実装
 - [x] Windows/PowerShell で `config init` がプロファイルパスを文字化けして誤ったフォルダを作成する問題を修正
 - [x] 環境変数読み込み前に `bw sync` を実行してキャッシュを最新化（Issue #47）

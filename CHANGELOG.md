@@ -19,6 +19,7 @@
 - `sys update` の対応マネージャに `winget` / `scoop` を追加（Windows 環境対応）
 - Windows 環境で `config init` 実行時に `winget` / `scoop` を推奨マネージャとして自動検出
 - 環境変数読み込み前に `bw sync` を実行し、Bitwarden のキャッシュを最新化する機能を追加
+- 全 Updater（apt/brew/cargo/flatpak/fwupdmgr/npm/pipx/scoop/snap/winget）に fake コマンド方式の Check/Update 統合テストを追加
 
 ### Changed
 

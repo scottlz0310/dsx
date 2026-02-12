@@ -231,15 +231,50 @@ func writeFakeFlatpakCommand(t *testing.T, dir string) {
 	if runtime.GOOS == "windows" {
 		fileName = "flatpak.cmd"
 		content = `@echo off
+setlocal enabledelayedexpansion
+set "subcmd="
+for %%a in (%*) do (
+  if "%%a"=="remote-ls" set "subcmd=remote-ls"
+  if "%%a"=="update" set "subcmd=update"
+)
 if "%DEVSYNC_TEST_FLATPAK_MODE%"=="success_with_stderr" (
-  >&2 echo warning from stderr
-  echo Application ID  Version
-  echo org.example.App 1.2.3
-  exit /b 0
+  if "!subcmd!"=="remote-ls" (
+    >&2 echo warning from stderr
+    echo Application ID  Version
+    echo org.example.App 1.2.3
+    exit /b 0
+  )
 )
 if "%DEVSYNC_TEST_FLATPAK_MODE%"=="failure_with_stderr" (
-  >&2 echo fatal issue
-  exit /b 1
+  if "!subcmd!"=="remote-ls" (
+    >&2 echo fatal issue
+    exit /b 1
+  )
+)
+if "%DEVSYNC_TEST_FLATPAK_MODE%"=="updates" (
+  if "!subcmd!"=="remote-ls" (
+    echo org.mozilla.firefox 122.0
+    echo org.gnome.Calculator 44.0
+    exit /b 0
+  )
+  if "!subcmd!"=="update" (
+    exit /b 0
+  )
+)
+if "%DEVSYNC_TEST_FLATPAK_MODE%"=="update_error" (
+  if "!subcmd!"=="remote-ls" (
+    echo org.mozilla.firefox 122.0
+    exit /b 0
+  )
+  if "!subcmd!"=="update" (
+    >&2 echo update failed
+    exit /b 1
+  )
+)
+if "%DEVSYNC_TEST_FLATPAK_MODE%"=="none" (
+  if "!subcmd!"=="remote-ls" (
+    exit /b 0
+  )
 )
 echo Application ID  Version
 exit /b 0
@@ -248,15 +283,45 @@ exit /b 0
 		fileName = "flatpak"
 		content = `#!/bin/sh
 mode="${DEVSYNC_TEST_FLATPAK_MODE}"
-if [ "${mode}" = "success_with_stderr" ]; then
+subcmd=""
+for arg in "$@"; do
+  case "$arg" in
+    remote-ls) subcmd="remote-ls" ;;
+    update) subcmd="update" ;;
+  esac
+done
+if [ "${mode}" = "success_with_stderr" ] && [ "${subcmd}" = "remote-ls" ]; then
   echo "warning from stderr" 1>&2
   echo "Application ID  Version"
   echo "org.example.App 1.2.3"
   exit 0
 fi
-if [ "${mode}" = "failure_with_stderr" ]; then
+if [ "${mode}" = "failure_with_stderr" ] && [ "${subcmd}" = "remote-ls" ]; then
   echo "fatal issue" 1>&2
   exit 1
+fi
+if [ "${mode}" = "updates" ]; then
+  if [ "${subcmd}" = "remote-ls" ]; then
+    echo "org.mozilla.firefox 122.0"
+    echo "org.gnome.Calculator 44.0"
+    exit 0
+  fi
+  if [ "${subcmd}" = "update" ]; then
+    exit 0
+  fi
+fi
+if [ "${mode}" = "update_error" ]; then
+  if [ "${subcmd}" = "remote-ls" ]; then
+    echo "org.mozilla.firefox 122.0"
+    exit 0
+  fi
+  if [ "${subcmd}" = "update" ]; then
+    echo "update failed" 1>&2
+    exit 1
+  fi
+fi
+if [ "${mode}" = "none" ] && [ "${subcmd}" = "remote-ls" ]; then
+  exit 0
 fi
 echo "Application ID  Version"
 exit 0
@@ -276,5 +341,83 @@ exit 0
 
 	if _, statErr := os.Stat(fullPath); statErr != nil {
 		t.Fatalf("fake command stat failed (%s): %v", fullPath, statErr)
+	}
+}
+
+func TestFlatpakUpdater_Update(t *testing.T) {
+	testCases := []struct {
+		name         string
+		mode         string
+		opts         UpdateOptions
+		wantUpdated  int
+		wantMsg      string
+		wantPkgCount int
+		wantErr      bool
+		errContains  string
+	}{
+		{
+			name:         "DryRun",
+			mode:         "updates",
+			opts:         UpdateOptions{DryRun: true},
+			wantUpdated:  0,
+			wantMsg:      "2 件の Flatpak パッケージが更新可能です（DryRunモード）",
+			wantPkgCount: 2,
+			wantErr:      false,
+		},
+		{
+			name:         "対象なし",
+			mode:         "none",
+			opts:         UpdateOptions{},
+			wantUpdated:  0,
+			wantMsg:      "すべての Flatpak パッケージは最新です",
+			wantPkgCount: 0,
+			wantErr:      false,
+		},
+		{
+			name:         "更新成功",
+			mode:         "updates",
+			opts:         UpdateOptions{},
+			wantUpdated:  2,
+			wantMsg:      "2 件の Flatpak パッケージを更新しました",
+			wantPkgCount: 2,
+			wantErr:      false,
+		},
+		{
+			name:        "更新失敗",
+			mode:        "update_error",
+			opts:        UpdateOptions{},
+			wantErr:     true,
+			errContains: "flatpak update に失敗",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			fakeDir := t.TempDir()
+			writeFakeFlatpakCommand(t, fakeDir)
+
+			pathValue := fakeDir + string(os.PathListSeparator) + os.Getenv("PATH")
+			t.Setenv("PATH", pathValue)
+			t.Setenv("DEVSYNC_TEST_FLATPAK_MODE", tc.mode)
+
+			f := &FlatpakUpdater{}
+			got, err := f.Update(context.Background(), tc.opts)
+
+			if tc.wantErr {
+				assert.Error(t, err)
+
+				if tc.errContains != "" {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.wantUpdated, got.UpdatedCount)
+			assert.Equal(t, tc.wantMsg, got.Message)
+			assert.Len(t, got.Packages, tc.wantPkgCount)
+		})
 	}
 }

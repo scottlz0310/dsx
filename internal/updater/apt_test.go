@@ -1,6 +1,10 @@
 package updater
 
 import (
+	"context"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/scottlz0310/devsync/internal/config"
@@ -156,5 +160,238 @@ invalid-line-without-space`,
 				assert.Equal(t, expected.CurrentVersion, result[i].CurrentVersion, "Current version mismatch at index %d", i)
 			}
 		})
+	}
+}
+
+func TestAptUpdater_Check(t *testing.T) {
+	testCases := []struct {
+		name        string
+		mode        string
+		wantUpdates int
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:        "更新候補あり",
+			mode:        "updates",
+			wantUpdates: 2,
+			wantErr:     false,
+		},
+		{
+			name:        "更新なし",
+			mode:        "none",
+			wantUpdates: 0,
+			wantErr:     false,
+		},
+		{
+			name:        "apt update 失敗",
+			mode:        "update_error",
+			wantUpdates: 0,
+			wantErr:     true,
+			errContains: "apt update に失敗",
+		},
+		{
+			name:        "apt list 失敗",
+			mode:        "list_error",
+			wantUpdates: 0,
+			wantErr:     true,
+			errContains: "更新可能パッケージの取得に失敗",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			fakeDir := t.TempDir()
+			writeFakeAptCommand(t, fakeDir)
+
+			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+			t.Setenv("DEVSYNC_TEST_APT_MODE", tc.mode)
+
+			a := &AptUpdater{useSudo: false}
+			got, err := a.Check(context.Background())
+
+			if tc.wantErr {
+				assert.Error(t, err)
+
+				if tc.errContains != "" && err != nil {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.wantUpdates, got.AvailableUpdates)
+		})
+	}
+}
+
+func TestAptUpdater_Update(t *testing.T) {
+	testCases := []struct {
+		name        string
+		mode        string
+		opts        UpdateOptions
+		wantUpdated int
+		wantErr     bool
+		errContains string
+		msgContains string
+	}{
+		{
+			name:        "DryRunは更新せず計画表示",
+			mode:        "updates",
+			opts:        UpdateOptions{DryRun: true},
+			wantUpdated: 0,
+			wantErr:     false,
+			msgContains: "DryRunモード",
+		},
+		{
+			name:        "対象なし",
+			mode:        "none",
+			opts:        UpdateOptions{},
+			wantUpdated: 0,
+			wantErr:     false,
+			msgContains: "すべてのパッケージは最新です",
+		},
+		{
+			name:        "更新成功",
+			mode:        "updates",
+			opts:        UpdateOptions{},
+			wantUpdated: 2,
+			wantErr:     false,
+			msgContains: "2 件のパッケージを更新しました",
+		},
+		{
+			name:        "更新失敗",
+			mode:        "upgrade_error",
+			opts:        UpdateOptions{},
+			wantUpdated: 0,
+			wantErr:     true,
+			errContains: "apt upgrade に失敗",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			fakeDir := t.TempDir()
+			writeFakeAptCommand(t, fakeDir)
+
+			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+			t.Setenv("DEVSYNC_TEST_APT_MODE", tc.mode)
+
+			a := &AptUpdater{useSudo: false}
+			got, err := a.Update(context.Background(), tc.opts)
+
+			if tc.wantErr {
+				assert.Error(t, err)
+
+				if tc.errContains != "" && err != nil {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.NotNil(t, got)
+			assert.Equal(t, tc.wantUpdated, got.UpdatedCount)
+
+			if tc.msgContains != "" {
+				assert.Contains(t, got.Message, tc.msgContains)
+			}
+		})
+	}
+}
+
+func writeFakeAptCommand(t *testing.T, dir string) {
+	t.Helper()
+
+	var (
+		fileName string
+		content  string
+	)
+
+	if runtime.GOOS == "windows" {
+		fileName = "apt.cmd"
+		content = `@echo off
+set mode=%DEVSYNC_TEST_APT_MODE%
+if "%1"=="update" goto doupdate
+if "%1"=="list" goto dolist
+if "%1"=="upgrade" goto doupgrade
+echo invalid args 1>&2
+exit /b 1
+:doupdate
+if "%mode%"=="update_error" (
+  echo apt update failed 1>&2
+  exit /b 1
+)
+exit /b 0
+:dolist
+if "%mode%"=="list_error" (
+  echo apt list failed 1>&2
+  exit /b 1
+)
+if "%mode%"=="none" (
+  echo Listing... Done
+  exit /b 0
+)
+echo Listing... Done
+echo vim/stable 9.0.2 amd64 [upgradable from: 8.2.1]
+echo curl/stable 8.5.0 amd64 [upgradable from: 7.88.1]
+exit /b 0
+:doupgrade
+if "%mode%"=="upgrade_error" (
+  echo apt upgrade failed 1>&2
+  exit /b 1
+)
+exit /b 0
+`
+	} else {
+		fileName = "apt"
+		content = `#!/bin/sh
+mode="${DEVSYNC_TEST_APT_MODE}"
+if [ "$1" = "update" ]; then
+  if [ "${mode}" = "update_error" ]; then
+    echo "apt update failed" 1>&2
+    exit 1
+  fi
+  exit 0
+fi
+if [ "$1" = "list" ]; then
+  if [ "${mode}" = "list_error" ]; then
+    echo "apt list failed" 1>&2
+    exit 1
+  fi
+  if [ "${mode}" = "none" ]; then
+    echo "Listing... Done"
+    exit 0
+  fi
+  echo "Listing... Done"
+  echo "vim/stable 9.0.2 amd64 [upgradable from: 8.2.1]"
+  echo "curl/stable 8.5.0 amd64 [upgradable from: 7.88.1]"
+  exit 0
+fi
+if [ "$1" = "upgrade" ]; then
+  if [ "${mode}" = "upgrade_error" ]; then
+    echo "apt upgrade failed" 1>&2
+    exit 1
+  fi
+  exit 0
+fi
+echo "invalid args" 1>&2
+exit 1
+`
+	}
+
+	fullPath := filepath.Join(dir, fileName)
+	if err := os.WriteFile(fullPath, []byte(content), 0o755); err != nil {
+		t.Fatalf("fake apt command write failed: %v", err)
+	}
+
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(fullPath, 0o755); err != nil {
+			t.Fatalf("fake apt command chmod failed: %v", err)
+		}
 	}
 }

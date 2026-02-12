@@ -138,6 +138,7 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 //
 //	binary3
 func (c *CargoUpdater) parseInstallList(output string) []PackageInfo {
+	output = strings.ReplaceAll(output, "\r\n", "\n")
 	lines := strings.Split(output, "\n")
 	packages := make([]PackageInfo, 0, len(lines))
 

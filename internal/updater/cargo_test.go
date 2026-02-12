@@ -1,6 +1,10 @@
 package updater
 
 import (
+	"context"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -76,5 +80,272 @@ pkg 1.2.3:
 				assert.Equal(t, "", got[i].NewVersion)
 			}
 		})
+	}
+}
+
+func TestCargoUpdater_Check(t *testing.T) {
+	testCases := []struct {
+		name        string
+		mode        string
+		wantPkgs    int
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:     "パッケージあり",
+			mode:     "updates",
+			wantPkgs: 2,
+			wantErr:  false,
+		},
+		{
+			name:     "パッケージなし",
+			mode:     "none",
+			wantPkgs: 0,
+			wantErr:  false,
+		},
+		{
+			name:        "コマンド失敗",
+			mode:        "check_error",
+			wantPkgs:    0,
+			wantErr:     true,
+			errContains: "cargo install --list の実行に失敗",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			fakeDir := t.TempDir()
+			writeFakeCargoCommand(t, fakeDir)
+
+			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+			t.Setenv("DEVSYNC_TEST_CARGO_MODE", tc.mode)
+
+			c := &CargoUpdater{}
+			got, err := c.Check(context.Background())
+
+			if tc.wantErr {
+				assert.Error(t, err)
+
+				if tc.errContains != "" && err != nil {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, 0, got.AvailableUpdates)
+			assert.Len(t, got.Packages, tc.wantPkgs)
+		})
+	}
+}
+
+func TestCargoUpdater_Update(t *testing.T) {
+	testCases := []struct {
+		name        string
+		mode        string
+		opts        UpdateOptions
+		wantErr     bool
+		errContains string
+		msgContains string
+	}{
+		{
+			name:        "DryRunは更新せず計画表示",
+			mode:        "updates",
+			opts:        UpdateOptions{DryRun: true},
+			wantErr:     false,
+			msgContains: "DryRunモード",
+		},
+		{
+			name:        "対象なし",
+			mode:        "none",
+			opts:        UpdateOptions{},
+			wantErr:     false,
+			msgContains: "パッケージがありません",
+		},
+		{
+			name:        "更新成功",
+			mode:        "updates",
+			opts:        UpdateOptions{},
+			wantErr:     false,
+			msgContains: "確認・更新しました",
+		},
+		{
+			name:        "更新失敗",
+			mode:        "update_error",
+			opts:        UpdateOptions{},
+			wantErr:     true,
+			errContains: "cargo install-update -a に失敗",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			fakeDir := t.TempDir()
+			writeFakeCargoCommand(t, fakeDir)
+
+			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+			t.Setenv("DEVSYNC_TEST_CARGO_MODE", tc.mode)
+
+			c := &CargoUpdater{}
+			got, err := c.Update(context.Background(), tc.opts)
+
+			if tc.wantErr {
+				assert.Error(t, err)
+
+				if tc.errContains != "" && err != nil {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.NotNil(t, got)
+
+			if tc.msgContains != "" {
+				assert.Contains(t, got.Message, tc.msgContains)
+			}
+		})
+	}
+}
+
+func writeFakeCargoCommand(t *testing.T, dir string) {
+	t.Helper()
+
+	if runtime.GOOS == "windows" {
+		// fake cargo.cmd
+		cargoContent := `@echo off
+set mode=%DEVSYNC_TEST_CARGO_MODE%
+if "%1"=="install" goto doinstall
+if "%1"=="install-update" goto doinstallupdate
+echo invalid args 1>&2
+exit /b 1
+:doinstall
+if "%2"=="--list" goto dolist
+if "%2"=="--force" goto doforce
+echo invalid args 1>&2
+exit /b 1
+:dolist
+if "%mode%"=="check_error" (
+  echo cargo install --list failed 1>&2
+  exit /b 1
+)
+if "%mode%"=="none" (
+  exit /b 0
+)
+echo ripgrep v14.0.0:
+echo     rg
+echo bat v0.24.0:
+echo     bat
+exit /b 0
+:doforce
+exit /b 0
+:doinstallupdate
+if "%2"=="--help" exit /b 0
+if "%2"=="-a" goto doupdate
+echo invalid args 1>&2
+exit /b 1
+:doupdate
+if "%mode%"=="update_error" (
+  echo cargo install-update failed 1>&2
+  exit /b 1
+)
+exit /b 0
+`
+
+		cargoPath := filepath.Join(dir, "cargo.cmd")
+		if err := os.WriteFile(cargoPath, []byte(cargoContent), 0o755); err != nil {
+			t.Fatalf("fake cargo command write failed: %v", err)
+		}
+
+		// fake cargo-install-update.cmd（LookPath 用）
+		updateContent := `@echo off
+exit /b 0
+`
+
+		updatePath := filepath.Join(dir, "cargo-install-update.cmd")
+		if err := os.WriteFile(updatePath, []byte(updateContent), 0o755); err != nil {
+			t.Fatalf("fake cargo-install-update command write failed: %v", err)
+		}
+	} else {
+		// fake cargo
+		cargoContent := `#!/bin/sh
+mode="${DEVSYNC_TEST_CARGO_MODE}"
+case "$1" in
+  install)
+    case "$2" in
+      --list)
+        if [ "${mode}" = "check_error" ]; then
+          echo "cargo install --list failed" 1>&2
+          exit 1
+        fi
+        if [ "${mode}" = "none" ]; then
+          exit 0
+        fi
+        echo "ripgrep v14.0.0:"
+        echo "    rg"
+        echo "bat v0.24.0:"
+        echo "    bat"
+        exit 0
+        ;;
+      --force)
+        exit 0
+        ;;
+      *)
+        echo "invalid args" 1>&2
+        exit 1
+        ;;
+    esac
+    ;;
+  install-update)
+    case "$2" in
+      --help)
+        exit 0
+        ;;
+      -a)
+        if [ "${mode}" = "update_error" ]; then
+          echo "cargo install-update failed" 1>&2
+          exit 1
+        fi
+        exit 0
+        ;;
+      *)
+        echo "invalid args" 1>&2
+        exit 1
+        ;;
+    esac
+    ;;
+  *)
+    echo "invalid args" 1>&2
+    exit 1
+    ;;
+esac
+`
+
+		cargoPath := filepath.Join(dir, "cargo")
+		if err := os.WriteFile(cargoPath, []byte(cargoContent), 0o755); err != nil {
+			t.Fatalf("fake cargo command write failed: %v", err)
+		}
+
+		if err := os.Chmod(cargoPath, 0o755); err != nil {
+			t.Fatalf("fake cargo command chmod failed: %v", err)
+		}
+
+		// fake cargo-install-update（LookPath 用）
+		updateContent := `#!/bin/sh
+exit 0
+`
+
+		updatePath := filepath.Join(dir, "cargo-install-update")
+		if err := os.WriteFile(updatePath, []byte(updateContent), 0o755); err != nil {
+			t.Fatalf("fake cargo-install-update command write failed: %v", err)
+		}
+
+		if err := os.Chmod(updatePath, 0o755); err != nil {
+			t.Fatalf("fake cargo-install-update command chmod failed: %v", err)
+		}
 	}
 }

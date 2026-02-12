@@ -1,7 +1,13 @@
 package updater
 
 import (
+	"context"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestWingetParseUpgradeOutput(t *testing.T) {
@@ -270,5 +276,230 @@ func TestContainsProgressChars(t *testing.T) {
 				t.Errorf("containsProgressChars(%q) = %v, want %v", tt.input, got, tt.expected)
 			}
 		})
+	}
+}
+
+func TestWingetUpdater_Check(t *testing.T) {
+	testCases := []struct {
+		name        string
+		mode        string
+		wantUpdates int
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:        "更新候補あり",
+			mode:        "updates",
+			wantUpdates: 2,
+			wantErr:     false,
+		},
+		{
+			name:        "更新なし",
+			mode:        "none",
+			wantUpdates: 0,
+			wantErr:     false,
+		},
+		{
+			name:        "check失敗",
+			mode:        "check_error",
+			wantUpdates: 0,
+			wantErr:     true,
+			errContains: "winget upgrade の実行に失敗",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			fakeDir := t.TempDir()
+			writeFakeWingetCommand(t, fakeDir)
+
+			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+			t.Setenv("DEVSYNC_TEST_WINGET_MODE", tc.mode)
+
+			w := &WingetUpdater{}
+			got, err := w.Check(context.Background())
+
+			if tc.wantErr {
+				assert.Error(t, err)
+
+				if tc.errContains != "" && err != nil {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.wantUpdates, got.AvailableUpdates)
+		})
+	}
+}
+
+func TestWingetUpdater_Update(t *testing.T) {
+	testCases := []struct {
+		name        string
+		mode        string
+		opts        UpdateOptions
+		wantUpdated int
+		wantErr     bool
+		errContains string
+		msgContains string
+	}{
+		{
+			name:        "DryRunは更新せず計画表示",
+			mode:        "updates",
+			opts:        UpdateOptions{DryRun: true},
+			wantUpdated: 0,
+			wantErr:     false,
+			msgContains: "DryRunモード",
+		},
+		{
+			name:        "対象なし",
+			mode:        "none",
+			opts:        UpdateOptions{},
+			wantUpdated: 0,
+			wantErr:     false,
+			msgContains: "すべての winget パッケージは最新です",
+		},
+		{
+			name:        "更新成功",
+			mode:        "updates",
+			opts:        UpdateOptions{},
+			wantUpdated: 2,
+			wantErr:     false,
+			msgContains: "2 件の winget パッケージを更新しました",
+		},
+		{
+			name:        "更新失敗",
+			mode:        "update_error",
+			opts:        UpdateOptions{},
+			wantUpdated: 0,
+			wantErr:     true,
+			errContains: "winget upgrade --all に失敗",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			fakeDir := t.TempDir()
+			writeFakeWingetCommand(t, fakeDir)
+
+			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+			t.Setenv("DEVSYNC_TEST_WINGET_MODE", tc.mode)
+
+			w := &WingetUpdater{}
+			got, err := w.Update(context.Background(), tc.opts)
+
+			if tc.wantErr {
+				assert.Error(t, err)
+				assert.NotNil(t, got)
+
+				if tc.errContains != "" && err != nil {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.NotNil(t, got)
+			assert.Equal(t, tc.wantUpdated, got.UpdatedCount)
+
+			if tc.msgContains != "" {
+				assert.Contains(t, got.Message, tc.msgContains)
+			}
+		})
+	}
+}
+
+func writeFakeWingetCommand(t *testing.T, dir string) {
+	t.Helper()
+
+	var (
+		fileName string
+		content  string
+	)
+
+	if runtime.GOOS == "windows" {
+		fileName = "winget.cmd"
+		content = `@echo off
+set mode=%DEVSYNC_TEST_WINGET_MODE%
+if not "%1"=="upgrade" (
+  echo invalid args 1>&2
+  exit /b 1
+)
+if "%2"=="--all" goto doall
+if "%mode%"=="check_error" (
+  echo winget upgrade failed 1>&2
+  exit /b 1
+)
+if "%mode%"=="none" (
+  echo No installed package found matching input criteria.
+  exit /b 0
+)
+echo Name                ID                  Version   Available  Source
+echo ------------------------------------------------------------------
+echo Docker Desktop      Docker.DockerDesktop 4.59.0    4.60.0     winget
+echo GitHub CLI          GitHub.cli           2.83.2    2.86.0     winget
+echo 2 upgrades available.
+exit /b 0
+:doall
+if "%mode%"=="update_error" (
+  echo winget upgrade --all failed 1>&2
+  exit /b 1
+)
+exit /b 0
+`
+	} else {
+		fileName = "winget"
+		content = `#!/bin/sh
+mode="${DEVSYNC_TEST_WINGET_MODE}"
+if [ "$1" != "upgrade" ]; then
+  echo "invalid args" 1>&2
+  exit 1
+fi
+# Check モード（--all なし）と Update モード（--all あり）を区別
+has_all=false
+for arg in "$@"; do
+  if [ "$arg" = "--all" ]; then
+    has_all=true
+  fi
+done
+if [ "${has_all}" = "true" ]; then
+  if [ "${mode}" = "update_error" ]; then
+    echo "winget upgrade --all failed" 1>&2
+    exit 1
+  fi
+  exit 0
+fi
+# Check モード
+if [ "${mode}" = "check_error" ]; then
+  echo "winget upgrade failed" 1>&2
+  exit 1
+fi
+if [ "${mode}" = "none" ]; then
+  echo "No installed package found matching input criteria."
+  exit 0
+fi
+echo "Name                ID                  Version   Available  Source"
+echo "------------------------------------------------------------------"
+echo "Docker Desktop      Docker.DockerDesktop 4.59.0    4.60.0     winget"
+echo "GitHub CLI          GitHub.cli           2.83.2    2.86.0     winget"
+echo "2 upgrades available."
+exit 0
+`
+	}
+
+	fullPath := filepath.Join(dir, fileName)
+	if err := os.WriteFile(fullPath, []byte(content), 0o755); err != nil {
+		t.Fatalf("fake winget command write failed: %v", err)
+	}
+
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(fullPath, 0o755); err != nil {
+			t.Fatalf("fake winget command chmod failed: %v", err)
+		}
 	}
 }
