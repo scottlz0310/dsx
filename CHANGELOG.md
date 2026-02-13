@@ -54,6 +54,7 @@
 - `repo update` でデフォルトブランチ以外を追跡している場合、pull/submodule を行わず安全側にスキップするよう改善
 ### Fixed
 
+- `devsync env export` 実行時に読み込んだ環境変数の件数が表示されない問題を修正（stderr に統計情報を出力）
 - Windows 環境で `go test ./...` が失敗する問題を修正（ホームディレクトリ環境変数のテスト分離、`gh` 実行モックの Windows 互換化など）
 - Windows/PowerShell 環境で `config init` が PowerShell プロファイルパスを文字化けして誤ったフォルダを作成する問題を修正（Base64 経由で取得）
 - Windows 環境で Git の `core.autocrlf` により Go ファイルが CRLF になり `task lint` の gofmt チェックが失敗する問題を回避（`.gitattributes` で LF 固定）

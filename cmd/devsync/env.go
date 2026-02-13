@@ -68,6 +68,9 @@ func runEnvExport(cmd *cobra.Command, args []string) error {
 	// 標準出力に出力（evalで使用される）
 	fmt.Println(output)
 
+	// 統計情報を stderr に出力（stdout は eval/Invoke-Expression 用なので汚さない）
+	fmt.Fprintf(os.Stderr, "✅ %d 個の環境変数を読み込みました。\n", len(envVars))
+
 	return nil
 }
 
