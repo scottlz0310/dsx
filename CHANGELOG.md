@@ -8,6 +8,7 @@
 
 ### Added
 
+- `sys update` / `repo update` / `repo cleanup` / `devsync run` に `--log-file` フラグを追加（ジョブ実行ログをファイルに保存）
 - GoReleaser によるクロスプラットフォームビルドとリリース自動化を追加（Linux/macOS/Windows）
 - GitHub Actions リリースワークフロー（`v*` タグプッシュで自動リリース）を追加
 - `task snapshot` / `task release:check` タスクを追加（ローカルでのリリースビルド検証）

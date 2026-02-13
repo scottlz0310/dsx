@@ -17,10 +17,11 @@ var (
 )
 
 var (
-	runDryRun bool
-	runJobs   int
-	runTUI    bool
-	runNoTUI  bool
+	runDryRun  bool
+	runJobs    int
+	runTUI     bool
+	runNoTUI   bool
+	runLogFile string
 )
 
 // runCmd は日次処理を実行するコマンドの定義です
@@ -48,6 +49,7 @@ func init() {
 	runCmd.Flags().IntVarP(&runJobs, "jobs", "j", 0, "並列実行数（sys/repo に伝播、0 は設定値を使用）")
 	runCmd.Flags().BoolVar(&runTUI, "tui", false, "Bubble Tea の進捗UIを表示（sys/repo に伝播）")
 	runCmd.Flags().BoolVar(&runNoTUI, "no-tui", false, "TUI 進捗表示を無効化（sys/repo に伝播）")
+	runCmd.Flags().StringVar(&runLogFile, "log-file", "", "ジョブ実行ログをファイルに保存（sys/repo に伝播）")
 }
 
 // propagateRunFlags は run コマンドのフラグを sys/repo のグローバルフラグ変数に伝播します。
@@ -70,6 +72,11 @@ func propagateRunFlags(cmd *cobra.Command) {
 	if cmd.Flags().Changed("no-tui") {
 		sysNoTUI = runNoTUI
 		repoUpdateNoTUI = runNoTUI
+	}
+
+	if cmd.Flags().Changed("log-file") {
+		sysLogFile = runLogFile
+		repoUpdateLogFile = runLogFile
 	}
 }
 

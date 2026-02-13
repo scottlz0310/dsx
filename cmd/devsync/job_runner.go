@@ -9,14 +9,45 @@ import (
 	progressui "github.com/scottlz0310/devsync/internal/tui"
 )
 
-func runJobsWithOptionalTUI(ctx context.Context, title string, jobs int, execJobs []runner.Job, useTUI bool) runner.Summary {
-	if !useTUI {
-		return runner.Execute(ctx, jobs, execJobs)
+func runJobsWithOptionalTUI(ctx context.Context, title string, jobs int, execJobs []runner.Job, useTUI bool, logFile string) runner.Summary {
+	var logger *runner.EventLogger
+
+	if logFile != "" {
+		var err error
+
+		logger, err = runner.NewEventLogger(logFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "⚠️  ログファイルを開けません: %v\n", err)
+		} else {
+			defer func() {
+				if cerr := logger.Close(); cerr != nil {
+					fmt.Fprintf(os.Stderr, "⚠️  ログファイルのクローズに失敗: %v\n", cerr)
+				}
+			}()
+		}
 	}
 
-	summary, err := progressui.RunJobProgress(ctx, title, jobs, execJobs)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  TUI表示中にエラーが発生しました（実行結果は継続）: %v\n", err)
+	var summary runner.Summary
+
+	if useTUI {
+		var err error
+
+		summary, err = progressui.RunJobProgressWithLogger(ctx, title, jobs, execJobs, logger)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "⚠️  TUI表示中にエラーが発生しました（実行結果は継続）: %v\n", err)
+		}
+	} else {
+		if logger != nil {
+			summary = runner.ExecuteWithEvents(ctx, jobs, execJobs, func(event runner.Event) {
+				logger.LogEvent(&event)
+			})
+		} else {
+			summary = runner.Execute(ctx, jobs, execJobs)
+		}
+	}
+
+	if logger != nil {
+		logger.WriteSummary(summary)
 	}
 
 	return summary

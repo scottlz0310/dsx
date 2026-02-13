@@ -82,6 +82,12 @@ var (
 
 // RunJobProgress はジョブの実行進捗を Bubble Tea で表示し、実行結果を返します。
 func RunJobProgress(ctx context.Context, title string, maxJobs int, jobs []runner.Job) (runner.Summary, error) {
+	return RunJobProgressWithLogger(ctx, title, maxJobs, jobs, nil)
+}
+
+// RunJobProgressWithLogger はジョブの実行進捗を Bubble Tea で表示し、
+// オプションでイベントをログファイルに記録します。
+func RunJobProgressWithLogger(ctx context.Context, title string, maxJobs int, jobs []runner.Job, logger *runner.EventLogger) (runner.Summary, error) {
 	m := newModel(title, jobs)
 	program := tea.NewProgram(m, tea.WithContext(ctx))
 	summaryCh := make(chan runner.Summary, 1)
@@ -89,6 +95,10 @@ func RunJobProgress(ctx context.Context, title string, maxJobs int, jobs []runne
 	go func() {
 		summary := runner.ExecuteWithEvents(ctx, maxJobs, jobs, func(event runner.Event) {
 			program.Send(runnerEventMsg{Event: event})
+
+			if logger != nil {
+				logger.LogEvent(&event)
+			}
 		})
 
 		publishCompletion(program, summaryCh, summary)

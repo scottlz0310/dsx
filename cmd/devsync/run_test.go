@@ -242,33 +242,39 @@ func TestPropagateRunFlags(t *testing.T) {
 	origSysJobs := sysJobs
 	origSysTUI := sysTUI
 	origSysNoTUI := sysNoTUI
+	origSysLogFile := sysLogFile
 	origRepoDryRun := repoUpdateDryRun
 	origRepoJobs := repoUpdateJobs
 	origRepoTUI := repoUpdateTUI
 	origRepoNoTUI := repoUpdateNoTUI
+	origRepoLogFile := repoUpdateLogFile
 
 	t.Cleanup(func() {
 		sysDryRun = origSysDryRun
 		sysJobs = origSysJobs
 		sysTUI = origSysTUI
 		sysNoTUI = origSysNoTUI
+		sysLogFile = origSysLogFile
 		repoUpdateDryRun = origRepoDryRun
 		repoUpdateJobs = origRepoJobs
 		repoUpdateTUI = origRepoTUI
 		repoUpdateNoTUI = origRepoNoTUI
+		repoUpdateLogFile = origRepoLogFile
 	})
 
 	tests := []struct {
-		name           string
-		setFlags       func(cmd *cobra.Command)
-		wantSysDryRun  bool
-		wantRepoDryRun bool
-		wantSysJobs    int
-		wantRepoJobs   int
-		wantSysTUI     bool
-		wantRepoTUI    bool
-		wantSysNoTUI   bool
-		wantRepoNoTUI  bool
+		name            string
+		setFlags        func(cmd *cobra.Command)
+		wantSysDryRun   bool
+		wantRepoDryRun  bool
+		wantSysJobs     int
+		wantRepoJobs    int
+		wantSysTUI      bool
+		wantRepoTUI     bool
+		wantSysNoTUI    bool
+		wantRepoNoTUI   bool
+		wantSysLogFile  string
+		wantRepoLogFile string
 	}{
 		{
 			name:     "フラグ未指定時は伝播しない",
@@ -314,6 +320,16 @@ func TestPropagateRunFlags(t *testing.T) {
 			wantSysNoTUI:  true,
 			wantRepoNoTUI: true,
 		},
+		{
+			name: "log-fileフラグが伝播される",
+			setFlags: func(cmd *cobra.Command) {
+				if err := cmd.Flags().Set("log-file", "/tmp/test.log"); err != nil {
+					panic(err)
+				}
+			},
+			wantSysLogFile:  "/tmp/test.log",
+			wantRepoLogFile: "/tmp/test.log",
+		},
 	}
 
 	for _, tt := range tests {
@@ -323,52 +339,77 @@ func TestPropagateRunFlags(t *testing.T) {
 			sysJobs = 0
 			sysTUI = false
 			sysNoTUI = false
+			sysLogFile = ""
 			repoUpdateDryRun = false
 			repoUpdateJobs = 0
 			repoUpdateTUI = false
 			repoUpdateNoTUI = false
+			repoUpdateLogFile = ""
 
 			cmd := &cobra.Command{Use: "run"}
 			cmd.Flags().BoolVarP(&runDryRun, "dry-run", "n", false, "")
 			cmd.Flags().IntVarP(&runJobs, "jobs", "j", 0, "")
 			cmd.Flags().BoolVar(&runTUI, "tui", false, "")
 			cmd.Flags().BoolVar(&runNoTUI, "no-tui", false, "")
+			cmd.Flags().StringVar(&runLogFile, "log-file", "", "")
 			tt.setFlags(cmd)
 
 			propagateRunFlags(cmd)
 
-			if sysDryRun != tt.wantSysDryRun {
-				t.Errorf("sysDryRun = %v, want %v", sysDryRun, tt.wantSysDryRun)
-			}
-
-			if repoUpdateDryRun != tt.wantRepoDryRun {
-				t.Errorf("repoUpdateDryRun = %v, want %v", repoUpdateDryRun, tt.wantRepoDryRun)
-			}
-
-			if sysJobs != tt.wantSysJobs {
-				t.Errorf("sysJobs = %v, want %v", sysJobs, tt.wantSysJobs)
-			}
-
-			if repoUpdateJobs != tt.wantRepoJobs {
-				t.Errorf("repoUpdateJobs = %v, want %v", repoUpdateJobs, tt.wantRepoJobs)
-			}
-
-			if sysTUI != tt.wantSysTUI {
-				t.Errorf("sysTUI = %v, want %v", sysTUI, tt.wantSysTUI)
-			}
-
-			if repoUpdateTUI != tt.wantRepoTUI {
-				t.Errorf("repoUpdateTUI = %v, want %v", repoUpdateTUI, tt.wantRepoTUI)
-			}
-
-			if sysNoTUI != tt.wantSysNoTUI {
-				t.Errorf("sysNoTUI = %v, want %v", sysNoTUI, tt.wantSysNoTUI)
-			}
-
-			if repoUpdateNoTUI != tt.wantRepoNoTUI {
-				t.Errorf("repoUpdateNoTUI = %v, want %v", repoUpdateNoTUI, tt.wantRepoNoTUI)
-			}
+			assertPropagatedFlags(t, tt.wantSysDryRun, tt.wantRepoDryRun, tt.wantSysJobs, tt.wantRepoJobs,
+				tt.wantSysTUI, tt.wantRepoTUI, tt.wantSysNoTUI, tt.wantRepoNoTUI,
+				tt.wantSysLogFile, tt.wantRepoLogFile)
 		})
+	}
+}
+
+//nolint:cyclop // テスト用アサーションヘルパーのため複雑度は許容する
+func assertPropagatedFlags(t *testing.T,
+	wantSysDryRun, wantRepoDryRun bool,
+	wantSysJobs, wantRepoJobs int,
+	wantSysTUI, wantRepoTUI, wantSysNoTUI, wantRepoNoTUI bool,
+	wantSysLogFile, wantRepoLogFile string,
+) {
+	t.Helper()
+
+	if sysDryRun != wantSysDryRun {
+		t.Errorf("sysDryRun = %v, want %v", sysDryRun, wantSysDryRun)
+	}
+
+	if repoUpdateDryRun != wantRepoDryRun {
+		t.Errorf("repoUpdateDryRun = %v, want %v", repoUpdateDryRun, wantRepoDryRun)
+	}
+
+	if sysJobs != wantSysJobs {
+		t.Errorf("sysJobs = %v, want %v", sysJobs, wantSysJobs)
+	}
+
+	if repoUpdateJobs != wantRepoJobs {
+		t.Errorf("repoUpdateJobs = %v, want %v", repoUpdateJobs, wantRepoJobs)
+	}
+
+	if sysTUI != wantSysTUI {
+		t.Errorf("sysTUI = %v, want %v", sysTUI, wantSysTUI)
+	}
+
+	if repoUpdateTUI != wantRepoTUI {
+		t.Errorf("repoUpdateTUI = %v, want %v", repoUpdateTUI, wantRepoTUI)
+	}
+
+	if sysNoTUI != wantSysNoTUI {
+		t.Errorf("sysNoTUI = %v, want %v", sysNoTUI, wantSysNoTUI)
+	}
+
+	if repoUpdateNoTUI != wantRepoNoTUI {
+		t.Errorf("repoUpdateNoTUI = %v, want %v", repoUpdateNoTUI, wantRepoNoTUI)
+	}
+
+	if sysLogFile != wantSysLogFile {
+		t.Errorf("sysLogFile = %v, want %v", sysLogFile, wantSysLogFile)
+	}
+
+	if repoUpdateLogFile != wantRepoLogFile {
+		t.Errorf("repoUpdateLogFile = %v, want %v", repoUpdateLogFile, wantRepoLogFile)
 	}
 }
 

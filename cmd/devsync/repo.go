@@ -30,6 +30,7 @@ var (
 	repoUpdateNoSubmodule bool
 	repoUpdateTUI         bool
 	repoUpdateNoTUI       bool
+	repoUpdateLogFile     string
 )
 
 var (
@@ -96,6 +97,7 @@ func init() {
 	repoUpdateCmd.Flags().BoolVar(&repoUpdateNoSubmodule, "no-submodule", false, "submodule update を無効化する（設定値を上書き）")
 	repoUpdateCmd.Flags().BoolVar(&repoUpdateTUI, "tui", false, "Bubble Tea の進捗UIを表示（既定値は config.yaml の ui.tui）")
 	repoUpdateCmd.Flags().BoolVar(&repoUpdateNoTUI, "no-tui", false, "TUI 進捗表示を無効化（設定より優先）")
+	repoUpdateCmd.Flags().StringVar(&repoUpdateLogFile, "log-file", "", "ジョブ実行ログをファイルに保存")
 }
 
 func runRepoList(cmd *cobra.Command, args []string) error {
@@ -202,7 +204,7 @@ func runRepoUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	execJobs := buildRepoUpdateJobs(root, repoPaths, opts, useTUI)
-	summary := runJobsWithOptionalTUI(ctx, "repo update 進捗", jobs, execJobs, useTUI)
+	summary := runJobsWithOptionalTUI(ctx, "repo update 進捗", jobs, execJobs, useTUI, repoUpdateLogFile)
 
 	// TUI 使用時は TUI 側で完了サマリーを表示済みのため、テキストサマリーは非 TUI 時のみ出力
 	if !useTUI {

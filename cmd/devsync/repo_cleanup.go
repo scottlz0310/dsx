@@ -17,10 +17,11 @@ import (
 )
 
 var (
-	repoCleanupJobs   int
-	repoCleanupDryRun bool
-	repoCleanupTUI    bool
-	repoCleanupNoTUI  bool
+	repoCleanupJobs    int
+	repoCleanupDryRun  bool
+	repoCleanupTUI     bool
+	repoCleanupNoTUI   bool
+	repoCleanupLogFile string
 )
 
 var repoCleanupStep = repomgr.Cleanup
@@ -45,6 +46,7 @@ func init() {
 	repoCleanupCmd.Flags().BoolVarP(&repoCleanupDryRun, "dry-run", "n", false, "実際の削除は行わず、計画のみ表示")
 	repoCleanupCmd.Flags().BoolVar(&repoCleanupTUI, "tui", false, "Bubble Tea の進捗UIを表示（既定値は config.yaml の ui.tui）")
 	repoCleanupCmd.Flags().BoolVar(&repoCleanupNoTUI, "no-tui", false, "TUI 進捗表示を無効化（設定より優先）")
+	repoCleanupCmd.Flags().StringVar(&repoCleanupLogFile, "log-file", "", "ジョブ実行ログをファイルに保存")
 }
 
 func runRepoCleanup(cmd *cobra.Command, args []string) error {
@@ -108,7 +110,7 @@ func runRepoCleanup(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	execJobs := buildRepoCleanupJobs(root, repoPaths, opts, useTUI)
-	summary := runJobsWithOptionalTUI(ctx, "repo cleanup 進捗", jobs, execJobs, useTUI)
+	summary := runJobsWithOptionalTUI(ctx, "repo cleanup 進捗", jobs, execJobs, useTUI, repoCleanupLogFile)
 
 	printRepoCleanupSummary(summary)
 

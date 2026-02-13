@@ -23,6 +23,7 @@ var (
 	sysTimeout string
 	sysTUI     bool
 	sysNoTUI   bool
+	sysLogFile string
 )
 
 // sysCmd はシステム関連コマンドのルートです
@@ -82,6 +83,7 @@ func init() {
 	sysUpdateCmd.Flags().StringVarP(&sysTimeout, "timeout", "t", "10m", "全体のタイムアウト時間")
 	sysUpdateCmd.Flags().BoolVar(&sysTUI, "tui", false, "Bubble Tea の進捗UIを表示（既定値は config.yaml の ui.tui）")
 	sysUpdateCmd.Flags().BoolVar(&sysNoTUI, "no-tui", false, "TUI 進捗表示を無効化（設定より優先）")
+	sysUpdateCmd.Flags().StringVar(&sysLogFile, "log-file", "", "ジョブ実行ログをファイルに保存")
 }
 
 func runSysUpdate(cmd *cobra.Command, args []string) error {
@@ -349,7 +351,7 @@ func executeUpdatesParallel(ctx context.Context, updaters []updater.Updater, opt
 	)
 
 	execJobs := buildUpdaterJobs(updaters, opts, useTUI, &stats, &statsMu, &outputMu)
-	summary := runJobsWithOptionalTUI(ctx, "sys update 進捗", jobs, execJobs, useTUI)
+	summary := runJobsWithOptionalTUI(ctx, "sys update 進捗", jobs, execJobs, useTUI, sysLogFile)
 
 	if summary.Skipped > 0 {
 		stats.Errors = append(stats.Errors, fmt.Errorf("キャンセルまたはタイムアウトにより %d 件をスキップしました", summary.Skipped))

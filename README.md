@@ -168,6 +168,7 @@ devsync sys update -n # ドライラン（計画のみ表示）
 devsync sys update -j 4 # 4並列で更新
 devsync sys update --tui # Bubble Teaで進捗を表示
 devsync sys update --no-tui # TUIを無効化（設定より優先）
+devsync sys update --log-file sys.log  # 実行ログをファイルに保存
 devsync sys list      # 利用可能なパッケージマネージャを一覧表示
 ```
 
@@ -188,6 +189,7 @@ devsync repo update -j 4  # 4並列で更新
 devsync repo update -n    # ドライラン（計画のみ表示）
 devsync repo update --tui # Bubble Teaで進捗を表示
 devsync repo update --no-tui # TUIを無効化（設定より優先）
+devsync repo update --log-file update.log  # 実行ログをファイルに保存
 devsync repo update --submodule      # submodule更新を強制有効化（設定値を上書き）
 devsync repo update --no-submodule   # submodule更新を強制無効化（設定値を上書き）
 devsync repo list         # 管理下リポジトリの一覧と状態を表示
@@ -288,7 +290,7 @@ devsync run
 `dev-sync` は最初に Bitwarden のアンロックと環境変数注入を実行し、親シェルにも環境変数を反映したうえで `devsync run` を実行します。
 `devsync run` 単体で実行した場合は、サブプロセス内のみ環境変数が注入されます。
 `devsync run` では続けて `sys update` と `repo update` を順次実行します。
-`--dry-run` / `--tui` / `--no-tui` / `--jobs` フラグは `sys update` / `repo update` に伝播されます。
+`--dry-run` / `--tui` / `--no-tui` / `--jobs` / `--log-file` フラグは `sys update` / `repo update` に伝播されます。
 システム更新が失敗してもリポジトリ同期は続行し、全フェーズ完了後にエラーをまとめて報告します。
 
 ### 4. 本実行（通常運用）
