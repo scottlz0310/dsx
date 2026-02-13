@@ -31,8 +31,8 @@ DevSync は、開発環境の運用作業を統合・一元化するためのク
 [Releases ページ](https://github.com/scottlz0310/devsync/releases) からお使いの OS 向けのバイナリをダウンロードして PATH に配置してください。
 
 ```bash
-# 例: Linux amd64
-curl -Lo devsync.tar.gz https://github.com/scottlz0310/devsync/releases/latest/download/devsync_linux_amd64.tar.gz
+# 例: Linux amd64（v0.2.0 の場合）
+curl -Lo devsync.tar.gz https://github.com/scottlz0310/devsync/releases/download/v0.2.0/devsync_0.2.0_linux_amd64.tar.gz
 tar xzf devsync.tar.gz
 sudo mv devsync /usr/local/bin/
 ```
