@@ -137,6 +137,9 @@ func runSysUpdate(cmd *cobra.Command, args []string) error {
 		printUpdateSummary(stats)
 	}
 
+	// 失敗ジョブのエラー詳細を表示
+	printFailedErrors(stats.Errors)
+
 	if len(stats.Errors) > 0 {
 		return fmt.Errorf("%d 件のエラーが発生しました", len(stats.Errors))
 	}

@@ -209,6 +209,9 @@ func runRepoUpdate(cmd *cobra.Command, args []string) error {
 		printRepoUpdateSummary(summary)
 	}
 
+	// 失敗ジョブのエラー詳細を表示
+	printFailedJobDetails(summary)
+
 	if summary.Failed > 0 {
 		return fmt.Errorf("%d 件のリポジトリ更新に失敗しました", summary.Failed)
 	}

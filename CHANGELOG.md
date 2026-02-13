@@ -21,6 +21,7 @@
 - 環境変数読み込み前に `bw sync` を実行し、Bitwarden のキャッシュを最新化する機能を追加
 - 全 Updater（apt/brew/cargo/flatpak/fwupdmgr/npm/pipx/scoop/snap/winget）に fake コマンド方式の Check/Update 統合テストを追加
 - `sys update` / `repo update` の E2E テストを追加（`--tui` フォールバック、`--no-tui`、矛盾フラグエラー、終了コード検証）
+- `sys update` / `repo update` の完了後に失敗ジョブのエラー詳細を表示する機能を追加（TUI/非TUI 両対応）
 
 ### Changed
 
