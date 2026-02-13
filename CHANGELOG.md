@@ -27,6 +27,7 @@
 - `sys update` / `repo update` の E2E テストを追加（`--tui` フォールバック、`--no-tui`、矛盾フラグエラー、終了コード検証）
 - `sys update` / `repo update` の完了後に失敗ジョブのエラー詳細を表示する機能を追加（TUI/非TUI 両対応）
 - `devsync run` に `--dry-run` / `--tui` / `--no-tui` / `--jobs` フラグを追加（sys/repo に伝播）
+- テストカバレッジ改善: `internal/tui` ヘルパー関数テスト追加（32.7% → 56.9%）、`internal/secret` の `mergeEnv` テスト追加、`cmd/devsync` の gh_retry 関数群テスト追加
 
 ### Changed
 

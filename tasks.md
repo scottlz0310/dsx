@@ -132,7 +132,7 @@
     - [x] `internal/secret` のテスト追加（Bitwarden部分はモック）
 - [x] `repo cleanup` (マージ済みブランチ削除) の移植
 - [x] `config show` / `config validate` コマンド
-- [ ] `sys` パッケージマネージャ対応を `sysup` 同等以上へ拡張
+- [x] `sys` パッケージマネージャ対応を `sysup` 同等以上へ拡張
     - [x] 既存実装（`apt` / `brew` / `go` / `npm` / `snap` / `pipx` / `cargo`）との差分棚卸し
     - [x] Linux向け `flatpak` / `fwupdmgr` Updater の実装
     - [x] Node系 `pnpm` / `nvm` Updater の実装
@@ -140,7 +140,7 @@
     - [x] Windows向け `winget` / `scoop` Updater の実装と実機検証
     - [x] `sys list` / `README.md` / `config init` への反映
     - [x] 各Updaterの dry-run / timeout / エラー分類の統合テスト
-- [ ] 通知機能の実装
+- [ ] ~~通知機能の実装~~ (見送り: 現状のTUI・ログ出力で十分)
 - [x] Windows/PowerShell で `config init` がプロファイルパスを文字化けして誤ったフォルダを作成する問題を修正
 - [x] 環境変数読み込み前に `bw sync` を実行してキャッシュを最新化（Issue #47）
 - [x] Linux 環境で TUI 使用時の表示崩れを修正（TUI 前後の stdout 出力抑制）（Issue #47）
@@ -151,10 +151,10 @@
 - [x] `sys update` / `repo update` の E2E テスト整備
     - [x] `--tui` 指定時の終了コードとサマリー整合を確認
     - [x] 非TTY環境での `--tui` 自動フォールバック挙動を確認
-- [ ] TUI UX 改善
+- [x] TUI UX 改善
     - [x] 失敗ジョブの詳細エラー表示（展開表示）を追加
     - [x] 長時間実行向けにログ保存オプション（ファイル出力）を追加
-- [ ] runner イベント基盤の活用拡張
+- [x] runner イベント基盤の活用拡張
     - [x] `devsync run` のフラグ整備（`--dry-run` / `--tui` / `--no-tui` / `--jobs`）と耐障害性改善
-    - [ ] `devsync run`（将来 `tool update`）への進捗UI適用
-    - [ ] 通知機能向けイベントフックの追加
+    - [x] `devsync run`（将来 `tool update`）への進捗UI適用
+    - [ ] ~~通知機能向けイベントフックの追加~~ (見送り: 通知機能と合わせて見送り)

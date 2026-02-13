@@ -268,3 +268,127 @@ func TestSleepWithContext(t *testing.T) {
 		}
 	})
 }
+
+func TestParseRetryAfter(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		stderr  string
+		wantDur time.Duration
+		wantOK  bool
+	}{
+		{"秒数を正しくパース", "Retry-After: 30", 30 * time.Second, true},
+		{"ハイフン区切り", "Retry-After: 5", 5 * time.Second, true},
+		{"スペース区切り", "Retry After: 10", 10 * time.Second, true},
+		{"ヘッダーなし", "some other error", 0, false},
+		{"空文字列", "", 0, false},
+		{"0秒", "Retry-After: 0", 0, false},
+		{"メッセージ中に埋め込み", "error: rate limit exceeded. Retry-After: 60. please wait.", 60 * time.Second, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			dur, ok := parseRetryAfter(tt.stderr)
+			if ok != tt.wantOK {
+				t.Fatalf("parseRetryAfter(%q) ok = %v, want %v", tt.stderr, ok, tt.wantOK)
+			}
+
+			if dur != tt.wantDur {
+				t.Fatalf("parseRetryAfter(%q) dur = %v, want %v", tt.stderr, dur, tt.wantDur)
+			}
+		})
+	}
+}
+
+func TestCalcGhRetryDelay_ExponentialBackoff(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		attempt int
+		stderr  string
+		want    time.Duration
+	}{
+		{"attempt=1、RetryAfterなし", 1, "429 error", 2 * time.Second},
+		{"attempt=2、RetryAfterなし", 2, "429 error", 4 * time.Second},
+		{"attempt=3、RetryAfterなし", 3, "429 error", 8 * time.Second},
+		{"attempt=4、RetryAfterなし", 4, "429 error", 16 * time.Second},
+		{"attempt=5、RetryAfterなし", 5, "429 error", 32 * time.Second},
+		{"attempt=6、最大値にクランプ", 6, "429 error", 60 * time.Second},
+		{"RetryAfter=120は121秒", 1, "Retry-After: 120", 121 * time.Second},
+		{"RetryAfter=1は最小値にクランプ", 1, "Retry-After: 1", 2 * time.Second},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := calcGhRetryDelay(tt.attempt, tt.stderr)
+			if got != tt.want {
+				t.Errorf("calcGhRetryDelay(%d, %q) = %v, want %v", tt.attempt, tt.stderr, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsGitHubRateLimitError(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nilエラー", nil, false},
+		{"too many requests", errors.New("too many requests"), true},
+		{"429含む", errors.New("HTTP 429"), true},
+		{"rate limit", errors.New("API rate limit exceeded"), true},
+		{"secondary rate limit", errors.New("secondary rate limit"), true},
+		{"無関係なエラー", errors.New("permission denied"), false},
+		{"空メッセージ", errors.New(""), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := isGitHubRateLimitError(tt.err)
+			if got != tt.want {
+				t.Errorf("isGitHubRateLimitError(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsRetryableGhError_Extended(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		stderr string
+		want   bool
+	}{
+		{"503 Service Unavailable", "503 Service Unavailable", true},
+		{"504 Gateway Timeout", "504 Gateway Timeout", true},
+		{"service unavailable テキスト", "service unavailable", true},
+		{"gateway timeout テキスト", "gateway timeout", true},
+		{"bad gateway テキスト", "bad gateway", true},
+		{"大文字混在", "TOO MANY REQUESTS", true},
+		{"空白のみ", "   ", false},
+		{"permission denied", "permission denied", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := isRetryableGhError(tt.stderr)
+			if got != tt.want {
+				t.Errorf("isRetryableGhError(%q) = %v, want %v", tt.stderr, got, tt.want)
+			}
+		})
+	}
+}
