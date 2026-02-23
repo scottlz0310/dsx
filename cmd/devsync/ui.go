@@ -57,7 +57,12 @@ func resolveTUIEnabledByTerminal(request tuiRequest, stdoutTTY, stderrTTY bool) 
 }
 
 func isTerminal(file *os.File) bool {
-	return term.IsTerminal(int(file.Fd()))
+	fd := file.Fd()
+	if fd > uintptr(^uint(0)>>1) {
+		return false
+	}
+
+	return term.IsTerminal(int(fd))
 }
 
 func printTUIWarning(warning string) {

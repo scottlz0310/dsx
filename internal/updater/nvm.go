@@ -252,31 +252,27 @@ func lookupFirstExecutable(candidates ...string) (string, error) {
 }
 
 func resolveNvmScriptPath() (string, error) {
-	candidates := make([]string, 0, 2)
-
 	if nvmDir := strings.TrimSpace(os.Getenv("NVM_DIR")); nvmDir != "" {
-		candidates = append(candidates, filepath.Join(nvmDir, "nvm.sh"))
+		return filepath.Join(filepath.Clean(nvmDir), "nvm.sh"), nil
 	}
 
 	home, err := os.UserHomeDir()
-	if err == nil && strings.TrimSpace(home) != "" {
-		candidates = append(candidates, filepath.Join(home, ".nvm", "nvm.sh"))
+	if err != nil || strings.TrimSpace(home) == "" {
+		return "", fmt.Errorf("nvm.sh が見つかりません（NVM_DIR または ~/.nvm）")
 	}
 
-	for _, candidate := range candidates {
-		info, statErr := os.Stat(candidate)
-		if statErr != nil {
-			continue
-		}
+	candidate := filepath.Join(home, ".nvm", "nvm.sh")
 
-		if info.IsDir() {
-			continue
-		}
-
-		return candidate, nil
+	info, statErr := os.Stat(candidate)
+	if statErr != nil {
+		return "", fmt.Errorf("nvm.sh が見つかりません（NVM_DIR または ~/.nvm）")
 	}
 
-	return "", fmt.Errorf("nvm.sh が見つかりません（NVM_DIR または ~/.nvm）")
+	if info.IsDir() {
+		return "", fmt.Errorf("nvm.sh が見つかりません（NVM_DIR または ~/.nvm）")
+	}
+
+	return candidate, nil
 }
 
 func buildUnixNvmCommand(nvmScript string, args ...string) string {

@@ -181,7 +181,7 @@ func (m *model) View() string {
 	builder.WriteString("\n\n")
 
 	success, failed, skipped, running := summarizeStates(m.jobs)
-	builder.WriteString(fmt.Sprintf("成功: %d  失敗: %d  スキップ: %d  実行中: %d  総数: %d", success, failed, skipped, running, len(m.jobs)))
+	fmt.Fprintf(&builder, "成功: %d  失敗: %d  スキップ: %d  実行中: %d  総数: %d", success, failed, skipped, running, len(m.jobs))
 	builder.WriteString("\n\n")
 	builder.WriteString("進捗:\n")
 
@@ -191,7 +191,7 @@ func (m *model) View() string {
 		status := renderStatus(&job)
 		duration := renderDuration(job.Duration)
 
-		builder.WriteString(fmt.Sprintf("  %-24s %s %s %s\n", truncate(job.Name, 24), bar, status, duration))
+		fmt.Fprintf(&builder, "  %-24s %s %s %s\n", truncate(job.Name, 24), bar, status, duration)
 	}
 
 	builder.WriteString("\nログ:\n")

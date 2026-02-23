@@ -220,7 +220,7 @@ func TestPnpmUpdater_Check(t *testing.T) {
 			t.Setenv("DEVSYNC_TEST_PNPM_MODE", tc.mode)
 
 			if tc.mode == "missing_manifest" {
-				globalDir := filepath.Join(t.TempDir(), "pnpm-global")
+				globalDir := filepath.Join(createASCIITempDir(t, "devsync-pnpm-check-"), "pnpm-global")
 				t.Setenv("DEVSYNC_TEST_PNPM_GLOBAL_DIR", globalDir)
 			}
 
@@ -297,7 +297,7 @@ func TestPnpmUpdater_resolveGlobalDir(t *testing.T) {
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 			t.Setenv("DEVSYNC_TEST_PNPM_ROOT_MODE", tt.rootMode)
 
-			baseDir := t.TempDir()
+			baseDir := createASCIITempDir(t, "devsync-pnpm-resolve-")
 			actualGlobalDir := filepath.Join(baseDir, tt.globalDir)
 			t.Setenv("DEVSYNC_TEST_PNPM_GLOBAL_DIR", actualGlobalDir)
 
@@ -341,7 +341,7 @@ func TestPnpmUpdater_ensureGlobalManifest(t *testing.T) {
 			prepareGlobalDir: func(t *testing.T) string {
 				t.Helper()
 
-				return filepath.Join(t.TempDir(), "pnpm-global")
+				return filepath.Join(createASCIITempDir(t, "devsync-pnpm-manifest-"), "pnpm-global")
 			},
 			wantContent: pnpmGlobalManifestContent,
 		},
@@ -351,7 +351,7 @@ func TestPnpmUpdater_ensureGlobalManifest(t *testing.T) {
 			prepareGlobalDir: func(t *testing.T) string {
 				t.Helper()
 
-				globalDir := filepath.Join(t.TempDir(), "pnpm-global-existing")
+				globalDir := filepath.Join(createASCIITempDir(t, "devsync-pnpm-existing-"), "pnpm-global-existing")
 				if mkdirErr := os.MkdirAll(globalDir, 0o755); mkdirErr != nil {
 					t.Fatalf("global dir 作成失敗: %v", mkdirErr)
 				}
@@ -371,7 +371,7 @@ func TestPnpmUpdater_ensureGlobalManifest(t *testing.T) {
 			prepareGlobalDir: func(t *testing.T) string {
 				t.Helper()
 
-				blocker := filepath.Join(t.TempDir(), "blocker")
+				blocker := filepath.Join(createASCIITempDir(t, "devsync-pnpm-blocker-"), "blocker")
 				if writeErr := os.WriteFile(blocker, []byte("x"), 0o644); writeErr != nil {
 					t.Fatalf("blocker 作成失敗: %v", writeErr)
 				}
@@ -390,7 +390,7 @@ func TestPnpmUpdater_ensureGlobalManifest(t *testing.T) {
 			prepareGlobalDir: func(t *testing.T) string {
 				t.Helper()
 
-				return filepath.Join(t.TempDir(), "pnpm-global-error")
+				return filepath.Join(createASCIITempDir(t, "devsync-pnpm-error-"), "pnpm-global-error")
 			},
 			expectErr: true,
 			errContainsAny: []string{
@@ -505,7 +505,7 @@ func TestPnpmUpdater_Update(t *testing.T) {
 
 			manifestPath := ""
 			if tc.mode == "missing_manifest" {
-				globalDir := filepath.Join(t.TempDir(), "pnpm-global")
+				globalDir := filepath.Join(createASCIITempDir(t, "devsync-pnpm-update-"), "pnpm-global")
 				t.Setenv("DEVSYNC_TEST_PNPM_GLOBAL_DIR", globalDir)
 				manifestPath = filepath.Join(globalDir, "package.json")
 			}
@@ -541,6 +541,23 @@ func TestPnpmUpdater_Update(t *testing.T) {
 			}
 		})
 	}
+}
+
+func createASCIITempDir(t *testing.T, pattern string) string {
+	t.Helper()
+
+	dir, err := os.MkdirTemp("", pattern)
+	if err != nil {
+		t.Fatalf("temp dir 作成失敗: %v", err)
+	}
+
+	t.Cleanup(func() {
+		if removeErr := os.RemoveAll(dir); removeErr != nil {
+			t.Errorf("temp dir 削除失敗: %v", removeErr)
+		}
+	})
+
+	return dir
 }
 
 func writeFakePnpmCommand(t *testing.T, dir string) {

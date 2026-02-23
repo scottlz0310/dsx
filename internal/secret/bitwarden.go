@@ -63,7 +63,29 @@ type BitwardenCustomField struct {
 // BitwardenLogin はログイン情報の構造体です。
 type BitwardenLogin struct {
 	Username string `json:"username"`
-	Password string `json:"password"`
+	Secret   string `json:"-"`
+}
+
+// UnmarshalJSON は login.password を Secret に取り込みます。
+func (l *BitwardenLogin) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	if username, ok := raw["username"]; ok {
+		if err := json.Unmarshal(username, &l.Username); err != nil {
+			return fmt.Errorf("login.username の解析に失敗: %w", err)
+		}
+	}
+
+	if password, ok := raw["password"]; ok {
+		if err := json.Unmarshal(password, &l.Secret); err != nil {
+			return fmt.Errorf("login.password の解析に失敗: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // BitwardenStatus は `bw status` の出力構造体です。
@@ -312,7 +334,7 @@ func getEnvValue(item *BitwardenItem) string {
 
 	// フィールドがない場合は login.password をフォールバックとして利用
 	if value == "" && item.Login != nil {
-		value = strings.TrimSpace(item.Login.Password)
+		value = strings.TrimSpace(item.Login.Secret)
 		if value != "" {
 			fmt.Fprintf(os.Stderr, "ℹ️  項目 %s は 'value' フィールドが無いので login.password を利用します\n", item.Name)
 		}
@@ -407,7 +429,7 @@ func GetEnvVars() (map[string]string, error) {
 		value := getCustomFieldValue(item.Fields, "value")
 		// フィールドがない場合は login.password をフォールバック
 		if value == "" && item.Login != nil {
-			value = strings.TrimSpace(item.Login.Password)
+			value = strings.TrimSpace(item.Login.Secret)
 		}
 
 		if value == "" {

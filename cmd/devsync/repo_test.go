@@ -517,16 +517,7 @@ func TestListGitHubRepos(t *testing.T) {
 				t.Fatalf("repoExecCommandStep name = %q, want gh", name)
 			}
 
-			cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=TestHelperProcess", "--")
-
-			cmd.Env = append(os.Environ(),
-				"GO_WANT_HELPER_PROCESS=1",
-				"DEVSYNC_HELPER_STDOUT=",
-				"DEVSYNC_HELPER_STDERR=auth failed\n",
-				"DEVSYNC_HELPER_EXIT_CODE=1",
-			)
-
-			return cmd
+			return helperProcessCommand(ctx, "", "auth failed\n", 1)
 		}
 
 		_, err := listGitHubRepos(context.Background(), "my-org")
@@ -570,16 +561,12 @@ func TestListGitHubRepos(t *testing.T) {
 				t.Fatalf("repoExecCommandStep args = %#v, want %#v", arg, wantArgs)
 			}
 
-			cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=TestHelperProcess", "--")
-
-			cmd.Env = append(os.Environ(),
-				"GO_WANT_HELPER_PROCESS=1",
-				"DEVSYNC_HELPER_STDOUT=[{\"name\":\"devsync\",\"url\":\"https://github.com/scottlz0310/devsync.git\",\"sshUrl\":\"git@github.com:scottlz0310/devsync.git\",\"isArchived\":false}]\n",
-				"DEVSYNC_HELPER_STDERR=",
-				"DEVSYNC_HELPER_EXIT_CODE=0",
+			return helperProcessCommand(
+				ctx,
+				"[{\"name\":\"devsync\",\"url\":\"https://github.com/scottlz0310/devsync.git\",\"sshUrl\":\"git@github.com:scottlz0310/devsync.git\",\"isArchived\":false}]\n",
+				"",
+				0,
 			)
-
-			return cmd
 		}
 
 		got, err := listGitHubRepos(context.Background(), "my-owner")

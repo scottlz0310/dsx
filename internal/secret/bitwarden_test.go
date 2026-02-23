@@ -221,7 +221,7 @@ func TestGetEnvValue(t *testing.T) {
 				Fields: []BitwardenCustomField{},
 				Login: &BitwardenLogin{
 					Username: "user",
-					Password: "password123",
+					Secret:   "password123",
 				},
 			},
 			expected: "password123",
@@ -231,7 +231,7 @@ func TestGetEnvValue(t *testing.T) {
 			item: &BitwardenItem{
 				Name: "env:TEST_VAR",
 				Login: &BitwardenLogin{
-					Password: "  spaced_password  ",
+					Secret: "  spaced_password  ",
 				},
 			},
 			expected: "spaced_password",
@@ -245,7 +245,7 @@ func TestGetEnvValue(t *testing.T) {
 					{Name: "value", Value: "field_value"},
 				},
 				Login: &BitwardenLogin{
-					Password: "login_password",
+					Secret: "login_password",
 				},
 			},
 			expected: "field_value",
@@ -267,7 +267,7 @@ func TestGetEnvValue(t *testing.T) {
 				Name:   "env:TEST_VAR",
 				Fields: []BitwardenCustomField{},
 				Login: &BitwardenLogin{
-					Password: "",
+					Secret: "",
 				},
 			},
 			expected: "",
@@ -278,7 +278,7 @@ func TestGetEnvValue(t *testing.T) {
 				Name:   "env:TEST_VAR",
 				Fields: []BitwardenCustomField{},
 				Login: &BitwardenLogin{
-					Password: "   ",
+					Secret: "   ",
 				},
 			},
 			expected: "",
