@@ -976,7 +976,7 @@ if [[ ! -x "$DSX_PATH" ]] && command -v dsx >/dev/null 2>&1; then
   DSX_PATH="$(command -v dsx)"
 fi
 
-# Bitwarden をこのシェルでアンロック
+# Bitwarden をこのシェルでアンロック（単独使用）
 dsx-unlock() {
   if ! command -v bw >/dev/null 2>&1; then
     echo "bw コマンドが見つかりません" >&2
@@ -1010,37 +1010,43 @@ dsx-unlock() {
   echo "✅ このシェルで Bitwarden をアンロックしました。"
 }
 
-# 環境変数を読み込む関数
-dsx-load-env() {
+# 環境変数を注入する（必要に応じて自動でアンロック）
+dsx-env() {
+  if [[ -z "${BW_SESSION-}" ]]; then
+    echo "🔐 Bitwarden をアンロック中..."
+    dsx-unlock || return 1
+  fi
+
+  echo "🔑 環境変数をシェルへ読み込み中..."
   local env_output
   env_output="$("$DSX_PATH" env export)"
-  local status=$?
-  if [[ $status -ne 0 ]]; then
-    return $status
+  if [[ $? -ne 0 ]]; then
+    return 1
   fi
-
-  eval "$env_output"
-  local eval_status=$?
-  if [[ $eval_status -ne 0 ]]; then
-    return $eval_status
-  fi
-
+  eval "$env_output" || return 1
   export DSX_ENV_LOADED=1
 }
 
-# dev-sync 互換関数（参考実装との互換性）
-dev-sync() {
-  echo "🔐 シークレットをアンロック中..."
-  dsx-unlock || return 1
+# システム更新（環境変数注入 → sys update）
+dsx-sys() {
+  dsx-env || return 1
+  "$DSX_PATH" sys update "$@"
+}
 
-  echo "🔑 環境変数をシェルへ読み込み中..."
-  dsx-load-env || return 1
+# リポジトリ更新（環境変数注入 → repo update）
+dsx-repo() {
+  dsx-env || return 1
+  "$DSX_PATH" repo update "$@"
+}
 
+# 全部実行（環境変数注入 → dsx run）
+dsx-run() {
+  dsx-env || return 1
   echo "🚀 dsx run を実行します..."
   "$DSX_PATH" run "$@"
 }
 
-# dsx の完了を自動ロード（オプション）
+# dsx の補完を自動ロード（オプション）
 # autoload -U compinit && compinit
 `, exePath)
 }
@@ -1056,7 +1062,7 @@ if [[ ! -x "$DSX_PATH" ]] && command -v dsx >/dev/null 2>&1; then
   DSX_PATH="$(command -v dsx)"
 fi
 
-# Bitwarden をこのシェルでアンロック
+# Bitwarden をこのシェルでアンロック（単独使用）
 dsx-unlock() {
   if ! command -v bw >/dev/null 2>&1; then
     echo "bw コマンドが見つかりません" >&2
@@ -1092,32 +1098,38 @@ dsx-unlock() {
   echo "✅ このシェルで Bitwarden をアンロックしました。"
 }
 
-# 環境変数を読み込む関数
-dsx-load-env() {
+# 環境変数を注入する（必要に応じて自動でアンロック）
+dsx-env() {
+  if [ -z "${BW_SESSION-}" ]; then
+    echo "🔐 Bitwarden をアンロック中..."
+    dsx-unlock || return 1
+  fi
+
+  echo "🔑 環境変数をシェルへ読み込み中..."
   local env_output
   env_output="$("$DSX_PATH" env export)"
-  local status=$?
-  if [ $status -ne 0 ]; then
-    return $status
+  if [ $? -ne 0 ]; then
+    return 1
   fi
-
-  eval "$env_output"
-  local eval_status=$?
-  if [ $eval_status -ne 0 ]; then
-    return $eval_status
-  fi
-
+  eval "$env_output" || return 1
   export DSX_ENV_LOADED=1
 }
 
-# dev-sync 互換関数（参考実装との互換性）
-dev-sync() {
-  echo "🔐 シークレットをアンロック中..."
-  dsx-unlock || return 1
+# システム更新（環境変数注入 → sys update）
+dsx-sys() {
+  dsx-env || return 1
+  "$DSX_PATH" sys update "$@"
+}
 
-  echo "🔑 環境変数をシェルへ読み込み中..."
-  dsx-load-env || return 1
+# リポジトリ更新（環境変数注入 → repo update）
+dsx-repo() {
+  dsx-env || return 1
+  "$DSX_PATH" repo update "$@"
+}
 
+# 全部実行（環境変数注入 → dsx run）
+dsx-run() {
+  dsx-env || return 1
   echo "🚀 dsx run を実行します..."
   "$DSX_PATH" run "$@"
 }
@@ -1143,7 +1155,7 @@ if (-not (Test-Path $DSX_PATH)) {
   }
 }
 
-# Bitwarden をこのシェルでアンロック
+# Bitwarden をこのシェルでアンロック（単独使用）
 function dsx-unlock {
   $bw = Get-Command bw -ErrorAction SilentlyContinue
   if (-not $bw) {
@@ -1177,8 +1189,14 @@ function dsx-unlock {
   return $true
 }
 
-# 環境変数を読み込む関数
-function dsx-load-env {
+# 環境変数を注入する（必要に応じて自動でアンロック）
+function dsx-env {
+  if (-not $env:BW_SESSION) {
+    Write-Host "🔐 Bitwarden をアンロック中..." -ForegroundColor Cyan
+    if (-not (dsx-unlock)) { return $false }
+  }
+
+  Write-Host "🔑 環境変数をシェルへ読み込み中..." -ForegroundColor Cyan
   $envExports = & $DSX_PATH env export
   if ($LASTEXITCODE -ne 0) { return $false }
 
@@ -1199,14 +1217,23 @@ function dsx-load-env {
   return $true
 }
 
-# dev-sync 互換関数（参考実装との互換性）
-function dev-sync {
-  Write-Host "🔐 シークレットをアンロック中..." -ForegroundColor Cyan
-  if (-not (dsx-unlock)) { return 1 }
+# システム更新（環境変数注入 → sys update）
+function dsx-sys {
+  if (-not (dsx-env)) { return 1 }
+  & $DSX_PATH sys update @args
+  return $LASTEXITCODE
+}
 
-  Write-Host "🔑 環境変数をシェルへ読み込み中..." -ForegroundColor Cyan
-  if (-not (dsx-load-env)) { return 1 }
+# リポジトリ更新（環境変数注入 → repo update）
+function dsx-repo {
+  if (-not (dsx-env)) { return 1 }
+  & $DSX_PATH repo update @args
+  return $LASTEXITCODE
+}
 
+# 全部実行（環境変数注入 → dsx run）
+function dsx-run {
+  if (-not (dsx-env)) { return 1 }
   Write-Host "🚀 dsx run を実行します..." -ForegroundColor Cyan
   & $DSX_PATH run @args
   return $LASTEXITCODE

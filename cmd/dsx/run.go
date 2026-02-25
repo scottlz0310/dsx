@@ -161,7 +161,7 @@ func printPhaseErrors(phaseErrors []phaseError) {
 }
 
 // runSecretsPhase は secrets 設定に応じて Bitwarden のアンロックと環境変数読み込みを実行します。
-// dev-sync シェル関数経由で既にアンロック済みの場合、重複する bw 呼び出しをスキップします。
+// dsx-env シェル関数経由で既にアンロック済みの場合、重複する bw 呼び出しをスキップします。
 func runSecretsPhase(cfg *config.Config) {
 	if !cfg.Secrets.Enabled {
 		fmt.Println("ℹ️  シークレット管理は無効です（secrets.enabled=false）")
@@ -184,7 +184,7 @@ func runSecretsPhase(cfg *config.Config) {
 
 	fmt.Println()
 
-	// シェル関数側（dsx-load-env）で環境変数が既に設定済みかを判定し、
+	// シェル関数側（dsx-env）で環境変数が既に設定済みかを判定し、
 	// 設定済みなら bw list items の再実行をスキップする。
 	if isEnvAlreadyLoaded() {
 		fmt.Println("ℹ️  環境変数はシェル側で読み込み済みです（bw 再取得をスキップ）")
@@ -208,7 +208,7 @@ func runSecretsPhase(cfg *config.Config) {
 	fmt.Println()
 }
 
-// isEnvAlreadyLoaded はシェル関数（dsx-load-env）により設定されるマーカー環境変数
+// isEnvAlreadyLoaded はシェル関数（dsx-env）により設定されるマーカー環境変数
 // DSX_ENV_LOADED が "1" の場合、bw list items の再実行をスキップします。
 func isEnvAlreadyLoaded() bool {
 	return os.Getenv("DSX_ENV_LOADED") == "1"
