@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [v0.2.0-alpha] - 2026-02-25
+
 ### Added
 
 - `sys update` / `repo update` / `repo cleanup` / `dsx run` に `--log-file` フラグを追加（ジョブ実行ログをファイルに保存）
@@ -196,5 +198,6 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.1.0-alpha...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.2.0-alpha...HEAD
+[v0.2.0-alpha]: https://github.com/scottlz0310/dsx/compare/v0.1.0-alpha...v0.2.0-alpha
 [v0.1.0-alpha]: https://github.com/scottlz0310/dsx/releases/tag/v0.1.0-alpha
