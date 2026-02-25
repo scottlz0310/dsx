@@ -19,9 +19,9 @@ const (
 // syncFunc はテストで差し替え可能な同期処理の関数変数です。
 var syncFunc = Sync
 
-// debugLog はデバッグログを出力します。DEVSYNC_DEBUG=1 で有効化されます。
+// debugLog はデバッグログを出力します。DSX_DEBUG=1 で有効化されます。
 func debugLog(format string, args ...interface{}) {
-	if os.Getenv("DEVSYNC_DEBUG") != "1" {
+	if os.Getenv("DSX_DEBUG") != "1" {
 		return
 	}
 
@@ -31,7 +31,7 @@ func debugLog(format string, args ...interface{}) {
 
 // debugTimerStart はデバッグ計測用タイマーを開始します。
 func debugTimerStart(label string) func() {
-	if os.Getenv("DEVSYNC_DEBUG") != "1" {
+	if os.Getenv("DSX_DEBUG") != "1" {
 		return func() {}
 	}
 
@@ -363,7 +363,7 @@ func printLoadStats(stats *LoadStats) error {
 }
 
 // GetEnvVars はBitwardenから環境変数を取得し、map形式で返します。
-// devsync env export コマンドで使用します。
+// dsx env export コマンドで使用します。
 func GetEnvVars() (map[string]string, error) {
 	defer debugTimerStart("GetEnvVars 全体")()
 

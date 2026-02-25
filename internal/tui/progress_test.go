@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/scottlz0310/devsync/internal/runner"
+	"github.com/scottlz0310/dsx/internal/runner"
 )
 
 func TestModelApplyEvent(t *testing.T) {

@@ -22,7 +22,7 @@ task fmt            # gofmt -s -w .
 
 ```bash
 go test ./internal/updater/... -run TestAptUpdate -v
-go test ./cmd/devsync/... -run TestDoctor -v
+go test ./cmd/dsx/... -run TestDoctor -v
 ```
 
 ## アーキテクチャ
@@ -30,7 +30,7 @@ go test ./cmd/devsync/... -run TestDoctor -v
 ### ディレクトリ構成
 
 ```
-cmd/devsync/       CLI エントリポイント（Cobra コマンド定義・ジョブ実行）
+cmd/dsx/       CLI エントリポイント（Cobra コマンド定義・ジョブ実行）
 internal/
   config/          YAML 設定の読み込み・保存・バリデーション（Viper）
   updater/         パッケージマネージャ更新（Updater インターフェース + レジストリ）

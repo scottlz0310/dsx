@@ -17,7 +17,7 @@ func TestRunWithEnv(t *testing.T) {
 	})
 
 	t.Run("コマンドが見つからない場合はエラー", func(t *testing.T) {
-		err := RunWithEnv([]string{"definitely-not-a-real-command-devsync"}, nil)
+		err := RunWithEnv([]string{"definitely-not-a-real-command-dsx"}, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "が見つかりません")
 	})
@@ -33,7 +33,7 @@ func TestRunWithEnv(t *testing.T) {
 		require.NoError(t, err)
 
 		// 事前に異なる値を設定しておき、注入値が優先されることも合わせて確認します。
-		t.Setenv("DEVSYNC_TEST", "0")
+		t.Setenv("DSX_TEST", "0")
 
 		args := []string{
 			exe,
@@ -41,8 +41,8 @@ func TestRunWithEnv(t *testing.T) {
 		}
 
 		envVars := map[string]string{
-			"DEVSYNC_TEST_HELPER_PROCESS": "1",
-			"DEVSYNC_TEST":                "1",
+			"DSX_TEST_HELPER_PROCESS": "1",
+			"DSX_TEST":                "1",
 		}
 
 		require.NoError(t, RunWithEnv(args, envVars))
@@ -58,8 +58,8 @@ func TestRunWithEnv(t *testing.T) {
 		}
 
 		envVars := map[string]string{
-			"DEVSYNC_TEST_HELPER_PROCESS": "1",
-			"DEVSYNC_TEST":                "0",
+			"DSX_TEST_HELPER_PROCESS": "1",
+			"DSX_TEST":                "0",
 		}
 
 		require.Error(t, RunWithEnv(args, envVars))
@@ -67,11 +67,11 @@ func TestRunWithEnv(t *testing.T) {
 }
 
 func TestRunWithEnvHelperProcess(t *testing.T) {
-	if os.Getenv("DEVSYNC_TEST_HELPER_PROCESS") != "1" {
+	if os.Getenv("DSX_TEST_HELPER_PROCESS") != "1" {
 		return
 	}
 
-	if os.Getenv("DEVSYNC_TEST") != "1" {
+	if os.Getenv("DSX_TEST") != "1" {
 		os.Exit(1)
 	}
 

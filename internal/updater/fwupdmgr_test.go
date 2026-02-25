@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/scottlz0310/devsync/internal/config"
+	"github.com/scottlz0310/dsx/internal/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -278,7 +278,7 @@ func TestFwupdmgrUpdater_Check(t *testing.T) {
 			writeFakeFwupdmgrCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_FWUPDMGR_MODE", tc.mode)
+			t.Setenv("DSX_TEST_FWUPDMGR_MODE", tc.mode)
 
 			f := &FwupdmgrUpdater{}
 			got, err := f.Check(context.Background())
@@ -350,7 +350,7 @@ func TestFwupdmgrUpdater_Update(t *testing.T) {
 			writeFakeFwupdmgrCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_FWUPDMGR_MODE", tc.mode)
+			t.Setenv("DSX_TEST_FWUPDMGR_MODE", tc.mode)
 
 			f := &FwupdmgrUpdater{}
 			got, err := f.Update(context.Background(), tc.opts)
@@ -388,7 +388,7 @@ func writeFakeFwupdmgrCommand(t *testing.T, dir string) {
 	if runtime.GOOS == "windows" {
 		fileName = "fwupdmgr.cmd"
 		content = `@echo off
-set mode=%DEVSYNC_TEST_FWUPDMGR_MODE%
+set mode=%DSX_TEST_FWUPDMGR_MODE%
 if "%1"=="get-updates" goto get_updates
 if "%1"=="update" goto update
 >&2 echo invalid args
@@ -414,7 +414,7 @@ exit /b 0
 	} else {
 		fileName = "fwupdmgr"
 		content = `#!/bin/sh
-mode="${DEVSYNC_TEST_FWUPDMGR_MODE}"
+mode="${DSX_TEST_FWUPDMGR_MODE}"
 if [ "$1" = "get-updates" ]; then
   if [ "${mode}" = "check_error" ]; then
     echo "fwupdmgr get-updates error" 1>&2

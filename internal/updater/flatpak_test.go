@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/scottlz0310/devsync/internal/config"
+	"github.com/scottlz0310/dsx/internal/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -199,7 +199,7 @@ func TestFlatpakUpdater_Check(t *testing.T) {
 
 			pathValue := fakeDir + string(os.PathListSeparator) + os.Getenv("PATH")
 			t.Setenv("PATH", pathValue)
-			t.Setenv("DEVSYNC_TEST_FLATPAK_MODE", tc.mode)
+			t.Setenv("DSX_TEST_FLATPAK_MODE", tc.mode)
 
 			f := &FlatpakUpdater{}
 			got, err := f.Check(context.Background())
@@ -237,7 +237,7 @@ for %%a in (%*) do (
   if "%%a"=="remote-ls" set "subcmd=remote-ls"
   if "%%a"=="update" set "subcmd=update"
 )
-if "%DEVSYNC_TEST_FLATPAK_MODE%"=="success_with_stderr" (
+if "%DSX_TEST_FLATPAK_MODE%"=="success_with_stderr" (
   if "!subcmd!"=="remote-ls" (
     >&2 echo warning from stderr
     echo Application ID  Version
@@ -245,13 +245,13 @@ if "%DEVSYNC_TEST_FLATPAK_MODE%"=="success_with_stderr" (
     exit /b 0
   )
 )
-if "%DEVSYNC_TEST_FLATPAK_MODE%"=="failure_with_stderr" (
+if "%DSX_TEST_FLATPAK_MODE%"=="failure_with_stderr" (
   if "!subcmd!"=="remote-ls" (
     >&2 echo fatal issue
     exit /b 1
   )
 )
-if "%DEVSYNC_TEST_FLATPAK_MODE%"=="updates" (
+if "%DSX_TEST_FLATPAK_MODE%"=="updates" (
   if "!subcmd!"=="remote-ls" (
     echo org.mozilla.firefox 122.0
     echo org.gnome.Calculator 44.0
@@ -261,7 +261,7 @@ if "%DEVSYNC_TEST_FLATPAK_MODE%"=="updates" (
     exit /b 0
   )
 )
-if "%DEVSYNC_TEST_FLATPAK_MODE%"=="update_error" (
+if "%DSX_TEST_FLATPAK_MODE%"=="update_error" (
   if "!subcmd!"=="remote-ls" (
     echo org.mozilla.firefox 122.0
     exit /b 0
@@ -271,7 +271,7 @@ if "%DEVSYNC_TEST_FLATPAK_MODE%"=="update_error" (
     exit /b 1
   )
 )
-if "%DEVSYNC_TEST_FLATPAK_MODE%"=="none" (
+if "%DSX_TEST_FLATPAK_MODE%"=="none" (
   if "!subcmd!"=="remote-ls" (
     exit /b 0
   )
@@ -282,7 +282,7 @@ exit /b 0
 	} else {
 		fileName = "flatpak"
 		content = `#!/bin/sh
-mode="${DEVSYNC_TEST_FLATPAK_MODE}"
+mode="${DSX_TEST_FLATPAK_MODE}"
 subcmd=""
 for arg in "$@"; do
   case "$arg" in
@@ -399,7 +399,7 @@ func TestFlatpakUpdater_Update(t *testing.T) {
 
 			pathValue := fakeDir + string(os.PathListSeparator) + os.Getenv("PATH")
 			t.Setenv("PATH", pathValue)
-			t.Setenv("DEVSYNC_TEST_FLATPAK_MODE", tc.mode)
+			t.Setenv("DSX_TEST_FLATPAK_MODE", tc.mode)
 
 			f := &FlatpakUpdater{}
 			got, err := f.Update(context.Background(), tc.opts)

@@ -8,7 +8,7 @@
 
 ### Added
 
-- `sys update` / `repo update` / `repo cleanup` / `devsync run` に `--log-file` フラグを追加（ジョブ実行ログをファイルに保存）
+- `sys update` / `repo update` / `repo cleanup` / `dsx run` に `--log-file` フラグを追加（ジョブ実行ログをファイルに保存）
 - GoReleaser によるクロスプラットフォームビルドとリリース自動化を追加（Linux/macOS/Windows）
 - GitHub Actions リリースワークフロー（`v*` タグプッシュで自動リリース）を追加
 - `task snapshot` / `task release:check` タスクを追加（ローカルでのリリースビルド検証）
@@ -26,17 +26,17 @@
 - 全 Updater（apt/brew/cargo/flatpak/fwupdmgr/npm/pipx/scoop/snap/winget）に fake コマンド方式の Check/Update 統合テストを追加
 - `sys update` / `repo update` の E2E テストを追加（`--tui` フォールバック、`--no-tui`、矛盾フラグエラー、終了コード検証）
 - `sys update` / `repo update` の完了後に失敗ジョブのエラー詳細を表示する機能を追加（TUI/非TUI 両対応）
-- `devsync run` に `--dry-run` / `--tui` / `--no-tui` / `--jobs` フラグを追加（sys/repo に伝播）
-- テストカバレッジ改善: `internal/tui` ヘルパー関数テスト追加（32.7% → 56.9%）、`internal/secret` の `mergeEnv` テスト追加、`cmd/devsync` の gh_retry 関数群テスト追加
+- `dsx run` に `--dry-run` / `--tui` / `--no-tui` / `--jobs` フラグを追加（sys/repo に伝播）
+- テストカバレッジ改善: `internal/tui` ヘルパー関数テスト追加（32.7% → 56.9%）、`internal/secret` の `mergeEnv` テスト追加、`cmd/dsx` の gh_retry 関数群テスト追加
 
 ### Changed
 
 - バージョン管理をハードコード (`const appVersion`) からビルド時 ldflags 注入 (`-X main.version`) 方式に変更
-- `devsync run` の Bitwarden 重複呼び出しを削減：シェル関数側で既にアンロック済み・環境変数読み込み済みの場合、Go バイナリ側で `bw status` / `bw list items` の再実行をスキップ（`DEVSYNC_ENV_LOADED` マーカーにより判定）
-- `devsync run` で `secrets.enabled` 設定を参照し、シークレット管理が無効な場合は bw 操作を完全にスキップするよう改善
-- `devsync run` で Bitwarden アンロック失敗時に処理を中断せず、シークレット読み込みをスキップしてシステム更新・リポジトリ同期を続行するよう改善
-- `devsync run` でシステム更新失敗時もリポジトリ同期を続行し、全フェーズ完了後にエラーをまとめて報告するよう改善
-- `DEVSYNC_DEBUG=1` 環境変数で bw コマンドの実行時刻・所要時間をタイムスタンプ付きで出力するデバッグログを追加
+- `dsx run` の Bitwarden 重複呼び出しを削減：シェル関数側で既にアンロック済み・環境変数読み込み済みの場合、Go バイナリ側で `bw status` / `bw list items` の再実行をスキップ（`dsx_ENV_LOADED` マーカーにより判定）
+- `dsx run` で `secrets.enabled` 設定を参照し、シークレット管理が無効な場合は bw 操作を完全にスキップするよう改善
+- `dsx run` で Bitwarden アンロック失敗時に処理を中断せず、シークレット読み込みをスキップしてシステム更新・リポジトリ同期を続行するよう改善
+- `dsx run` でシステム更新失敗時もリポジトリ同期を続行し、全フェーズ完了後にエラーをまとめて報告するよう改善
+- `dsx_DEBUG=1` 環境変数で bw コマンドの実行時刻・所要時間をタイムスタンプ付きで出力するデバッグログを追加
 - `repo update` のリポジトリ安全性チェック（isDirty/hasStash/isDetachedHEAD）を並列実行に変更し、リポジトリあたりの待ち時間を削減
 - `repo update` の安全性チェックと upstream 確認を fetch 完了後に並列実行するよう改善
 - `README.md` に Alpha の既知の制約、`setup-repo` 併用の推奨運用、復旧手順（`config init` 再実行 / `repo.root` 見直し）を追記
@@ -46,15 +46,15 @@
 - `config init` のシステムマネージャ選択肢に `flatpak` / `fwupdmgr` を追加
 - `config init` のシステムマネージャ選択肢に `pnpm` / `nvm` を追加
 - `config init` のシステムマネージャ選択肢に `uv` / `rustup` / `gem` を追加
-- CLI バージョン番号を `v0.1.0-alpha` に設定し、`devsync --version` で確認可能に変更
-- PowerShell 連携スクリプトの `devsync-load-env` で `env export` の複数行出力を正しく連結して `Invoke-Expression` に渡すよう修正（`System.Object[]` 型エラーを解消）
-- PowerShell 連携スクリプトの `dev-sync` で `devsync-unlock` / `devsync-load-env` の成否判定を `$LASTEXITCODE` 依存から関数戻り値判定に変更し、失敗時に後続処理へ進まないよう修正
+- CLI バージョン番号を `v0.1.0-alpha` に設定し、`dsx --version` で確認可能に変更
+- PowerShell 連携スクリプトの `dsx-load-env` で `env export` の複数行出力を正しく連結して `Invoke-Expression` に渡すよう修正（`System.Object[]` 型エラーを解消）
+- PowerShell 連携スクリプトの `dev-sync` で `dsx-unlock` / `dsx-load-env` の成否判定を `$LASTEXITCODE` 依存から関数戻り値判定に変更し、失敗時に後続処理へ進まないよう修正
 - `repo update` のジョブ表示名を Windows でも `/` 区切りで表示するよう統一
 - `repo update` で未コミット変更（tracked/untracked）/stash 残存/detached HEAD を検出した場合、pull/submodule を行わず安全側にスキップして理由を表示するよう改善
 - `repo update` でデフォルトブランチ以外を追跡している場合、pull/submodule を行わず安全側にスキップするよう改善
 ### Fixed
 
-- `devsync env export` 実行時に読み込んだ環境変数の件数が表示されない問題を修正（stderr に統計情報を出力）
+- `dsx env export` 実行時に読み込んだ環境変数の件数が表示されない問題を修正（stderr に統計情報を出力）
 - Windows 環境で `go test ./...` が失敗する問題を修正（ホームディレクトリ環境変数のテスト分離、`gh` 実行モックの Windows 互換化など）
 - Windows/PowerShell 環境で `config init` が PowerShell プロファイルパスを文字化けして誤ったフォルダを作成する問題を修正（Base64 経由で取得）
 - Windows 環境で Git の `core.autocrlf` により Go ファイルが CRLF になり `task lint` の gofmt チェックが失敗する問題を回避（`.gitattributes` で LF 固定）
@@ -74,18 +74,18 @@
 ### Added
 
 #### コアコマンド
-- `devsync run` - 日次の統合タスク実行（Bitwarden解錠→環境変数読込→更新処理）
-- `devsync doctor` - 依存ツール（git, gh, bw）と環境設定の診断機能
+- `dsx run` - 日次の統合タスク実行（Bitwarden解錠→環境変数読込→更新処理）
+- `dsx doctor` - 依存ツール（git, gh, bw）と環境設定の診断機能
 
 #### システム更新機能 (`sys`)
-- `devsync sys update` - パッケージマネージャによる一括更新
+- `dsx sys update` - パッケージマネージャによる一括更新
   - `--dry-run` / `-n` フラグでドライラン対応
   - `--verbose` / `-v` フラグで詳細ログ出力
   - `--jobs` / `-j` フラグで並列実行数の指定に対応
   - `--timeout` / `-t` フラグでタイムアウト設定
   - `--tui` フラグで Bubble Tea による進捗表示（マルチ進捗バー・リアルタイムログ・失敗ハイライト）に対応
   - `apt` を単独実行に分離し、他マネージャは並列実行可能に改善
-- `devsync sys list` - 利用可能なパッケージマネージャの一覧表示
+- `dsx sys list` - 利用可能なパッケージマネージャの一覧表示
 - 対応パッケージマネージャ:
   - `apt` (Debian/Ubuntu)
   - `brew` (macOS/Linux Homebrew)
@@ -97,14 +97,14 @@
 - 拡張可能な Updater インターフェースとレジストリパターンの採用
 
 #### リポジトリ管理機能 (`repo`)
-- `devsync repo update` - 管理下リポジトリを一括更新
+- `dsx repo update` - 管理下リポジトリを一括更新
   - `git fetch --all` / `git pull --rebase` を実行
   - `--jobs` / `-j` フラグで並列更新に対応
   - `--dry-run` / `-n` フラグで更新計画の確認に対応
   - `--tui` フラグで Bubble Tea による進捗表示（マルチ進捗バー・リアルタイムログ・失敗ハイライト）に対応
   - `--submodule` / `--no-submodule` フラグで submodule 更新設定を明示上書き可能
   - DryRun 時も upstream 有無を確認し、`pull` 計画表示を実挙動と一致させるよう改善
-- `devsync repo list` - 管理下リポジトリの一覧表示
+- `dsx repo list` - 管理下リポジトリの一覧表示
   - `config.yaml` の `repo.root` 配下をスキャン
   - `--root` フラグでスキャンルートを上書き可能
   - ステータス表示（クリーン / ダーティ / 未プッシュ / 追跡なし）
@@ -115,24 +115,24 @@
 - `internal/runner` を追加（`errgroup + semaphore` による並列実行・結果集計）
 
 #### 環境変数機能 (`env`)
-- `devsync env export` - Bitwardenから環境変数をシェル形式でエクスポート
-  - bash/zsh: `eval "$(devsync env export)"`
-  - PowerShell: `& devsync env export | Invoke-Expression`
+- `dsx env export` - Bitwardenから環境変数をシェル形式でエクスポート
+  - bash/zsh: `eval "$(dsx env export)"`
+  - PowerShell: `& dsx env export | Invoke-Expression`
   - 安全なクオート/エスケープ処理
-- `devsync env run` - 環境変数を注入してサブプロセスでコマンド実行
+- `dsx env run` - 環境変数を注入してサブプロセスでコマンド実行
   - `eval` を使わない安全な実行方式
   - 終了コードの正確な伝播
 
 #### 設定管理機能 (`config`)
-- `devsync config init` - 対話形式（survey）による設定ファイル生成ウィザード
+- `dsx config init` - 対話形式（survey）による設定ファイル生成ウィザード
   - リポジトリルートディレクトリ
   - GitHubオーナー名
   - 並列実行数
   - 有効化するパッケージマネージャの選択
   - シェル初期化スクリプトの自動設定
-- `devsync config uninstall` - シェル設定からdevsyncを削除
-- YAML形式の設定ファイル (`~/.config/devsync/config.yaml`)
-- 環境変数 (`DEVSYNC_*`) によるオーバーライド対応
+- `dsx config uninstall` - シェル設定からdsxを削除
+- YAML形式の設定ファイル (`~/.config/dsx/config.yaml`)
+- 環境変数 (`dsx_*`) によるオーバーライド対応
 
 #### Bitwarden連携 (`internal/secret`)
 - Bitwarden CLI (`bw`) ラッパーの実装
@@ -147,7 +147,7 @@
 ### Changed
 
 - 初回運用時の導線を改善
-  - `repo list` / `repo update` で `repo.root` が未存在かつ設定未初期化の場合、`devsync config init` を明示的に案内
+  - `repo list` / `repo update` で `repo.root` が未存在かつ設定未初期化の場合、`dsx config init` を明示的に案内
   - `doctor` で「設定ファイルあり / なし（デフォルト値運用）」を区別して表示
 - コマンドエラーの二重表示を解消（`rootCmd` のエラー出力ポリシーを整理）
 - `sys list` の「有効」列を `✅/❌` 表示に変更
@@ -157,15 +157,15 @@
 - `apt` / `snap` の manager 設定で `use_sudo` と旧キー `sudo` の両方を受け付けるよう改善
 - `snap` の可用性判定を強化し、`snapd unavailable` の環境では利用不可として自動スキップするよう改善
 - `config init` が生成するシェル連携スクリプトを改善
-  - `devsync-load-env` が `devsync env export` の失敗時に正しく終了コードを返すよう修正
-  - `dev-sync` 互換関数を `Bitwarden 解錠 → 環境変数を親シェルへ読み込み → devsync run` の順で実行するよう改善
-  - 設定された実行パスが無効な場合に `command -v devsync`（PowerShell は `Get-Command`）へフォールバック
+  - `dsx-load-env` が `dsx env export` の失敗時に正しく終了コードを返すよう修正
+  - `dev-sync` 互換関数を `Bitwarden 解錠 → 環境変数を親シェルへ読み込み → dsx run` の順で実行するよう改善
+  - 設定された実行パスが無効な場合に `command -v dsx`（PowerShell は `Get-Command`）へフォールバック
 - `config init` で指定した `repo.root` が未存在の場合に作成確認を追加（拒否時は保存せず終了）
 - `config init` の GitHub オーナー入力で `gh auth` のログインユーザーを自動補完するよう改善（手動入力は上書き可能）
 - `config init` 実行時に既存 `config.yaml` があれば現在値を初期値として再編集できるよう改善
-- `devsync run` の `sys` / `repo` セクションをプレースホルダーから実処理に置き換え、`sys update` → `repo update` を順次実行するよう改善
+- `dsx run` の `sys` / `repo` セクションをプレースホルダーから実処理に置き換え、`sys update` → `repo update` を順次実行するよう改善
 - `repo update` で `repo.github.owner` を参照し、`repo.root` 配下で不足しているリポジトリを clone したうえで更新を継続するよう改善（dry-run は計画表示のみ）
-- README の初回セットアップ手順に `devsync config init` 必須を明記
+- README の初回セットアップ手順に `dsx config init` 必須を明記
 
 ### Infrastructure
 
@@ -196,5 +196,5 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/devsync/compare/v0.1.0-alpha...HEAD
-[v0.1.0-alpha]: https://github.com/scottlz0310/devsync/releases/tag/v0.1.0-alpha
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.1.0-alpha...HEAD
+[v0.1.0-alpha]: https://github.com/scottlz0310/dsx/releases/tag/v0.1.0-alpha

@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/scottlz0310/devsync/internal/config"
-	"github.com/scottlz0310/devsync/internal/runner"
-	"github.com/scottlz0310/devsync/internal/updater"
+	"github.com/scottlz0310/dsx/internal/config"
+	"github.com/scottlz0310/dsx/internal/runner"
+	"github.com/scottlz0310/dsx/internal/updater"
 	"github.com/spf13/cobra"
 )
 
@@ -57,10 +57,10 @@ var sysUpdateCmd = &cobra.Command{
   - gem       (Ruby Gems)
 
 例:
-  devsync sys update           # 設定に基づいて更新
-  devsync sys update --dry-run # 更新計画のみ表示
-  devsync sys update -v        # 詳細ログを表示
-  devsync sys update --jobs 4  # 4並列で更新`,
+  dsx sys update           # 設定に基づいて更新
+  dsx sys update --dry-run # 更新計画のみ表示
+  dsx sys update -v        # 詳細ログを表示
+  dsx sys update --jobs 4  # 4並列で更新`,
 	RunE: runSysUpdate,
 }
 

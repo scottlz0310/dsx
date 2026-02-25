@@ -212,7 +212,7 @@ func TestScoopUpdater_Check(t *testing.T) {
 			writeFakeScoopCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_SCOOP_MODE", tc.mode)
+			t.Setenv("DSX_TEST_SCOOP_MODE", tc.mode)
 
 			s := &ScoopUpdater{}
 			got, err := s.Check(context.Background())
@@ -284,7 +284,7 @@ func TestScoopUpdater_Update(t *testing.T) {
 			writeFakeScoopCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_SCOOP_MODE", tc.mode)
+			t.Setenv("DSX_TEST_SCOOP_MODE", tc.mode)
 
 			s := &ScoopUpdater{}
 			got, err := s.Update(context.Background(), tc.opts)
@@ -322,7 +322,7 @@ func writeFakeScoopCommand(t *testing.T, dir string) {
 	if runtime.GOOS == "windows" {
 		fileName = "scoop.cmd"
 		content = `@echo off
-set mode=%DEVSYNC_TEST_SCOOP_MODE%
+set mode=%DSX_TEST_SCOOP_MODE%
 if "%1"=="status" goto dostatus
 if not "%1"=="update" (
   echo invalid args 1>&2
@@ -358,7 +358,7 @@ exit /b 0
 	} else {
 		fileName = "scoop"
 		content = `#!/bin/sh
-mode="${DEVSYNC_TEST_SCOOP_MODE}"
+mode="${DSX_TEST_SCOOP_MODE}"
 if [ "$1" = "update" ]; then
   # --all 付きなら実際の更新
   has_all=false

@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/scottlz0310/devsync/internal/config"
+	"github.com/scottlz0310/dsx/internal/config"
 )
 
 // BrewUpdater は Homebrew パッケージマネージャの実装です。

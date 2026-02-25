@@ -119,7 +119,7 @@ func TestCargoUpdater_Check(t *testing.T) {
 			writeFakeCargoCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_CARGO_MODE", tc.mode)
+			t.Setenv("DSX_TEST_CARGO_MODE", tc.mode)
 
 			c := &CargoUpdater{}
 			got, err := c.Check(context.Background())
@@ -187,7 +187,7 @@ func TestCargoUpdater_Update(t *testing.T) {
 			writeFakeCargoCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_CARGO_MODE", tc.mode)
+			t.Setenv("DSX_TEST_CARGO_MODE", tc.mode)
 
 			c := &CargoUpdater{}
 			got, err := c.Update(context.Background(), tc.opts)
@@ -218,7 +218,7 @@ func writeFakeCargoCommand(t *testing.T, dir string) {
 	if runtime.GOOS == "windows" {
 		// fake cargo.cmd
 		cargoContent := `@echo off
-set mode=%DEVSYNC_TEST_CARGO_MODE%
+set mode=%DSX_TEST_CARGO_MODE%
 if "%1"=="install" goto doinstall
 if "%1"=="install-update" goto doinstallupdate
 echo invalid args 1>&2
@@ -273,7 +273,7 @@ exit /b 0
 	} else {
 		// fake cargo
 		cargoContent := `#!/bin/sh
-mode="${DEVSYNC_TEST_CARGO_MODE}"
+mode="${DSX_TEST_CARGO_MODE}"
 case "$1" in
   install)
     case "$2" in

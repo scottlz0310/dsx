@@ -2,7 +2,7 @@
 version: '3'
 
 vars:
-  BINARY_NAME: devsync{{if eq OS "windows"}}.exe{{end}}
+  BINARY_NAME: dsx{{if eq OS "windows"}}.exe{{end}}
   DIST_DIR: dist
   GO_PACKAGES: ./cmd/... ./internal/...
 
@@ -18,7 +18,7 @@ tasks:
   build:
     desc: バイナリをビルド（dist/に出力）
     cmds:
-      - go build -ldflags "-X main.version=dev" -o {{.DIST_DIR}}/{{.BINARY_NAME}} ./cmd/devsync
+      - go build -ldflags "-X main.version=dev" -o {{.DIST_DIR}}/{{.BINARY_NAME}} ./cmd/dsx
     sources:
       - ./**/*.go
     generates:
@@ -33,7 +33,7 @@ tasks:
   install:
     desc: go install でバイナリをインストール
     cmds:
-      - go install ./cmd/devsync
+      - go install ./cmd/dsx
 
   clean:
     desc: ビルド成果物を削除

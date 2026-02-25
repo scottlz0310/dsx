@@ -53,7 +53,7 @@ func TestEventLogger_基本的なイベント記録(t *testing.T) {
 		name     string
 		contains string
 	}{
-		{"ヘッダー", "# devsync ジョブログ"},
+		{"ヘッダー", "# dsx ジョブログ"},
 		{"キュー", "[QUEUED]"},
 		{"開始", "[STARTED]"},
 		{"成功", "[SUCCESS]"},

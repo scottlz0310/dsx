@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/scottlz0310/devsync/internal/testutil"
+	"github.com/scottlz0310/dsx/internal/testutil"
 )
 
 // setupEmptyConfig はテスト用の空設定ファイルを作成する。
@@ -15,7 +15,7 @@ func setupEmptyConfig(t *testing.T) string {
 	t.Helper()
 
 	home := t.TempDir()
-	configDir := filepath.Join(home, ".config", "devsync")
+	configDir := filepath.Join(home, ".config", "dsx")
 
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		t.Fatalf("config dir creation failed: %v", err)

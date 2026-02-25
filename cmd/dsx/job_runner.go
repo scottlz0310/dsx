@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/scottlz0310/devsync/internal/runner"
-	progressui "github.com/scottlz0310/devsync/internal/tui"
+	"github.com/scottlz0310/dsx/internal/runner"
+	progressui "github.com/scottlz0310/dsx/internal/tui"
 )
 
 func runJobsWithOptionalTUI(ctx context.Context, title string, jobs int, execJobs []runner.Job, useTUI bool, logFile string) runner.Summary {

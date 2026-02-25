@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/scottlz0310/devsync/internal/secret"
-	"github.com/scottlz0310/devsync/internal/testutil"
+	"github.com/scottlz0310/dsx/internal/secret"
+	"github.com/scottlz0310/dsx/internal/testutil"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +19,7 @@ func setupSecretsEnabledConfig(t *testing.T) {
 	t.Helper()
 
 	tmpHome := t.TempDir()
-	configDir := filepath.Join(tmpHome, ".config", "devsync")
+	configDir := filepath.Join(tmpHome, ".config", "dsx")
 
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -106,7 +106,7 @@ func TestRunDaily(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			setupSecretsEnabledConfig(t)
 			t.Setenv("GPAT", "dummy-token")
-			t.Setenv("DEVSYNC_ENV_LOADED", "")
+			t.Setenv("DSX_ENV_LOADED", "")
 
 			calls := make([]string, 0, 4)
 
@@ -200,7 +200,7 @@ func TestRunDaily_EnvAlreadyLoaded(t *testing.T) {
 	})
 
 	setupSecretsEnabledConfig(t)
-	t.Setenv("DEVSYNC_ENV_LOADED", "1")
+	t.Setenv("DSX_ENV_LOADED", "1")
 
 	calls := make([]string, 0, 4)
 
@@ -229,7 +229,7 @@ func TestRunDaily_EnvAlreadyLoaded(t *testing.T) {
 		t.Fatalf("runDaily() unexpected error: %v", err)
 	}
 
-	// DEVSYNC_ENV_LOADED=1 の場合、load_env はスキップされる
+	// DSX_ENV_LOADED=1 の場合、load_env はスキップされる
 	want := []string{"unlock", "sys_update", "repo_update"}
 	if !reflect.DeepEqual(calls, want) {
 		t.Fatalf("runDaily() calls = %#v, want %#v", calls, want)

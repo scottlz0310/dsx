@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/scottlz0310/devsync/internal/testutil"
+	"github.com/scottlz0310/dsx/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -76,7 +76,7 @@ func TestLoad(t *testing.T) {
 		testutil.SetTestHome(t, tmpDir)
 
 		// 設定ファイルを作成
-		configDir := filepath.Join(tmpDir, ".config", "devsync")
+		configDir := filepath.Join(tmpDir, ".config", "dsx")
 		err := os.MkdirAll(configDir, 0o755)
 		require.NoError(t, err)
 
@@ -132,7 +132,7 @@ secrets:
 		testutil.SetTestHome(t, tmpDir)
 
 		// 不正なYAMLファイルを作成
-		configDir := filepath.Join(tmpDir, ".config", "devsync")
+		configDir := filepath.Join(tmpDir, ".config", "dsx")
 		err := os.MkdirAll(configDir, 0o755)
 		require.NoError(t, err)
 
@@ -157,9 +157,9 @@ control:
 		testutil.SetTestHome(t, tmpDir)
 
 		// 環境変数で設定を上書き
-		t.Setenv("DEVSYNC_CONTROL_CONCURRENCY", "32")
-		t.Setenv("DEVSYNC_CONTROL_DRY_RUN", "true")
-		t.Setenv("DEVSYNC_UI_TUI", "true")
+		t.Setenv("DSX_CONTROL_CONCURRENCY", "32")
+		t.Setenv("DSX_CONTROL_DRY_RUN", "true")
+		t.Setenv("DSX_UI_TUI", "true")
 
 		// currentConfigをリセット
 		currentConfig = nil
@@ -212,7 +212,7 @@ func TestConfigPath(t *testing.T) {
 		path, err := ConfigPath()
 		require.NoError(t, err)
 
-		expected := filepath.Join(tmpDir, ".config", "devsync", "config.yaml")
+		expected := filepath.Join(tmpDir, ".config", "dsx", "config.yaml")
 		assert.Equal(t, expected, path)
 	})
 }
@@ -226,14 +226,14 @@ func TestConfigFileExists(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.False(t, exists)
-		assert.Equal(t, filepath.Join(tmpDir, ".config", "devsync", "config.yaml"), path)
+		assert.Equal(t, filepath.Join(tmpDir, ".config", "dsx", "config.yaml"), path)
 	})
 
 	t.Run("設定ファイルがある場合", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		testutil.SetTestHome(t, tmpDir)
 
-		configPath := filepath.Join(tmpDir, ".config", "devsync", "config.yaml")
+		configPath := filepath.Join(tmpDir, ".config", "dsx", "config.yaml")
 		require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
 		require.NoError(t, os.WriteFile(configPath, []byte("version: 1\n"), 0o644))
 
@@ -248,7 +248,7 @@ func TestConfigFileExists(t *testing.T) {
 		tmpDir := t.TempDir()
 		testutil.SetTestHome(t, tmpDir)
 
-		configPath := filepath.Join(tmpDir, ".config", "devsync", "config.yaml")
+		configPath := filepath.Join(tmpDir, ".config", "dsx", "config.yaml")
 		require.NoError(t, os.MkdirAll(configPath, 0o755))
 
 		exists, path, err := ConfigFileExists()

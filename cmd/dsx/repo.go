@@ -16,9 +16,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/scottlz0310/devsync/internal/config"
-	repomgr "github.com/scottlz0310/devsync/internal/repo"
-	"github.com/scottlz0310/devsync/internal/runner"
+	"github.com/scottlz0310/dsx/internal/config"
+	repomgr "github.com/scottlz0310/dsx/internal/repo"
+	"github.com/scottlz0310/dsx/internal/runner"
 	"github.com/spf13/cobra"
 )
 
@@ -260,7 +260,7 @@ func wrapRepoRootError(err error, root string, rootOverridden, configExists bool
 	}
 
 	return fmt.Errorf(
-		"repo.root (%s) が見つかりません。設定ファイルが未初期化の可能性があります%s。まず `devsync config init` を実行してください: %w",
+		"repo.root (%s) が見つかりません。設定ファイルが未初期化の可能性があります%s。まず `dsx config init` を実行してください: %w",
 		root,
 		pathNote,
 		err,

@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/scottlz0310/devsync/internal/config"
+	"github.com/scottlz0310/dsx/internal/config"
 )
 
 var semverPattern = regexp.MustCompile(`v?(\d+\.\d+\.\d+)`)

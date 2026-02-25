@@ -315,7 +315,7 @@ func TestWingetUpdater_Check(t *testing.T) {
 			writeFakeWingetCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_WINGET_MODE", tc.mode)
+			t.Setenv("DSX_TEST_WINGET_MODE", tc.mode)
 
 			w := &WingetUpdater{}
 			got, err := w.Check(context.Background())
@@ -387,7 +387,7 @@ func TestWingetUpdater_Update(t *testing.T) {
 			writeFakeWingetCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_WINGET_MODE", tc.mode)
+			t.Setenv("DSX_TEST_WINGET_MODE", tc.mode)
 
 			w := &WingetUpdater{}
 			got, err := w.Update(context.Background(), tc.opts)
@@ -425,7 +425,7 @@ func writeFakeWingetCommand(t *testing.T, dir string) {
 	if runtime.GOOS == "windows" {
 		fileName = "winget.cmd"
 		content = `@echo off
-set mode=%DEVSYNC_TEST_WINGET_MODE%
+set mode=%DSX_TEST_WINGET_MODE%
 if not "%1"=="upgrade" (
   echo invalid args 1>&2
   exit /b 1
@@ -455,7 +455,7 @@ exit /b 0
 	} else {
 		fileName = "winget"
 		content = `#!/bin/sh
-mode="${DEVSYNC_TEST_WINGET_MODE}"
+mode="${DSX_TEST_WINGET_MODE}"
 if [ "$1" != "upgrade" ]; then
   echo "invalid args" 1>&2
   exit 1

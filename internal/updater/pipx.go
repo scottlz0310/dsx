@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/scottlz0310/devsync/internal/config"
+	"github.com/scottlz0310/dsx/internal/config"
 )
 
 // PipxUpdater は pipx (Python CLI ツール) の実装です。

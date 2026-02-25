@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/scottlz0310/devsync/internal/config"
-	"github.com/scottlz0310/devsync/internal/secret"
+	"github.com/scottlz0310/dsx/internal/config"
+	"github.com/scottlz0310/dsx/internal/secret"
 	"github.com/spf13/cobra"
 )
 
@@ -170,7 +170,7 @@ func runSecretsPhase(cfg *config.Config) {
 		return
 	}
 
-	// シェル関数側（devsync-unlock）で BW_SESSION が既に設定済みの場合、
+	// シェル関数側（dsx-unlock）で BW_SESSION が既に設定済みの場合、
 	// Unlock 内部で「既にアンロック済み」と判定して bw unlock をスキップする。
 	fmt.Println("🔐 シークレットをアンロック中...")
 
@@ -184,7 +184,7 @@ func runSecretsPhase(cfg *config.Config) {
 
 	fmt.Println()
 
-	// シェル関数側（devsync-load-env）で環境変数が既に設定済みかを判定し、
+	// シェル関数側（dsx-load-env）で環境変数が既に設定済みかを判定し、
 	// 設定済みなら bw list items の再実行をスキップする。
 	if isEnvAlreadyLoaded() {
 		fmt.Println("ℹ️  環境変数はシェル側で読み込み済みです（bw 再取得をスキップ）")
@@ -208,8 +208,8 @@ func runSecretsPhase(cfg *config.Config) {
 	fmt.Println()
 }
 
-// isEnvAlreadyLoaded はシェル関数（devsync-load-env）により設定されるマーカー環境変数
-// DEVSYNC_ENV_LOADED が "1" の場合、bw list items の再実行をスキップします。
+// isEnvAlreadyLoaded はシェル関数（dsx-load-env）により設定されるマーカー環境変数
+// DSX_ENV_LOADED が "1" の場合、bw list items の再実行をスキップします。
 func isEnvAlreadyLoaded() bool {
-	return os.Getenv("DEVSYNC_ENV_LOADED") == "1"
+	return os.Getenv("DSX_ENV_LOADED") == "1"
 }

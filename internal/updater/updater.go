@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/scottlz0310/devsync/internal/config"
+	"github.com/scottlz0310/dsx/internal/config"
 )
 
 // Updater はパッケージマネージャの共通インターフェースです。

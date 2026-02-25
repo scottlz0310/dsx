@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/scottlz0310/devsync/internal/config"
+	"github.com/scottlz0310/dsx/internal/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -235,7 +235,7 @@ func TestBrewUpdater_Check(t *testing.T) {
 			writeFakeBrewCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_BREW_MODE", tc.mode)
+			t.Setenv("DSX_TEST_BREW_MODE", tc.mode)
 
 			b := &BrewUpdater{}
 			got, err := b.Check(context.Background())
@@ -308,7 +308,7 @@ func TestBrewUpdater_Update(t *testing.T) {
 			writeFakeBrewCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_BREW_MODE", tc.mode)
+			t.Setenv("DSX_TEST_BREW_MODE", tc.mode)
 
 			b := &BrewUpdater{}
 			got, err := b.Update(context.Background(), tc.opts)
@@ -349,7 +349,7 @@ func writeFakeBrewCommand(t *testing.T, dir string) {
 	if runtime.GOOS == "windows" {
 		fileName = "brew.cmd"
 		content = `@echo off
-set mode=%DEVSYNC_TEST_BREW_MODE%
+set mode=%DSX_TEST_BREW_MODE%
 if "%1"=="update" goto doupdate
 if "%1"=="outdated" goto dooutdated
 if "%1"=="upgrade" goto doupgrade
@@ -385,7 +385,7 @@ exit /b 0
 	} else {
 		fileName = "brew"
 		content = `#!/bin/sh
-mode="${DEVSYNC_TEST_BREW_MODE}"
+mode="${DSX_TEST_BREW_MODE}"
 case "$1" in
   update)
     if [ "${mode}" = "update_error" ]; then

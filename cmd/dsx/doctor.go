@@ -6,7 +6,7 @@ import (
 	"os/exec"
 
 	"github.com/fatih/color"
-	"github.com/scottlz0310/devsync/internal/config"
+	"github.com/scottlz0310/dsx/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +26,7 @@ func init() {
 }
 
 func runDoctor() {
-	fmt.Println("🏥 DevSync Doctor: 環境診断を開始します...")
+	fmt.Println("🏥 dsx Doctor: 環境診断を開始します...")
 	fmt.Println()
 
 	allPassed := true

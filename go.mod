@@ -1,4 +1,4 @@
-module github.com/scottlz0310/devsync
+module github.com/scottlz0310/dsx
 
 go 1.26.0
 

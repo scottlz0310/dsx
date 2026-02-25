@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/scottlz0310/devsync/internal/testutil"
+	"github.com/scottlz0310/dsx/internal/testutil"
 	"github.com/spf13/cobra"
 )
 
@@ -104,7 +104,7 @@ func TestRunConfigValidate_InvalidRepoRoot(t *testing.T) {
 	home := t.TempDir()
 	testutil.SetTestHome(t, home)
 
-	configDir := filepath.Join(home, ".config", "devsync")
+	configDir := filepath.Join(home, ".config", "dsx")
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		t.Fatalf("failed to create config dir: %v", err)
 	}

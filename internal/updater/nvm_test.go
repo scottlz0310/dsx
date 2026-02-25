@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/scottlz0310/devsync/internal/config"
-	"github.com/scottlz0310/devsync/internal/testutil"
+	"github.com/scottlz0310/dsx/internal/config"
+	"github.com/scottlz0310/dsx/internal/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -259,7 +259,7 @@ func TestNvmUpdater_Check(t *testing.T) {
 				t.Setenv("NVM_DIR", fakeDir)
 			}
 
-			t.Setenv("DEVSYNC_TEST_NVM_MODE", tc.mode)
+			t.Setenv("DSX_TEST_NVM_MODE", tc.mode)
 
 			n := &NvmUpdater{}
 			got, err := n.Check(context.Background())
@@ -321,7 +321,7 @@ func TestNvmUpdater_Update(t *testing.T) {
 				t.Setenv("NVM_DIR", fakeDir)
 			}
 
-			t.Setenv("DEVSYNC_TEST_NVM_MODE", tc.mode)
+			t.Setenv("DSX_TEST_NVM_MODE", tc.mode)
 
 			n := &NvmUpdater{}
 			got, err := n.Update(context.Background(), tc.opts)
@@ -478,7 +478,7 @@ func writeFakeNvmCommand(t *testing.T, dir string) {
 		content = `@echo off
 set cmd1=%1
 set cmd2=%2
-set mode=%DEVSYNC_TEST_NVM_MODE%
+set mode=%DSX_TEST_NVM_MODE%
 
 if "%cmd1%"=="current" (
   if "%mode%"=="invalid_current" (
@@ -544,7 +544,7 @@ exit /b 0
 nvm() {
   cmd1="$1"
   cmd2="$2"
-  mode="${DEVSYNC_TEST_NVM_MODE}"
+  mode="${DSX_TEST_NVM_MODE}"
 
   if [ "${cmd1}" = "current" ]; then
     if [ "${mode}" = "invalid_current" ]; then

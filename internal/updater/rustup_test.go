@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/scottlz0310/devsync/internal/config"
+	"github.com/scottlz0310/dsx/internal/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -139,7 +139,7 @@ func TestRustupUpdater_Check(t *testing.T) {
 			writeFakeRustupCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_RUSTUP_MODE", tc.mode)
+			t.Setenv("DSX_TEST_RUSTUP_MODE", tc.mode)
 
 			r := &RustupUpdater{}
 			got, err := r.Check(context.Background())
@@ -211,7 +211,7 @@ func TestRustupUpdater_Update(t *testing.T) {
 			writeFakeRustupCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_RUSTUP_MODE", tc.mode)
+			t.Setenv("DSX_TEST_RUSTUP_MODE", tc.mode)
 
 			r := &RustupUpdater{}
 			got, err := r.Update(context.Background(), tc.opts)
@@ -249,7 +249,7 @@ func writeFakeRustupCommand(t *testing.T, dir string) {
 	if runtime.GOOS == "windows" {
 		fileName = "rustup.cmd"
 		content = `@echo off
-set mode=%DEVSYNC_TEST_RUSTUP_MODE%
+set mode=%DSX_TEST_RUSTUP_MODE%
 if "%1"=="check" goto check
 if "%1"=="update" goto update
 >&2 echo invalid args
@@ -277,7 +277,7 @@ exit /b 0
 	} else {
 		fileName = "rustup"
 		content = `#!/bin/sh
-mode="${DEVSYNC_TEST_RUSTUP_MODE}"
+mode="${DSX_TEST_RUSTUP_MODE}"
 if [ "$1" = "check" ]; then
   if [ "${mode}" = "check_error" ]; then
     echo "rustup check stderr" 1>&2

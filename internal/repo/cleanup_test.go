@@ -30,7 +30,7 @@ func TestCleanup_Merged(t *testing.T) {
 					ExcludeBranches: nil,
 				}
 			},
-			wantPlanContains: "devsync-test-feature",
+			wantPlanContains: "dsx-test-feature",
 		},
 		{
 			name:      "exclude_branches に含まれる場合は削除しない",
@@ -118,7 +118,7 @@ func TestCleanup_Squashed(t *testing.T) {
 		repoPath := createRepoWithUpstream(t)
 		defaultBranch := getOriginDefaultBranchName(t, repoPath)
 
-		branch := "devsync-test-squashed"
+		branch := "dsx-test-squashed"
 		runGit(t, repoPath, "checkout", "-b", branch)
 
 		filePath := filepath.Join(repoPath, "README.md")
@@ -161,7 +161,7 @@ func TestCleanup_Squashed(t *testing.T) {
 		repoPath := createRepoWithUpstream(t)
 		defaultBranch := getOriginDefaultBranchName(t, repoPath)
 
-		branch := "devsync-test-squashed-delete"
+		branch := "dsx-test-squashed-delete"
 		runGit(t, repoPath, "checkout", "-b", branch)
 		runGit(t, repoPath, "commit", "--allow-empty", "-m", "squashed commit")
 
@@ -194,7 +194,7 @@ func TestCleanup_Squashed(t *testing.T) {
 		repoPath := createRepoWithUpstream(t)
 		defaultBranch := getOriginDefaultBranchName(t, repoPath)
 
-		branch := "devsync-test-squashed-mismatch"
+		branch := "dsx-test-squashed-mismatch"
 		runGit(t, repoPath, "checkout", "-b", branch)
 		runGit(t, repoPath, "commit", "--allow-empty", "-m", "squashed commit")
 		runGit(t, repoPath, "checkout", defaultBranch)
@@ -263,7 +263,7 @@ func TestLocalBranchExists(t *testing.T) {
 
 		repoPath := createRepoWithUpstream(t)
 
-		exists, err := localBranchExists(context.Background(), repoPath, "devsync-test-branch-not-exists")
+		exists, err := localBranchExists(context.Background(), repoPath, "dsx-test-branch-not-exists")
 		if err != nil {
 			t.Fatalf("localBranchExists() error = %v", err)
 		}
@@ -290,7 +290,7 @@ func createRepoWithMergedFeatureBranch(t *testing.T) (repoPath, defaultBranch, f
 
 	repoPath = createRepoWithUpstream(t)
 	defaultBranch = getOriginDefaultBranchName(t, repoPath)
-	featureBranch = "devsync-test-feature"
+	featureBranch = "dsx-test-feature"
 
 	runGit(t, repoPath, "checkout", "-b", featureBranch)
 
