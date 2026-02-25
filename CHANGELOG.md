@@ -32,11 +32,11 @@
 ### Changed
 
 - バージョン管理をハードコード (`const appVersion`) からビルド時 ldflags 注入 (`-X main.version`) 方式に変更
-- `dsx run` の Bitwarden 重複呼び出しを削減：シェル関数側で既にアンロック済み・環境変数読み込み済みの場合、Go バイナリ側で `bw status` / `bw list items` の再実行をスキップ（`dsx_ENV_LOADED` マーカーにより判定）
+- `dsx run` の Bitwarden 重複呼び出しを削減：シェル関数側で既にアンロック済み・環境変数読み込み済みの場合、Go バイナリ側で `bw status` / `bw list items` の再実行をスキップ（`DSX_ENV_LOADED` マーカーにより判定）
 - `dsx run` で `secrets.enabled` 設定を参照し、シークレット管理が無効な場合は bw 操作を完全にスキップするよう改善
 - `dsx run` で Bitwarden アンロック失敗時に処理を中断せず、シークレット読み込みをスキップしてシステム更新・リポジトリ同期を続行するよう改善
 - `dsx run` でシステム更新失敗時もリポジトリ同期を続行し、全フェーズ完了後にエラーをまとめて報告するよう改善
-- `dsx_DEBUG=1` 環境変数で bw コマンドの実行時刻・所要時間をタイムスタンプ付きで出力するデバッグログを追加
+- `DSX_DEBUG=1` 環境変数で bw コマンドの実行時刻・所要時間をタイムスタンプ付きで出力するデバッグログを追加
 - `repo update` のリポジトリ安全性チェック（isDirty/hasStash/isDetachedHEAD）を並列実行に変更し、リポジトリあたりの待ち時間を削減
 - `repo update` の安全性チェックと upstream 確認を fetch 完了後に並列実行するよう改善
 - `README.md` に Alpha の既知の制約、`setup-repo` 併用の推奨運用、復旧手順（`config init` 再実行 / `repo.root` 見直し）を追記
@@ -47,8 +47,8 @@
 - `config init` のシステムマネージャ選択肢に `pnpm` / `nvm` を追加
 - `config init` のシステムマネージャ選択肢に `uv` / `rustup` / `gem` を追加
 - CLI バージョン番号を `v0.1.0-alpha` に設定し、`dsx --version` で確認可能に変更
-- PowerShell 連携スクリプトの `dsx-load-env` で `env export` の複数行出力を正しく連結して `Invoke-Expression` に渡すよう修正（`System.Object[]` 型エラーを解消）
-- PowerShell 連携スクリプトの `dev-sync` で `dsx-unlock` / `dsx-load-env` の成否判定を `$LASTEXITCODE` 依存から関数戻り値判定に変更し、失敗時に後続処理へ進まないよう修正
+- PowerShell 連携スクリプトの `dsx-env` 関数で `dsx env export` の複数行出力を正しく連結して `Invoke-Expression` に渡すよう修正（`System.Object[]` 型エラーを解消）
+- PowerShell 連携スクリプトの `dsx-run` 関数で `dsx-sys` / `dsx-repo` / `dsx-env` の成否判定を `$LASTEXITCODE` 依存から関数戻り値判定に変更し、失敗時に後続処理へ進まないよう修正
 - `repo update` のジョブ表示名を Windows でも `/` 区切りで表示するよう統一
 - `repo update` で未コミット変更（tracked/untracked）/stash 残存/detached HEAD を検出した場合、pull/submodule を行わず安全側にスキップして理由を表示するよう改善
 - `repo update` でデフォルトブランチ以外を追跡している場合、pull/submodule を行わず安全側にスキップするよう改善

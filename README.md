@@ -85,12 +85,14 @@ grep -n ">>> dsx >>>" ~/.bashrc
 source ~/.bashrc
 
 # 関数確認
-type dsx-load-env
-type dev-sync
+type dsx-env
+type dsx-run
 ```
 
-- `dsx-load-env`: Bitwarden の `env:` 項目を現在のシェルへ読み込み
-- `dev-sync`: Bitwarden 解錠 → 環境変数を親シェルへ読み込み → `dsx run` 実行（引数はそのまま渡されます）
+- `dsx-env`: Bitwarden を自動アンロックし、`env:` 項目を現在のシェルへ読み込み（1コマンドで完結）
+- `dsx-sys`: `dsx-env` → `dsx sys update`（システム更新）
+- `dsx-repo`: `dsx-env` → `dsx repo update`（リポジトリ更新）
+- `dsx-run`: `dsx-env` → `dsx run`（全部実行）
 
 `dsx` バイナリの配置先を変更した場合は、`dsx config init` を再実行してシェル連携スクリプトを再生成してください。
 
@@ -355,8 +357,8 @@ echo $GPAT
 & dsx env export | Invoke-Expression
 ```
 
-`dsx-load-env` / `dev-sync` 利用時に `Cannot convert 'System.Object[]' to the type 'System.String'` が出る場合は、
-旧版のシェル連携スクリプトが残っているため `dsx config init` を再実行して `init.ps1` を再生成してください。
+PowerShell 用の `dsx-env` シェル連携を利用している環境で `Cannot convert 'System.Object[]' to the type 'System.String'` が出る場合は、
+旧版のシェル連携スクリプトが残っている可能性があるため、`dsx config init` を再実行して `init.ps1` を再生成してください。
 
 ### 方法2: サブプロセスに環境変数を注入する（推奨）
 
@@ -373,7 +375,7 @@ dsx env run go test ./...
 - コマンドの終了コードを保持
 - 親シェルに影響を与えない
 
-**注意**: `dsx run` 単体では親シェルに環境変数は反映されません。親シェルでも利用したい場合は `eval "$(dsx env export)"` または `dsx-load-env` / `dev-sync` を使用してください。
+**注意**: `dsx run` 単体では親シェルに環境変数は反映されません。親シェルでも利用したい場合は `eval "$(dsx env export)"` または `dsx-env` 関数（シェル統合）を使用してください。
 ## 🛠 開発
 
 ### 前提条件
