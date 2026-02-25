@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/scottlz0310/devsync/internal/runner"
+	"github.com/scottlz0310/dsx/internal/runner"
 )
 
 func TestPrintFailedJobDetails(t *testing.T) {

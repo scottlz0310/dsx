@@ -9,7 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/scottlz0310/devsync/internal/runner"
+	"github.com/scottlz0310/dsx/internal/runner"
 )
 
 const (

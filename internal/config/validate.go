@@ -131,7 +131,7 @@ func validateRepo(result *ValidationResult, cfg *Config) {
 	case os.IsNotExist(err):
 		result.Errors = append(result.Errors, ValidationIssue{
 			Field:   "repo.root",
-			Message: fmt.Sprintf("ディレクトリが存在しません: %s（必要なら作成するか、`devsync config init` を再実行してください）", cleaned),
+			Message: fmt.Sprintf("ディレクトリが存在しません: %s（必要なら作成するか、`dsx config init` を再実行してください）", cleaned),
 		})
 	default:
 		result.Errors = append(result.Errors, ValidationIssue{

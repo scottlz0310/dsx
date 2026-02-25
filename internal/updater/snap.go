@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/scottlz0310/devsync/internal/config"
+	"github.com/scottlz0310/dsx/internal/config"
 )
 
 // SnapUpdater は snap (Ubuntu Snap パッケージ) の実装です。

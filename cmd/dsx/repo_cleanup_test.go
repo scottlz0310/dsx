@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	repomgr "github.com/scottlz0310/devsync/internal/repo"
-	"github.com/scottlz0310/devsync/internal/runner"
+	repomgr "github.com/scottlz0310/dsx/internal/repo"
+	"github.com/scottlz0310/dsx/internal/runner"
 )
 
 func TestWantsCleanupTarget(t *testing.T) {
@@ -464,9 +464,9 @@ func helperProcessCommand(ctx context.Context, stdout, stderr string, exitCode i
 
 	cmd.Env = append(os.Environ(),
 		"GO_WANT_HELPER_PROCESS=1",
-		"DEVSYNC_HELPER_STDOUT="+stdout,
-		"DEVSYNC_HELPER_STDERR="+stderr,
-		"DEVSYNC_HELPER_EXIT_CODE="+strconv.Itoa(exitCode),
+		"DSX_HELPER_STDOUT="+stdout,
+		"DSX_HELPER_STDERR="+stderr,
+		"DSX_HELPER_EXIT_CODE="+strconv.Itoa(exitCode),
 	)
 
 	return cmd

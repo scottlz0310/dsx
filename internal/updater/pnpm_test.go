@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/scottlz0310/devsync/internal/config"
+	"github.com/scottlz0310/dsx/internal/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -217,11 +217,11 @@ func TestPnpmUpdater_Check(t *testing.T) {
 			writeFakePnpmCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_PNPM_MODE", tc.mode)
+			t.Setenv("DSX_TEST_PNPM_MODE", tc.mode)
 
 			if tc.mode == "missing_manifest" {
-				globalDir := filepath.Join(createASCIITempDir(t, "devsync-pnpm-check-"), "pnpm-global")
-				t.Setenv("DEVSYNC_TEST_PNPM_GLOBAL_DIR", globalDir)
+				globalDir := filepath.Join(createASCIITempDir(t, "dsx-pnpm-check-"), "pnpm-global")
+				t.Setenv("DSX_TEST_PNPM_GLOBAL_DIR", globalDir)
 			}
 
 			p := &PnpmUpdater{}
@@ -295,11 +295,11 @@ func TestPnpmUpdater_resolveGlobalDir(t *testing.T) {
 			writeFakePnpmCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_PNPM_ROOT_MODE", tt.rootMode)
+			t.Setenv("DSX_TEST_PNPM_ROOT_MODE", tt.rootMode)
 
-			baseDir := createASCIITempDir(t, "devsync-pnpm-resolve-")
+			baseDir := createASCIITempDir(t, "dsx-pnpm-resolve-")
 			actualGlobalDir := filepath.Join(baseDir, tt.globalDir)
-			t.Setenv("DEVSYNC_TEST_PNPM_GLOBAL_DIR", actualGlobalDir)
+			t.Setenv("DSX_TEST_PNPM_GLOBAL_DIR", actualGlobalDir)
 
 			p := &PnpmUpdater{}
 			got, err := p.resolveGlobalDir(context.Background())
@@ -341,7 +341,7 @@ func TestPnpmUpdater_ensureGlobalManifest(t *testing.T) {
 			prepareGlobalDir: func(t *testing.T) string {
 				t.Helper()
 
-				return filepath.Join(createASCIITempDir(t, "devsync-pnpm-manifest-"), "pnpm-global")
+				return filepath.Join(createASCIITempDir(t, "dsx-pnpm-manifest-"), "pnpm-global")
 			},
 			wantContent: pnpmGlobalManifestContent,
 		},
@@ -351,7 +351,7 @@ func TestPnpmUpdater_ensureGlobalManifest(t *testing.T) {
 			prepareGlobalDir: func(t *testing.T) string {
 				t.Helper()
 
-				globalDir := filepath.Join(createASCIITempDir(t, "devsync-pnpm-existing-"), "pnpm-global-existing")
+				globalDir := filepath.Join(createASCIITempDir(t, "dsx-pnpm-existing-"), "pnpm-global-existing")
 				if mkdirErr := os.MkdirAll(globalDir, 0o755); mkdirErr != nil {
 					t.Fatalf("global dir 作成失敗: %v", mkdirErr)
 				}
@@ -371,7 +371,7 @@ func TestPnpmUpdater_ensureGlobalManifest(t *testing.T) {
 			prepareGlobalDir: func(t *testing.T) string {
 				t.Helper()
 
-				blocker := filepath.Join(createASCIITempDir(t, "devsync-pnpm-blocker-"), "blocker")
+				blocker := filepath.Join(createASCIITempDir(t, "dsx-pnpm-blocker-"), "blocker")
 				if writeErr := os.WriteFile(blocker, []byte("x"), 0o644); writeErr != nil {
 					t.Fatalf("blocker 作成失敗: %v", writeErr)
 				}
@@ -390,7 +390,7 @@ func TestPnpmUpdater_ensureGlobalManifest(t *testing.T) {
 			prepareGlobalDir: func(t *testing.T) string {
 				t.Helper()
 
-				return filepath.Join(createASCIITempDir(t, "devsync-pnpm-error-"), "pnpm-global-error")
+				return filepath.Join(createASCIITempDir(t, "dsx-pnpm-error-"), "pnpm-global-error")
 			},
 			expectErr: true,
 			errContainsAny: []string{
@@ -407,10 +407,10 @@ func TestPnpmUpdater_ensureGlobalManifest(t *testing.T) {
 			writeFakePnpmCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_PNPM_ROOT_MODE", tt.rootMode)
+			t.Setenv("DSX_TEST_PNPM_ROOT_MODE", tt.rootMode)
 
 			globalDir := tt.prepareGlobalDir(t)
-			t.Setenv("DEVSYNC_TEST_PNPM_GLOBAL_DIR", globalDir)
+			t.Setenv("DSX_TEST_PNPM_GLOBAL_DIR", globalDir)
 
 			p := &PnpmUpdater{}
 			err := p.ensureGlobalManifest(context.Background())
@@ -501,12 +501,12 @@ func TestPnpmUpdater_Update(t *testing.T) {
 			writeFakePnpmCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_PNPM_MODE", tc.mode)
+			t.Setenv("DSX_TEST_PNPM_MODE", tc.mode)
 
 			manifestPath := ""
 			if tc.mode == "missing_manifest" {
-				globalDir := filepath.Join(createASCIITempDir(t, "devsync-pnpm-update-"), "pnpm-global")
-				t.Setenv("DEVSYNC_TEST_PNPM_GLOBAL_DIR", globalDir)
+				globalDir := filepath.Join(createASCIITempDir(t, "dsx-pnpm-update-"), "pnpm-global")
+				t.Setenv("DSX_TEST_PNPM_GLOBAL_DIR", globalDir)
 				manifestPath = filepath.Join(globalDir, "package.json")
 			}
 
@@ -575,19 +575,19 @@ set subcmd=%1
 
 if "%subcmd%"=="root" (
   if "%2"=="-g" (
-    if "%DEVSYNC_TEST_PNPM_ROOT_MODE%"=="error" (
+    if "%DSX_TEST_PNPM_ROOT_MODE%"=="error" (
       >&2 echo root failed
       exit /b 2
     )
-    if "%DEVSYNC_TEST_PNPM_ROOT_MODE%"=="empty" (
+    if "%DSX_TEST_PNPM_ROOT_MODE%"=="empty" (
       exit /b 0
     )
-    if not "%DEVSYNC_TEST_PNPM_GLOBAL_DIR%"=="" (
-      if "%DEVSYNC_TEST_PNPM_ROOT_MODE%"=="plain_dir" (
-        echo %DEVSYNC_TEST_PNPM_GLOBAL_DIR%
+    if not "%DSX_TEST_PNPM_GLOBAL_DIR%"=="" (
+      if "%DSX_TEST_PNPM_ROOT_MODE%"=="plain_dir" (
+        echo %DSX_TEST_PNPM_GLOBAL_DIR%
         exit /b 0
       )
-      echo %DEVSYNC_TEST_PNPM_GLOBAL_DIR%\node_modules
+      echo %DSX_TEST_PNPM_GLOBAL_DIR%\node_modules
       exit /b 0
     )
     echo C:\pnpm-global\node_modules
@@ -596,38 +596,38 @@ if "%subcmd%"=="root" (
 )
 
 if "%subcmd%"=="outdated" (
-  if "%DEVSYNC_TEST_PNPM_MODE%"=="missing_manifest" (
-    if exist "%DEVSYNC_TEST_PNPM_GLOBAL_DIR%\package.json" (
+  if "%DSX_TEST_PNPM_MODE%"=="missing_manifest" (
+    if exist "%DSX_TEST_PNPM_GLOBAL_DIR%\package.json" (
       echo []
       exit /b 0
     )
-    echo ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND No package.json was found in "%DEVSYNC_TEST_PNPM_GLOBAL_DIR%".
+    echo ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND No package.json was found in "%DSX_TEST_PNPM_GLOBAL_DIR%".
     exit /b 1
   )
-  if "%DEVSYNC_TEST_PNPM_MODE%"=="outdated_updates" (
+  if "%DSX_TEST_PNPM_MODE%"=="outdated_updates" (
     echo [{"name":"typescript","current":"5.1.0","latest":"5.2.0"}]
     exit /b 1
   )
-  if "%DEVSYNC_TEST_PNPM_MODE%"=="outdated_none" (
+  if "%DSX_TEST_PNPM_MODE%"=="outdated_none" (
     echo []
     exit /b 0
   )
-  if "%DEVSYNC_TEST_PNPM_MODE%"=="outdated_invalid_json" (
+  if "%DSX_TEST_PNPM_MODE%"=="outdated_invalid_json" (
     echo {invalid
     exit /b 1
   )
-  if "%DEVSYNC_TEST_PNPM_MODE%"=="outdated_command_error" (
+  if "%DSX_TEST_PNPM_MODE%"=="outdated_command_error" (
     >&2 echo fatal error
     exit /b 2
   )
-  if "%DEVSYNC_TEST_PNPM_MODE%"=="update_fail" (
+  if "%DSX_TEST_PNPM_MODE%"=="update_fail" (
     echo [{"name":"typescript","current":"5.1.0","latest":"5.2.0"}]
     exit /b 1
   )
 )
 
 if "%subcmd%"=="update" (
-  if "%DEVSYNC_TEST_PNPM_MODE%"=="update_fail" (
+  if "%DSX_TEST_PNPM_MODE%"=="update_fail" (
     >&2 echo update failed
     exit /b 1
   )
@@ -642,23 +642,23 @@ exit /b 0
 		fileName = "pnpm"
 		content = `#!/bin/sh
 subcmd="$1"
-mode="${DEVSYNC_TEST_PNPM_MODE}"
+mode="${DSX_TEST_PNPM_MODE}"
 
 if [ "${subcmd}" = "root" ]; then
   if [ "$2" = "-g" ]; then
-    if [ "${DEVSYNC_TEST_PNPM_ROOT_MODE}" = "error" ]; then
+    if [ "${DSX_TEST_PNPM_ROOT_MODE}" = "error" ]; then
       echo "root failed" 1>&2
       exit 2
     fi
-    if [ "${DEVSYNC_TEST_PNPM_ROOT_MODE}" = "empty" ]; then
+    if [ "${DSX_TEST_PNPM_ROOT_MODE}" = "empty" ]; then
       exit 0
     fi
-    if [ -n "${DEVSYNC_TEST_PNPM_GLOBAL_DIR}" ]; then
-      if [ "${DEVSYNC_TEST_PNPM_ROOT_MODE}" = "plain_dir" ]; then
-        echo "${DEVSYNC_TEST_PNPM_GLOBAL_DIR}"
+    if [ -n "${DSX_TEST_PNPM_GLOBAL_DIR}" ]; then
+      if [ "${DSX_TEST_PNPM_ROOT_MODE}" = "plain_dir" ]; then
+        echo "${DSX_TEST_PNPM_GLOBAL_DIR}"
         exit 0
       fi
-      echo "${DEVSYNC_TEST_PNPM_GLOBAL_DIR}/node_modules"
+      echo "${DSX_TEST_PNPM_GLOBAL_DIR}/node_modules"
       exit 0
     fi
     echo "/tmp/pnpm-global/node_modules"
@@ -668,11 +668,11 @@ fi
 
 if [ "${subcmd}" = "outdated" ]; then
   if [ "${mode}" = "missing_manifest" ]; then
-    if [ -f "${DEVSYNC_TEST_PNPM_GLOBAL_DIR}/package.json" ]; then
+    if [ -f "${DSX_TEST_PNPM_GLOBAL_DIR}/package.json" ]; then
       echo '[]'
       exit 0
     fi
-    echo 'ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND No package.json was found in "'"${DEVSYNC_TEST_PNPM_GLOBAL_DIR}"'".'
+    echo 'ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND No package.json was found in "'"${DSX_TEST_PNPM_GLOBAL_DIR}"'".'
     exit 1
   fi
   if [ "${mode}" = "outdated_updates" ]; then

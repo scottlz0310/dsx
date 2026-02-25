@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/scottlz0310/devsync/internal/testutil"
+	"github.com/scottlz0310/dsx/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -29,7 +29,7 @@ func TestSave(t *testing.T) {
 		require.NoError(t, err)
 
 		// ファイルが作成されたことを確認
-		expectedPath := filepath.Join(tmpDir, ".config", "devsync", "config.yaml")
+		expectedPath := filepath.Join(tmpDir, ".config", "dsx", "config.yaml")
 		_, err = os.Stat(expectedPath)
 		assert.NoError(t, err)
 

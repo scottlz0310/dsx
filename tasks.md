@@ -9,7 +9,7 @@
 - [x] **設定パッケージ (`internal/config`) の作成**
     - [x] 設定構造体 (`Config`, `RepoConfig`, `SysConfig`) の定義
     - [x] `viper` を使用したデフォルト値設定とファイル読み込み処理
-    - [x] 環境変数 (`DEVSYNC_*`) とのバインディング
+    - [x] 環境変数 (`DSX_*`) とのバインディング
 - [x] **設定ファイル生成 (`config init`)**
     - [x] `survey` を導入し、対話形式でユーザー入力を受け付ける
     - [x] 入力内容を `yaml` ファイルとして保存する
@@ -111,11 +111,11 @@
 - [x] `config init` で `repo.root` 未存在時の作成確認導線を追加（拒否時は終了）
 - [x] `sys update` 実行前の sudo 事前認証（単独フェーズ前/並列フェーズ前）を追加し、`use_sudo`/`sudo` の互換設定を整備
 - [x] `snapd unavailable` 環境で `snap` を利用不可として自動スキップする判定を追加
-- [x] シェル連携スクリプトを改善（`devsync-load-env` の終了コード伝播 / `dev-sync` の `Bitwarden 解錠 → 環境変数読込 → devsync run` 導線化 / 実行パスのフォールバック）
-- [x] PowerShell 連携スクリプトの不具合修正（`devsync-load-env` の配列連結不足による `Invoke-Expression` 型エラー解消 / `dev-sync` の関数失敗判定を `$LASTEXITCODE` 依存から修正）
+- [x] シェル連携スクリプトを改善（`dsx-env` による自動アンロック + 環境変数注入の1コマンド化 / `dsx-sys` / `dsx-repo` / `dsx-run` 関数の追加 / 実行パスのフォールバック）
+- [x] PowerShell 連携スクリプトの不具合修正（`dsx-env` の配列連結不足による `Invoke-Expression` 型エラー解消 / `dsx-run` の関数失敗判定を `$LASTEXITCODE` 依存から修正）
 - [x] `config init` の GitHub オーナー入力を `gh auth` ログイン情報で自動補完（必要時のみ手動上書き）
 - [x] `config init` の再実行時に既存 `config.yaml` の値を初期値として再編集できるよう改善
-- [x] `devsync run` の `sys` / `repo` フローをプレースホルダーから実処理へ置換（`sys update` → `repo update`）
+- [x] `dsx run` の `sys` / `repo` フローをプレースホルダーから実処理へ置換（`sys update` → `repo update`）
 - [x] `repo update` で `repo.github.owner` 一覧との差分を補完し、不足リポジトリを clone する導線を追加（dry-run計画表示対応）
 - [x] `repo sync` 安全運用の段階的強化（`setup-repo` 併用期間）
     - [x] 基本方針の明文化（破壊的操作は行わず、危険状態はスキップして理由を表示）
@@ -156,6 +156,6 @@
     - [x] 失敗ジョブの詳細エラー表示（展開表示）を追加
     - [x] 長時間実行向けにログ保存オプション（ファイル出力）を追加
 - [x] runner イベント基盤の活用拡張
-    - [x] `devsync run` のフラグ整備（`--dry-run` / `--tui` / `--no-tui` / `--jobs`）と耐障害性改善
-    - [x] `devsync run`（将来 `tool update`）への進捗UI適用
+    - [x] `dsx run` のフラグ整備（`--dry-run` / `--tui` / `--no-tui` / `--jobs`）と耐障害性改善
+    - [x] `dsx run`（将来 `tool update`）への進捗UI適用
     - [ ] ~~通知機能向けイベントフックの追加~~ (見送り: 通知機能と合わせて見送り)

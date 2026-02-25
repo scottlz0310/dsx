@@ -28,7 +28,7 @@ func NewEventLogger(path string) (*EventLogger, error) {
 		startedAt: now,
 	}
 
-	logger.writeLine(fmt.Sprintf("# devsync ジョブログ — %s", now.Format(time.RFC3339)))
+	logger.writeLine(fmt.Sprintf("# dsx ジョブログ — %s", now.Format(time.RFC3339)))
 	logger.writeLine("")
 
 	return logger, nil

@@ -110,7 +110,7 @@ func TestNpmUpdater_Check(t *testing.T) {
 			writeFakeNpmCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_NPM_MODE", tc.mode)
+			t.Setenv("DSX_TEST_NPM_MODE", tc.mode)
 
 			n := &NpmUpdater{}
 			got, err := n.Check(context.Background())
@@ -182,7 +182,7 @@ func TestNpmUpdater_Update(t *testing.T) {
 			writeFakeNpmCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_NPM_MODE", tc.mode)
+			t.Setenv("DSX_TEST_NPM_MODE", tc.mode)
 
 			n := &NpmUpdater{}
 			got, err := n.Update(context.Background(), tc.opts)
@@ -209,13 +209,13 @@ func TestNpmUpdater_Update(t *testing.T) {
 }
 
 // writeFakeNpmCommand はテスト用のフェイク npm コマンドを指定ディレクトリに作成します。
-// 環境変数 DEVSYNC_TEST_NPM_MODE によって動作を切り替えます。
+// 環境変数 DSX_TEST_NPM_MODE によって動作を切り替えます。
 func writeFakeNpmCommand(t *testing.T, dir string) {
 	t.Helper()
 
 	if runtime.GOOS == "windows" {
 		script := `@echo off
-set mode=%DEVSYNC_TEST_NPM_MODE%
+set mode=%DSX_TEST_NPM_MODE%
 if "%1"=="outdated" goto docheck
 if "%1"=="update" goto doupdate
 echo invalid args 1>&2
@@ -243,7 +243,7 @@ exit /b 0
 		assert.NoError(t, err)
 	} else {
 		script := `#!/bin/sh
-mode="${DEVSYNC_TEST_NPM_MODE}"
+mode="${DSX_TEST_NPM_MODE}"
 case "$1" in
   outdated)
     if [ "${mode}" = "check_error" ]; then

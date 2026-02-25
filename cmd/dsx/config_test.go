@@ -15,8 +15,8 @@ import (
 	"unicode/utf16"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/scottlz0310/devsync/internal/config"
-	"github.com/scottlz0310/devsync/internal/testutil"
+	"github.com/scottlz0310/dsx/internal/config"
+	"github.com/scottlz0310/dsx/internal/testutil"
 )
 
 func captureStderr(t *testing.T, fn func()) string {
@@ -257,7 +257,7 @@ func TestLoadExistingConfigForInit(t *testing.T) {
 		home := t.TempDir()
 		testutil.SetTestHome(t, home)
 
-		configPath := filepath.Join(home, ".config", "devsync", "config.yaml")
+		configPath := filepath.Join(home, ".config", "dsx", "config.yaml")
 		if err := os.MkdirAll(configPath, 0o755); err != nil {
 			t.Fatalf("failed to create directory at config path: %v", err)
 		}
@@ -293,7 +293,7 @@ func TestLoadExistingConfigForInit(t *testing.T) {
 		home := t.TempDir()
 		testutil.SetTestHome(t, home)
 
-		configDir := filepath.Join(home, ".config", "devsync")
+		configDir := filepath.Join(home, ".config", "dsx")
 		if err := os.MkdirAll(configDir, 0o755); err != nil {
 			t.Fatalf("failed to create config dir: %v", err)
 		}
@@ -477,48 +477,51 @@ func TestGeneratedShellScripts(t *testing.T) {
 		requiredPhrases []string
 	}{
 		{
-			name:        "bashスクリプトはアンロック・env読込・run呼び出しを含む",
+			name:        "bashスクリプトはアンロック・env読込・sys/repo/run呼び出しを含む",
 			buildScript: getBashScript,
 			requiredPhrases: []string{
-				`command -v devsync`,
+				`command -v dsx`,
 				`bw login --check`,
 				`token="$(bw unlock --raw)"`,
-				`env_output="$("$DEVSYNC_PATH" env export)"`,
-				`if [ $status -ne 0 ]; then`,
-				`devsync-unlock || return 1`,
-				`devsync-load-env || return 1`,
-				`"$DEVSYNC_PATH" run "$@"`,
+				`env_output="$("$DSX_PATH" env export)"`,
+				`if [ $? -ne 0 ]; then`,
+				`dsx-env || return 1`,
+				`"$DSX_PATH" sys update "$@"`,
+				`"$DSX_PATH" repo update "$@"`,
+				`"$DSX_PATH" run "$@"`,
 			},
 		},
 		{
-			name:        "zshスクリプトはアンロック・env読込・run呼び出しを含む",
+			name:        "zshスクリプトはアンロック・env読込・sys/repo/run呼び出しを含む",
 			buildScript: getZshScript,
 			requiredPhrases: []string{
-				`command -v devsync`,
+				`command -v dsx`,
 				`bw login --check`,
 				`token="$(bw unlock --raw)"`,
-				`env_output="$("$DEVSYNC_PATH" env export)"`,
-				`if [[ $status -ne 0 ]]; then`,
-				`devsync-unlock || return 1`,
-				`devsync-load-env || return 1`,
-				`"$DEVSYNC_PATH" run "$@"`,
+				`env_output="$("$DSX_PATH" env export)"`,
+				`if [[ $? -ne 0 ]]; then`,
+				`dsx-env || return 1`,
+				`"$DSX_PATH" sys update "$@"`,
+				`"$DSX_PATH" repo update "$@"`,
+				`"$DSX_PATH" run "$@"`,
 			},
 		},
 		{
-			name:        "PowerShellスクリプトはアンロック・env読込・run呼び出しを含む",
+			name:        "PowerShellスクリプトはアンロック・env読込・sys/repo/run呼び出しを含む",
 			buildScript: getPowerShellScript,
 			requiredPhrases: []string{
-				`Get-Command devsync`,
+				`Get-Command dsx`,
 				`bw login --check`,
 				`$token = & bw unlock --raw`,
-				`$envExports = & $DEVSYNC_PATH env export`,
+				`$envExports = & $DSX_PATH env export`,
 				`$commandText = @($envExports) -join [Environment]::NewLine`,
 				`if ([string]::IsNullOrWhiteSpace($commandText)) {`,
 				`Invoke-Expression -Command $commandText -ErrorAction Stop`,
 				`Write-Error "環境変数の読み込み中にエラーが発生しました: $_"`,
-				`if (-not (devsync-unlock)) { return 1 }`,
-				`if (-not (devsync-load-env)) { return 1 }`,
-				`& $DEVSYNC_PATH run @args`,
+				`if (-not (dsx-env)) { return 1 }`,
+				`& $DSX_PATH sys update @args`,
+				`& $DSX_PATH repo update @args`,
+				`& $DSX_PATH run @args`,
 			},
 		},
 	}
@@ -528,7 +531,7 @@ func TestGeneratedShellScripts(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			script := tc.buildScript("/tmp/devsync")
+			script := tc.buildScript("/tmp/dsx")
 			for _, phrase := range tc.requiredPhrases {
 				if !strings.Contains(script, phrase) {
 					t.Fatalf("generated script does not contain required phrase %q", phrase)
@@ -972,7 +975,7 @@ func TestResolveInitScript(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			gotPath, gotContent := resolveInitScript(tc.shell, configDir, "/tmp/devsync")
+			gotPath, gotContent := resolveInitScript(tc.shell, configDir, "/tmp/dsx")
 			if filepath.Base(gotPath) != tc.wantFilename {
 				t.Fatalf("filename = %q, want %q", filepath.Base(gotPath), tc.wantFilename)
 			}
@@ -988,7 +991,7 @@ func TestResolveShellRcFile_Posix(t *testing.T) {
 	t.Parallel()
 
 	home := t.TempDir()
-	scriptPath := filepath.Join(home, ".config", "devsync", "init.bash")
+	scriptPath := filepath.Join(home, ".config", "dsx", "init.bash")
 
 	testCases := []struct {
 		name            string
@@ -1055,7 +1058,7 @@ func TestResolveShellRcFile_PowerShell(t *testing.T) {
 		getPowerShellProfilePathStep = original
 	})
 
-	scriptPath := `C:\Users\jojob\.config\devsync\init.ps1`
+	scriptPath := `C:\Users\jojob\.config\dsx\init.ps1`
 	wantProfile := `C:\Users\jojob\OneDrive\ドキュメント\PowerShell\Microsoft.PowerShell_profile.ps1`
 
 	t.Run("取得成功ならプロファイルパスと dot source コマンドを返す", func(t *testing.T) {
@@ -1141,7 +1144,7 @@ func TestConfirmAddToRc(t *testing.T) {
 func createConfigDir(t *testing.T, home string) {
 	t.Helper()
 
-	if err := os.MkdirAll(filepath.Join(home, ".config", "devsync"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(home, ".config", "dsx"), 0o755); err != nil {
 		t.Fatalf("failed to create config dir: %v", err)
 	}
 }
@@ -1158,7 +1161,7 @@ func TestGenerateShellInit_UnsupportedShell(t *testing.T) {
 		t.Fatalf("generateShellInit() unexpected error: %v", err)
 	}
 
-	scriptPath := filepath.Join(home, ".config", "devsync", "init.sh")
+	scriptPath := filepath.Join(home, ".config", "dsx", "init.sh")
 	if _, statErr := os.Stat(scriptPath); statErr != nil {
 		t.Fatalf("init script should exist, statErr=%v", statErr)
 	}
@@ -1197,7 +1200,7 @@ func TestGenerateShellInit_Bash_Declined(t *testing.T) {
 		t.Fatalf("generateShellInit() unexpected error: %v", err)
 	}
 
-	scriptPath := filepath.Join(home, ".config", "devsync", "init.bash")
+	scriptPath := filepath.Join(home, ".config", "dsx", "init.bash")
 	if _, statErr := os.Stat(scriptPath); statErr != nil {
 		t.Fatalf("init script should exist, statErr=%v", statErr)
 	}
@@ -1236,7 +1239,7 @@ func TestGenerateShellInit_Bash_Accepted(t *testing.T) {
 		t.Fatalf("generateShellInit() unexpected error: %v", err)
 	}
 
-	scriptPath := filepath.Join(home, ".config", "devsync", "init.bash")
+	scriptPath := filepath.Join(home, ".config", "dsx", "init.bash")
 	if _, statErr := os.Stat(scriptPath); statErr != nil {
 		t.Fatalf("init script should exist, statErr=%v", statErr)
 	}
@@ -1249,11 +1252,11 @@ func TestGenerateShellInit_Bash_Accepted(t *testing.T) {
 	}
 
 	contentStr := string(content)
-	if !strings.Contains(contentStr, "# >>> devsync >>>") {
+	if !strings.Contains(contentStr, "# >>> dsx >>>") {
 		t.Fatalf("rc file does not contain marker begin: %q", contentStr)
 	}
 
-	if !strings.Contains(contentStr, "# <<< devsync <<<") {
+	if !strings.Contains(contentStr, "# <<< dsx <<<") {
 		t.Fatalf("rc file does not contain marker end: %q", contentStr)
 	}
 
@@ -1283,7 +1286,7 @@ func TestGenerateShellInit_PowerShell_ProfileLookupFailed(t *testing.T) {
 		t.Fatalf("generateShellInit() unexpected error: %v", err)
 	}
 
-	scriptPath := filepath.Join(home, ".config", "devsync", "init.ps1")
+	scriptPath := filepath.Join(home, ".config", "dsx", "init.ps1")
 	if _, statErr := os.Stat(scriptPath); statErr != nil {
 		t.Fatalf("init script should exist, statErr=%v", statErr)
 	}

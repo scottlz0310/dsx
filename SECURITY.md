@@ -77,7 +77,7 @@ This project includes the following security measures:
 
 ### Environment Variable Export Security
 
-The `devsync env export` command is designed with security in mind:
+The `dsx env export` command is designed with security in mind:
 
 1. **Safe Quoting**: Values are properly quoted and escaped for shell evaluation:
    - Bash/Zsh: Single quotes with `'\''` escaping for embedded quotes
@@ -90,18 +90,18 @@ The `devsync env export` command is designed with security in mind:
 4. **Recommended Usage**: 
    ```bash
    # CORRECT: Properly quoted to prevent word splitting
-   eval "$(devsync env export)"
+   eval "$(dsx env export)"
    
    # WRONG: Vulnerable to word splitting and globbing
-   eval $(devsync env export)
+   eval $(dsx env export)
    ```
 
-5. **Safe Alternative**: Use `devsync env run` to inject environment variables without `eval`:
+5. **Safe Alternative**: Use `dsx env run` to inject environment variables without `eval`:
    ```bash
-   devsync env run your-command
+   dsx env run your-command
    ```
 
-6. **Idempotent RC Configuration**: Shell configuration files are modified with markers (`# >>> devsync >>>` / `# <<< devsync <<<`) to prevent duplicate entries and allow clean removal via `devsync config uninstall`
+6. **Idempotent RC Configuration**: Shell configuration files are modified with markers (`# >>> dsx >>>` / `# <<< dsx <<<`) to prevent duplicate entries and allow clean removal via `dsx config uninstall`
 
 ## Contact
 

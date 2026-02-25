@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/scottlz0310/devsync/internal/config"
-	repomgr "github.com/scottlz0310/devsync/internal/repo"
-	"github.com/scottlz0310/devsync/internal/runner"
+	"github.com/scottlz0310/dsx/internal/config"
+	repomgr "github.com/scottlz0310/dsx/internal/repo"
+	"github.com/scottlz0310/dsx/internal/runner"
 	"github.com/spf13/cobra"
 )
 

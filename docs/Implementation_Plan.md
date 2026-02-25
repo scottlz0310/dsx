@@ -21,19 +21,19 @@
 
 ## 2. 現状（2026-02-11 時点）
 
-- `devsync run`（Bitwarden解錠 → env注入 → `sys update` → `repo update`）まで到達
+- `dsx run`（Bitwarden解錠 → env注入 → `sys update` → `repo update`）まで到達
 - `repo update` は並列実行 + サブモジュール更新に対応
 - `sys update` は主要マネージャを実装済み（apt/brew/go/npm/pnpm/nvm/pipx/cargo/snap/flatpak/fwupdmgr/uv/rustup/gem）
 - 進捗UIは `--tui` で起動（設定 `ui.tui` で既定ON/OFFも可能）
 
 ## 3. CLI コマンド設計（v0.1 時点）
 
-- 日次統合: `devsync run`
-- 診断: `devsync doctor`
-- システム更新: `devsync sys update`, `devsync sys list`
-- リポジトリ管理: `devsync repo update`, `devsync repo list`
-- 環境変数: `devsync env export`, `devsync env run`
-- 設定: `devsync config init`, `devsync config uninstall`
+- 日次統合: `dsx run`
+- 診断: `dsx doctor`
+- システム更新: `dsx sys update`, `dsx sys list`
+- リポジトリ管理: `dsx repo update`, `dsx repo list`
+- 環境変数: `dsx env export`, `dsx env run`
+- 設定: `dsx config init`, `dsx config uninstall`
 
 予定機能（未実装）:
 

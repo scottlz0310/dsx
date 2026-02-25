@@ -1,6 +1,6 @@
-# DevSync
+# dsx
 
-DevSync は、開発環境の運用作業を統合・一元化するためのクロスプラットフォーム CLI ツールです。
+dsx は、開発環境の運用作業を統合・一元化するためのクロスプラットフォーム CLI ツールです。
 既存の `sysup` および `Setup-Repository` を置き換え、Bitwarden を利用した環境変数注入の自動化を目指します。
 
 ## 🚀 目的
@@ -28,22 +28,22 @@ DevSync は、開発環境の運用作業を統合・一元化するためのク
 
 ### インストール方法（推奨: GitHub Releases）
 
-[Releases ページ](https://github.com/scottlz0310/devsync/releases) からお使いの OS 向けのバイナリをダウンロードして PATH に配置してください。
+[Releases ページ](https://github.com/scottlz0310/dsx/releases) からお使いの OS 向けのバイナリをダウンロードして PATH に配置してください。
 
 ```bash
 # 例: Linux amd64（v0.2.0 の場合）
-curl -Lo devsync.tar.gz https://github.com/scottlz0310/devsync/releases/download/v0.2.0/devsync_0.2.0_linux_amd64.tar.gz
-tar xzf devsync.tar.gz
-sudo mv devsync /usr/local/bin/
+curl -Lo dsx.tar.gz https://github.com/scottlz0310/dsx/releases/download/v0.2.0/dsx_0.2.0_linux_amd64.tar.gz
+tar xzf dsx.tar.gz
+sudo mv dsx /usr/local/bin/
 ```
 
 ### インストール方法（go install）
 
 ```bash
-go install github.com/scottlz0310/devsync/cmd/devsync@latest
+go install github.com/scottlz0310/dsx/cmd/dsx@latest
 ```
 
-`$GOPATH/bin`（通常は `~/go/bin`）に `devsync` が配置されます。  
+`$GOPATH/bin`（通常は `~/go/bin`）に `dsx` が配置されます。  
 PATH未設定の場合は、シェルの設定ファイルに追加してください。
 
 ```bash
@@ -53,10 +53,10 @@ export PATH="$HOME/go/bin:$PATH"
 ### ローカルビルドで使う場合
 
 ```bash
-git clone https://github.com/scottlz0310/devsync.git
-cd devsync
-go build -o dist/devsync ./cmd/devsync
-./dist/devsync --help
+git clone https://github.com/scottlz0310/dsx.git
+cd dsx
+go build -o dist/dsx ./cmd/dsx
+./dist/dsx --help
 ```
 
 ### 初期設定
@@ -67,109 +67,111 @@ go build -o dist/devsync ./cmd/devsync
 既存の `config.yaml` がある場合、`config init` は現在値を初期値として再編集できます。
 
 ```bash
-devsync config init
-devsync doctor
+dsx config init
+dsx doctor
 ```
 
 ### シェル連携（自動設定）
 
-`devsync config init` では、シェル起動時に `~/.config/devsync/init.bash`（zshは `init.zsh`）を読み込む設定を
+`dsx config init` では、シェル起動時に `~/.config/dsx/init.bash`（zshは `init.zsh`）を読み込む設定を
 `~/.bashrc` / `~/.zshrc` に自動追記できます。
 
-PowerShell の場合は、`~/.config/devsync/init.ps1` を `$PROFILE`（例: `Microsoft.PowerShell_profile.ps1`）に自動追記できます。
+PowerShell の場合は、`~/.config/dsx/init.ps1` を `$PROFILE`（例: `Microsoft.PowerShell_profile.ps1`）に自動追記できます。
 反映するには `. $PROFILE` を実行してください。
 
 ```bash
 # 反映確認（bash）
-grep -n ">>> devsync >>>" ~/.bashrc
+grep -n ">>> dsx >>>" ~/.bashrc
 source ~/.bashrc
 
 # 関数確認
-type devsync-load-env
-type dev-sync
+type dsx-env
+type dsx-run
 ```
 
-- `devsync-load-env`: Bitwarden の `env:` 項目を現在のシェルへ読み込み
-- `dev-sync`: Bitwarden 解錠 → 環境変数を親シェルへ読み込み → `devsync run` 実行（引数はそのまま渡されます）
+- `dsx-env`: Bitwarden を自動アンロックし、`env:` 項目を現在のシェルへ読み込み（1コマンドで完結）
+- `dsx-sys`: `dsx-env` → `dsx sys update`（システム更新）
+- `dsx-repo`: `dsx-env` → `dsx repo update`（リポジトリ更新）
+- `dsx-run`: `dsx-env` → `dsx run`（全部実行）
 
-`devsync` バイナリの配置先を変更した場合は、`devsync config init` を再実行してシェル連携スクリプトを再生成してください。
+`dsx` バイナリの配置先を変更した場合は、`dsx config init` を再実行してシェル連携スクリプトを再生成してください。
 
 ## 🗑 アンインストール
 
-`devsync config uninstall` は **シェル設定から devsync のマーカーブロックを削除するだけ** です（バイナリや設定ファイルは削除しません）。
+`dsx config uninstall` は **シェル設定から dsx のマーカーブロックを削除するだけ** です（バイナリや設定ファイルは削除しません）。
 
 ### 1. シェル連携の解除（推奨）
 
-`config init` が追記した `# >>> devsync >>>` / `# <<< devsync <<<` のブロックを削除します。
+`config init` が追記した `# >>> dsx >>>` / `# <<< dsx <<<` のブロックを削除します。
 
 ```bash
-devsync config uninstall
+dsx config uninstall
 ```
 
 注意:
-- `devsync config uninstall` は「いま実行しているシェル」を自動判定して削除します。bash/zsh/PowerShell それぞれで解除したい場合は、そのシェルから実行してください。
+- `dsx config uninstall` は「いま実行しているシェル」を自動判定して削除します。bash/zsh/PowerShell それぞれで解除したい場合は、そのシェルから実行してください。
 - 解除後はシェルを再起動するか、設定を再読み込みしてください（例: bash/zsh は `source ~/.bashrc`、PowerShell は `. $PROFILE`）。
 
 ### 2. 設定ファイル・生成ファイルの削除（任意）
 
-- 設定ファイル: `~/.config/devsync/config.yaml`
-- シェル連携スクリプト: `~/.config/devsync/init.bash` / `init.zsh` / `init.ps1`
+- 設定ファイル: `~/.config/dsx/config.yaml`
+- シェル連携スクリプト: `~/.config/dsx/init.bash` / `init.zsh` / `init.ps1`
 
-完全に削除する場合は、`~/.config/devsync` ディレクトリごと削除してください。
+完全に削除する場合は、`~/.config/dsx` ディレクトリごと削除してください。
 
 ```bash
-rm -rf ~/.config/devsync
+rm -rf ~/.config/dsx
 ```
 
 **PowerShell:**
 ```powershell
-Remove-Item -Recurse -Force (Join-Path $HOME '.config/devsync') -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force (Join-Path $HOME '.config/dsx') -ErrorAction SilentlyContinue
 ```
 
-### 3. devsync バイナリの削除
+### 3. dsx バイナリの削除
 
 #### go install でインストールした場合
 
-`devsync` の実体パスを確認して削除します。
+`dsx` の実体パスを確認して削除します。
 
 ```bash
-command -v devsync
-rm -f "$(command -v devsync)"
+command -v dsx
+rm -f "$(command -v dsx)"
 ```
 
 **PowerShell:**
 ```powershell
-(Get-Command devsync).Source
-Remove-Item -Force (Get-Command devsync).Source
+(Get-Command dsx).Source
+Remove-Item -Force (Get-Command dsx).Source
 ```
 
 補足:
-- `devsync` が PATH 上で見つからない場合は、通常 `$(go env GOPATH)/bin`（または `go env GOBIN` が設定されている場合はそのディレクトリ）にあります。
+- `dsx` が PATH 上で見つからない場合は、通常 `$(go env GOPATH)/bin`（または `go env GOBIN` が設定されている場合はそのディレクトリ）にあります。
 
 #### ローカルビルドで使っていた場合
 
-`dist/devsync`（または配置先のバイナリ）を削除してください。
+`dist/dsx`（または配置先のバイナリ）を削除してください。
 
 ## 📋 コマンド一覧
 
 ### メインコマンド
 ```
-devsync --version      # バージョン表示（現在: v0.1.0-alpha）
-devsync run           # 日次の統合タスクを実行（Bitwarden解錠→環境変数読込→更新処理）
-devsync run -n        # ドライラン（sys/repo に伝播）
-devsync run --tui     # TUI 進捗表示を有効化（sys/repo に伝播）
-devsync doctor        # 依存ツール（git, bw等）と環境設定の診断
+dsx --version      # バージョン表示（現在: v0.1.0-alpha）
+dsx run           # 日次の統合タスクを実行（Bitwarden解錠→環境変数読込→更新処理）
+dsx run -n        # ドライラン（sys/repo に伝播）
+dsx run --tui     # TUI 進捗表示を有効化（sys/repo に伝播）
+dsx doctor        # 依存ツール（git, bw等）と環境設定の診断
 ```
 
 ### システム更新 (`sys`)
 ```
-devsync sys update    # パッケージマネージャで一括更新
-devsync sys update -n # ドライラン（計画のみ表示）
-devsync sys update -j 4 # 4並列で更新
-devsync sys update --tui # Bubble Teaで進捗を表示
-devsync sys update --no-tui # TUIを無効化（設定より優先）
-devsync sys update --log-file sys.log  # 実行ログをファイルに保存
-devsync sys list      # 利用可能なパッケージマネージャを一覧表示
+dsx sys update    # パッケージマネージャで一括更新
+dsx sys update -n # ドライラン（計画のみ表示）
+dsx sys update -j 4 # 4並列で更新
+dsx sys update --tui # Bubble Teaで進捗を表示
+dsx sys update --no-tui # TUIを無効化（設定より優先）
+dsx sys update --log-file sys.log  # 実行ログをファイルに保存
+dsx sys list      # 利用可能なパッケージマネージャを一覧表示
 ```
 
 **対応パッケージマネージャ**: apt, brew, go, npm, pnpm, nvm, snap, flatpak, fwupdmgr, pipx, cargo, uv, rustup, gem, winget, scoop
@@ -184,18 +186,18 @@ devsync sys list      # 利用可能なパッケージマネージャを一覧�
 
 ### リポジトリ管理 (`repo`)
 ```
-devsync repo update       # 管理下リポジトリを更新（fetch + pull --rebase）
-devsync repo update -j 4  # 4並列で更新
-devsync repo update -n    # ドライラン（計画のみ表示）
-devsync repo update --tui # Bubble Teaで進捗を表示
-devsync repo update --no-tui # TUIを無効化（設定より優先）
-devsync repo update --log-file update.log  # 実行ログをファイルに保存
-devsync repo update --submodule      # submodule更新を強制有効化（設定値を上書き）
-devsync repo update --no-submodule   # submodule更新を強制無効化（設定値を上書き）
-devsync repo list         # 管理下リポジトリの一覧と状態を表示
-devsync repo list --root ~/src # ルートを上書きして一覧表示
-devsync repo cleanup      # マージ済みローカルブランチを整理
-devsync repo cleanup -n   # DryRun（削除計画のみ表示）
+dsx repo update       # 管理下リポジトリを更新（fetch + pull --rebase）
+dsx repo update -j 4  # 4並列で更新
+dsx repo update -n    # ドライラン（計画のみ表示）
+dsx repo update --tui # Bubble Teaで進捗を表示
+dsx repo update --no-tui # TUIを無効化（設定より優先）
+dsx repo update --log-file update.log  # 実行ログをファイルに保存
+dsx repo update --submodule      # submodule更新を強制有効化（設定値を上書き）
+dsx repo update --no-submodule   # submodule更新を強制無効化（設定値を上書き）
+dsx repo list         # 管理下リポジトリの一覧と状態を表示
+dsx repo list --root ~/src # ルートを上書きして一覧表示
+dsx repo cleanup      # マージ済みローカルブランチを整理
+dsx repo cleanup -n   # DryRun（削除計画のみ表示）
 ```
 
 `repo list` は `config.yaml` の `repo.root` 配下をスキャンし、状態を表示します。
@@ -217,16 +219,16 @@ CLI では `--submodule` / `--no-submodule` で明示的に上書きできます
 
 ### 環境変数 (`env`)
 ```
-devsync env export    # Bitwardenから環境変数をシェル形式でエクスポート
-devsync env run       # 環境変数を注入してコマンドを実行
+dsx env export    # Bitwardenから環境変数をシェル形式でエクスポート
+dsx env run       # 環境変数を注入してコマンドを実行
 ```
 
 ### 設定管理 (`config`)
 ```
-devsync config init       # 対話形式のウィザードで設定ファイルを生成
-devsync config show       # 現在の設定を表示（YAML）
-devsync config validate   # 設定内容を検証
-devsync config uninstall  # シェル設定からdevsyncを削除
+dsx config init       # 対話形式のウィザードで設定ファイルを生成
+dsx config show       # 現在の設定を表示（YAML）
+dsx config validate   # 設定内容を検証
+dsx config uninstall  # シェル設定からdsxを削除
 ```
 
 ## 🚧 Alpha リリース方針（v0.1.0-alpha）
@@ -235,9 +237,9 @@ devsync config uninstall  # シェル設定からdevsyncを削除
 
 ### 推奨運用（当面）
 
-- リポジトリ同期は `devsync repo update` と `setup-repo` を並行利用し、差分がないことを確認しながら移行する
+- リポジトリ同期は `dsx repo update` と `setup-repo` を並行利用し、差分がないことを確認しながら移行する
 - `repo.root` は `~/workspace` または `~/src` のどちらか一方に固定して運用する
-- `devsync run` は `env -> sys update -> repo update` の実処理フローを実行し、日常運用の確認に使う
+- `dsx run` は `env -> sys update -> repo update` の実処理フローを実行し、日常運用の確認に使う
 
 ### 既知の制約
 
@@ -252,7 +254,7 @@ devsync config uninstall  # シェル設定からdevsyncを削除
 ### 0. 初回のみ: 設定ファイルを生成（必須）
 
 ```bash
-devsync config init
+dsx config init
 ```
 
 `repo list` / `repo update` は `repo.root` 設定を利用するため、初回は先に `config init` を実行してください。
@@ -260,16 +262,16 @@ devsync config init
 ### 1. 依存関係と設定の確認
 
 ```bash
-devsync doctor
-devsync sys list
-devsync repo list
+dsx doctor
+dsx sys list
+dsx repo list
 ```
 
 ### 2. Dry-run で計画確認（本実行前）
 
 ```bash
-devsync sys update -n --tui
-devsync repo update -n --tui
+dsx sys update -n --tui
+dsx repo update -n --tui
 ```
 
 非TTY環境（CIやリダイレクト実行）では、`--tui` / `ui.tui=true` による TUI 指定は通常表示へ自動フォールバックします。
@@ -281,23 +283,23 @@ devsync repo update -n --tui
 source ~/.bashrc
 type dev-sync
 
-# devsync run の先頭ジョブ（Bitwarden unlock / 環境変数注入）を確認
+# dsx run の先頭ジョブ（Bitwarden unlock / 環境変数注入）を確認
 dev-sync
 # もしくはサブプロセス実行のみを確認
-devsync run
+dsx run
 ```
 
-`dev-sync` は最初に Bitwarden のアンロックと環境変数注入を実行し、親シェルにも環境変数を反映したうえで `devsync run` を実行します。
-`devsync run` 単体で実行した場合は、サブプロセス内のみ環境変数が注入されます。
-`devsync run` では続けて `sys update` と `repo update` を順次実行します。
+`dev-sync` は最初に Bitwarden のアンロックと環境変数注入を実行し、親シェルにも環境変数を反映したうえで `dsx run` を実行します。
+`dsx run` 単体で実行した場合は、サブプロセス内のみ環境変数が注入されます。
+`dsx run` では続けて `sys update` と `repo update` を順次実行します。
 `--dry-run` / `--tui` / `--no-tui` / `--jobs` / `--log-file` フラグは `sys update` / `repo update` に伝播されます。
 システム更新が失敗してもリポジトリ同期は続行し、全フェーズ完了後にエラーをまとめて報告します。
 
 ### 4. 本実行（通常運用）
 
 ```bash
-devsync sys update --tui -j 4
-devsync repo update --tui -j 4
+dsx sys update --tui -j 4
+dsx repo update --tui -j 4
 ```
 
 ### 5. 結果確認
@@ -308,15 +310,15 @@ devsync repo update --tui -j 4
 
 ### 6. `setup-repo` との比較（移行期間の手動チェック）
 
-`repo` 系は安全側優先のため、状態によっては `devsync repo update` がスキップすることがあります。
+`repo` 系は安全側優先のため、状態によっては `dsx repo update` がスキップすることがあります。
 移行期間中は `setup-repo` でも同期を実行し、結果の差分がないことを確認してください。
 
 - 実行順（例）:
-  - `devsync repo update --tui -j 4`
+  - `dsx repo update --tui -j 4`
   - `setup-repo sync`
 - 確認観点:
   - スキップが出た場合、理由に応じた復旧ができること（例: デフォルトブランチへ戻す / stash を解消する / `git remote set-head <remote> -a` を実行する）
-  - `devsync repo list` のステータスが想定どおりであること
+  - `dsx repo list` のステータスが想定どおりであること
   - `git status` が想定どおりであること
   - サブモジュールを利用している場合、`git submodule status` が想定どおりであること
 
@@ -324,16 +326,16 @@ devsync repo update --tui -j 4
 
 問題が出た場合は、まず次の順で復旧してください。
 
-1. 設定再生成: `devsync config init`
-2. 設定確認: `devsync doctor`
-3. `repo.root` 見直し: `~/.config/devsync/config.yaml` の `repo.root` が実在し、運用対象と一致しているか確認
+1. 設定再生成: `dsx config init`
+2. 設定確認: `dsx doctor`
+3. `repo.root` 見直し: `~/.config/dsx/config.yaml` の `repo.root` が実在し、運用対象と一致しているか確認
 4. Dry-run 再確認:
-   - `devsync sys update -n --tui`
-   - `devsync repo update -n --tui`
-5. 必要に応じて `setup-repo` で整合を取り、再度 `devsync repo update` を実行
+   - `dsx sys update -n --tui`
+   - `dsx repo update -n --tui`
+5. 必要に応じて `setup-repo` で整合を取り、再度 `dsx repo update` を実行
 6. GitHub のレート制限（`429 Too Many Requests` / `secondary rate limit`）が出る場合:
    - 数十秒〜数分待ってから再実行
-   - `repo cleanup` で頻発する場合は並列数を下げる（例: `devsync repo cleanup -j 1`）
+   - `repo cleanup` で頻発する場合は並列数を下げる（例: `dsx repo cleanup -j 1`）
    - どうしても復旧できない場合は `repo.cleanup.target` から `squashed` を外し、`merged` のみで運用（GitHub API 呼び出しを抑制）
 
 ## 🔑 環境変数の使用
@@ -344,7 +346,7 @@ Bitwardenから環境変数を現在のシェルに読み込むには：
 
 ```bash
 # Bitwardenから環境変数をエクスポート
-eval "$(devsync env export)"
+eval "$(dsx env export)"
 
 # 確認
 echo $GPAT
@@ -352,11 +354,11 @@ echo $GPAT
 
 **PowerShell:**
 ```powershell
-& devsync env export | Invoke-Expression
+& dsx env export | Invoke-Expression
 ```
 
-`devsync-load-env` / `dev-sync` 利用時に `Cannot convert 'System.Object[]' to the type 'System.String'` が出る場合は、
-旧版のシェル連携スクリプトが残っているため `devsync config init` を再実行して `init.ps1` を再生成してください。
+PowerShell 用の `dsx-env` シェル連携を利用している環境で `Cannot convert 'System.Object[]' to the type 'System.String'` が出る場合は、
+旧版のシェル連携スクリプトが残っている可能性があるため、`dsx config init` を再実行して `init.ps1` を再生成してください。
 
 ### 方法2: サブプロセスに環境変数を注入する（推奨）
 
@@ -364,8 +366,8 @@ echo $GPAT
 
 ```bash
 # 環境変数を注入してコマンドを実行
-devsync env run npm run build
-devsync env run go test ./...
+dsx env run npm run build
+dsx env run go test ./...
 ```
 
 この方法は以下の利点があります：
@@ -373,7 +375,7 @@ devsync env run go test ./...
 - コマンドの終了コードを保持
 - 親シェルに影響を与えない
 
-**注意**: `devsync run` 単体では親シェルに環境変数は反映されません。親シェルでも利用したい場合は `eval "$(devsync env export)"` または `devsync-load-env` / `dev-sync` を使用してください。
+**注意**: `dsx run` 単体では親シェルに環境変数は反映されません。親シェルでも利用したい場合は `eval "$(dsx env export)"` または `dsx-env` 関数（シェル統合）を使用してください。
 ## 🛠 開発
 
 ### 前提条件

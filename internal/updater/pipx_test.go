@@ -104,7 +104,7 @@ func TestPipxUpdater_Check(t *testing.T) {
 			writeFakePipxCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_PIPX_MODE", tc.mode)
+			t.Setenv("DSX_TEST_PIPX_MODE", tc.mode)
 
 			p := &PipxUpdater{}
 			got, err := p.Check(context.Background())
@@ -177,7 +177,7 @@ func TestPipxUpdater_Update(t *testing.T) {
 			writeFakePipxCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_PIPX_MODE", tc.mode)
+			t.Setenv("DSX_TEST_PIPX_MODE", tc.mode)
 
 			p := &PipxUpdater{}
 			got, err := p.Update(context.Background(), tc.opts)
@@ -214,7 +214,7 @@ func writeFakePipxCommand(t *testing.T, dir string) {
 	if runtime.GOOS == "windows" {
 		fileName = "pipx.cmd"
 		content = `@echo off
-set mode=%DEVSYNC_TEST_PIPX_MODE%
+set mode=%DSX_TEST_PIPX_MODE%
 if "%1"=="list" goto dolist
 if "%1"=="upgrade-all" goto doupgrade
 echo invalid args 1>&2
@@ -240,7 +240,7 @@ exit /b 0
 	} else {
 		fileName = "pipx"
 		content = `#!/bin/sh
-mode="${DEVSYNC_TEST_PIPX_MODE}"
+mode="${DSX_TEST_PIPX_MODE}"
 case "$1" in
   list)
     if [ "${mode}" = "check_error" ]; then

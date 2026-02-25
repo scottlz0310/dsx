@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/scottlz0310/devsync/internal/config"
+	"github.com/scottlz0310/dsx/internal/config"
 )
 
 // NpmUpdater は npm グローバルパッケージマネージャの実装です。

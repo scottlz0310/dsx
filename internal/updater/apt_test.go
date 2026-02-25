@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/scottlz0310/devsync/internal/config"
+	"github.com/scottlz0310/dsx/internal/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -206,7 +206,7 @@ func TestAptUpdater_Check(t *testing.T) {
 			writeFakeAptCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_APT_MODE", tc.mode)
+			t.Setenv("DSX_TEST_APT_MODE", tc.mode)
 
 			a := &AptUpdater{useSudo: false}
 			got, err := a.Check(context.Background())
@@ -278,7 +278,7 @@ func TestAptUpdater_Update(t *testing.T) {
 			writeFakeAptCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_APT_MODE", tc.mode)
+			t.Setenv("DSX_TEST_APT_MODE", tc.mode)
 
 			a := &AptUpdater{useSudo: false}
 			got, err := a.Update(context.Background(), tc.opts)
@@ -315,7 +315,7 @@ func writeFakeAptCommand(t *testing.T, dir string) {
 	if runtime.GOOS == "windows" {
 		fileName = "apt.cmd"
 		content = `@echo off
-set mode=%DEVSYNC_TEST_APT_MODE%
+set mode=%DSX_TEST_APT_MODE%
 if "%1"=="update" goto doupdate
 if "%1"=="list" goto dolist
 if "%1"=="upgrade" goto doupgrade
@@ -350,7 +350,7 @@ exit /b 0
 	} else {
 		fileName = "apt"
 		content = `#!/bin/sh
-mode="${DEVSYNC_TEST_APT_MODE}"
+mode="${DSX_TEST_APT_MODE}"
 if [ "$1" = "update" ]; then
   if [ "${mode}" = "update_error" ]; then
     echo "apt update failed" 1>&2

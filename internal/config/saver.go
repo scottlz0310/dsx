@@ -17,7 +17,7 @@ func Save(cfg *Config, path string) error {
 			return fmt.Errorf("failed to get home directory: %w", err)
 		}
 
-		path = filepath.Join(home, ".config", "devsync", "config.yaml")
+		path = filepath.Join(home, ".config", "dsx", "config.yaml")
 	}
 
 	// ディレクトリの作成

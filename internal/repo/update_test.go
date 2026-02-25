@@ -359,8 +359,8 @@ func createLocalRepoWithoutUpstream(t *testing.T) string {
 
 	repoPath := t.TempDir()
 	runGit(t, "", "init", repoPath)
-	runGit(t, repoPath, "config", "user.email", "devsync-test@example.com")
-	runGit(t, repoPath, "config", "user.name", "devsync-test")
+	runGit(t, repoPath, "config", "user.email", "dsx-test@example.com")
+	runGit(t, repoPath, "config", "user.name", "dsx-test")
 
 	filePath := filepath.Join(repoPath, "README.md")
 	if err := os.WriteFile(filePath, []byte("# local\n"), 0o644); err != nil {
@@ -397,8 +397,8 @@ func createRepoWithUpstream(t *testing.T) string {
 
 	runGit(t, "", "init", "--bare", remotePath)
 	runGit(t, "", "clone", remotePath, sourcePath)
-	runGit(t, sourcePath, "config", "user.email", "devsync-test@example.com")
-	runGit(t, sourcePath, "config", "user.name", "devsync-test")
+	runGit(t, sourcePath, "config", "user.email", "dsx-test@example.com")
+	runGit(t, sourcePath, "config", "user.name", "dsx-test")
 
 	filePath := filepath.Join(sourcePath, "README.md")
 	if err := os.WriteFile(filePath, []byte("# upstream\n"), 0o644); err != nil {
@@ -409,8 +409,8 @@ func createRepoWithUpstream(t *testing.T) string {
 	runGit(t, sourcePath, "commit", "-m", "initial commit")
 	runGit(t, sourcePath, "push", "-u", "origin", "HEAD")
 	runGit(t, "", "clone", remotePath, workPath)
-	runGit(t, workPath, "config", "user.email", "devsync-test@example.com")
-	runGit(t, workPath, "config", "user.name", "devsync-test")
+	runGit(t, workPath, "config", "user.email", "dsx-test@example.com")
+	runGit(t, workPath, "config", "user.name", "dsx-test")
 
 	return workPath
 }
@@ -451,7 +451,7 @@ func createRepoWithUpstreamAndStash(t *testing.T) string {
 		t.Fatalf("failed to modify file: %v", err)
 	}
 
-	runGit(t, repoPath, "stash", "push", "-m", "devsync-test")
+	runGit(t, repoPath, "stash", "push", "-m", "dsx-test")
 
 	return repoPath
 }
@@ -477,8 +477,8 @@ func createRepoWithUpstreamAndLocalUpstreamRef(t *testing.T) string {
 	}
 
 	// upstream をローカルブランチに設定し、@{u} が "<remote>/<branch>" 形式にならない状態を模擬する。
-	runGit(t, repoPath, "branch", "devsync-test-local-upstream-target")
-	runGit(t, repoPath, "branch", "--set-upstream-to=devsync-test-local-upstream-target", branch)
+	runGit(t, repoPath, "branch", "dsx-test-local-upstream-target")
+	runGit(t, repoPath, "branch", "--set-upstream-to=dsx-test-local-upstream-target", branch)
 
 	return repoPath
 }
@@ -502,7 +502,7 @@ func createRepoWithNonDefaultUpstream(t *testing.T) string {
 
 	repoPath := createRepoWithUpstream(t)
 
-	runGit(t, repoPath, "checkout", "-b", "devsync-test-feature")
+	runGit(t, repoPath, "checkout", "-b", "dsx-test-feature")
 
 	filePath := filepath.Join(repoPath, "README.md")
 	if err := os.WriteFile(filePath, []byte("# upstream\nfeature\n"), 0o644); err != nil {
@@ -522,7 +522,7 @@ func createRepoWithDifferentLocalBranchTrackingDefault(t *testing.T) string {
 	repoPath := createRepoWithUpstream(t)
 	defaultBranch := getOriginDefaultBranchName(t, repoPath)
 
-	runGit(t, repoPath, "checkout", "-b", "devsync-test-local-default", "--track", "origin/"+defaultBranch)
+	runGit(t, repoPath, "checkout", "-b", "dsx-test-local-default", "--track", "origin/"+defaultBranch)
 
 	return repoPath
 }

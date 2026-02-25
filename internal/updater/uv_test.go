@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/scottlz0310/devsync/internal/config"
+	"github.com/scottlz0310/dsx/internal/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -130,7 +130,7 @@ func TestUVUpdater_Check(t *testing.T) {
 			writeFakeUVCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_UV_MODE", tc.mode)
+			t.Setenv("DSX_TEST_UV_MODE", tc.mode)
 
 			u := &UVUpdater{}
 			got, err := u.Check(context.Background())
@@ -202,7 +202,7 @@ func TestUVUpdater_Update(t *testing.T) {
 			writeFakeUVCommand(t, fakeDir)
 
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			t.Setenv("DEVSYNC_TEST_UV_MODE", tc.mode)
+			t.Setenv("DSX_TEST_UV_MODE", tc.mode)
 
 			u := &UVUpdater{}
 			got, err := u.Update(context.Background(), tc.opts)
@@ -240,7 +240,7 @@ func writeFakeUVCommand(t *testing.T, dir string) {
 	if runtime.GOOS == "windows" {
 		fileName = "uv.cmd"
 		content = `@echo off
-set mode=%DEVSYNC_TEST_UV_MODE%
+set mode=%DSX_TEST_UV_MODE%
 if "%1"=="tool" if "%2"=="list" goto list
 if "%1"=="tool" if "%2"=="upgrade" goto upgrade
 >&2 echo invalid args
@@ -269,7 +269,7 @@ exit /b 0
 	} else {
 		fileName = "uv"
 		content = `#!/bin/sh
-mode="${DEVSYNC_TEST_UV_MODE}"
+mode="${DSX_TEST_UV_MODE}"
 if [ "$1" = "tool" ] && [ "$2" = "list" ]; then
   if [ "${mode}" = "list_error" ]; then
     echo "uv tool list stderr" 1>&2

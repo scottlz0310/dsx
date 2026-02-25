@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/scottlz0310/devsync/internal/testutil"
+	"github.com/scottlz0310/dsx/internal/testutil"
 )
 
 func TestDiscover(t *testing.T) {

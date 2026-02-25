@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/scottlz0310/devsync/internal/config"
-	repomgr "github.com/scottlz0310/devsync/internal/repo"
+	"github.com/scottlz0310/dsx/internal/config"
+	repomgr "github.com/scottlz0310/dsx/internal/repo"
 )
 
 func TestResolveRepoJobs(t *testing.T) {
@@ -147,8 +147,8 @@ func TestBuildRepoJobDisplayName(t *testing.T) {
 		{
 			name:     "root直下は相対パス",
 			root:     "/work/src",
-			repoPath: "/work/src/devsync",
-			want:     "devsync",
+			repoPath: "/work/src/dsx",
+			want:     "dsx",
 		},
 		{
 			name:     "ネストしたパスは相対表示",
@@ -203,7 +203,7 @@ func TestWrapRepoRootError(t *testing.T) {
 			root:           "/tmp/src",
 			rootOverridden: false,
 			configExists:   false,
-			configPath:     "/tmp/.config/devsync/config.yaml",
+			configPath:     "/tmp/.config/dsx/config.yaml",
 			wantHint:       true,
 		},
 		{
@@ -212,7 +212,7 @@ func TestWrapRepoRootError(t *testing.T) {
 			root:           "/tmp/src",
 			rootOverridden: false,
 			configExists:   true,
-			configPath:     "/tmp/.config/devsync/config.yaml",
+			configPath:     "/tmp/.config/dsx/config.yaml",
 			wantHint:       false,
 		},
 		{
@@ -221,7 +221,7 @@ func TestWrapRepoRootError(t *testing.T) {
 			root:           "/tmp/src",
 			rootOverridden: true,
 			configExists:   false,
-			configPath:     "/tmp/.config/devsync/config.yaml",
+			configPath:     "/tmp/.config/dsx/config.yaml",
 			wantHint:       false,
 		},
 	}
@@ -233,7 +233,7 @@ func TestWrapRepoRootError(t *testing.T) {
 
 			wrapped := wrapRepoRootError(tc.err, tc.root, tc.rootOverridden, tc.configExists, tc.configPath)
 
-			if hasHint := strings.Contains(wrapped.Error(), "devsync config init"); hasHint != tc.wantHint {
+			if hasHint := strings.Contains(wrapped.Error(), "dsx config init"); hasHint != tc.wantHint {
 				t.Fatalf("wrapRepoRootError() hint = %v, want %v. got=%q", hasHint, tc.wantHint, wrapped.Error())
 			}
 		})
@@ -245,18 +245,18 @@ func TestWriteRepoTable(t *testing.T) {
 
 	repos := []repomgr.Info{
 		{
-			Name:        "devsync-manual",
+			Name:        "dsx-manual",
 			Status:      repomgr.StatusDirty,
 			Ahead:       1,
 			HasUpstream: true,
-			Path:        "/home/dev/src/devsync-manual",
+			Path:        "/home/dev/src/dsx-manual",
 		},
 		{
-			Name:        "devsync-no-upstream",
+			Name:        "dsx-no-upstream",
 			Status:      repomgr.StatusNoUpstream,
 			Ahead:       0,
 			HasUpstream: false,
-			Path:        "/home/dev/src/devsync-no-upstream",
+			Path:        "/home/dev/src/dsx-no-upstream",
 		},
 	}
 
@@ -563,7 +563,7 @@ func TestListGitHubRepos(t *testing.T) {
 
 			return helperProcessCommand(
 				ctx,
-				"[{\"name\":\"devsync\",\"url\":\"https://github.com/scottlz0310/devsync.git\",\"sshUrl\":\"git@github.com:scottlz0310/devsync.git\",\"isArchived\":false}]\n",
+				"[{\"name\":\"dsx\",\"url\":\"https://github.com/scottlz0310/dsx.git\",\"sshUrl\":\"git@github.com:scottlz0310/dsx.git\",\"isArchived\":false}]\n",
 				"",
 				0,
 			)
@@ -576,9 +576,9 @@ func TestListGitHubRepos(t *testing.T) {
 
 		want := []githubRepo{
 			{
-				Name:       "devsync",
-				URL:        "https://github.com/scottlz0310/devsync.git",
-				SSHURL:     "git@github.com:scottlz0310/devsync.git",
+				Name:       "dsx",
+				URL:        "https://github.com/scottlz0310/dsx.git",
+				SSHURL:     "git@github.com:scottlz0310/dsx.git",
 				IsArchived: false,
 			},
 		}
@@ -595,15 +595,15 @@ func TestHelperProcess(t *testing.T) {
 		return
 	}
 
-	if _, err := fmt.Fprint(os.Stdout, os.Getenv("DEVSYNC_HELPER_STDOUT")); err != nil {
+	if _, err := fmt.Fprint(os.Stdout, os.Getenv("DSX_HELPER_STDOUT")); err != nil {
 		os.Exit(2)
 	}
 
-	if _, err := fmt.Fprint(os.Stderr, os.Getenv("DEVSYNC_HELPER_STDERR")); err != nil {
+	if _, err := fmt.Fprint(os.Stderr, os.Getenv("DSX_HELPER_STDERR")); err != nil {
 		os.Exit(2)
 	}
 
-	code, err := strconv.Atoi(os.Getenv("DEVSYNC_HELPER_EXIT_CODE"))
+	code, err := strconv.Atoi(os.Getenv("DSX_HELPER_EXIT_CODE"))
 	if err != nil {
 		code = 0
 	}

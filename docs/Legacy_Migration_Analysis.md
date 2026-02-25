@@ -1,13 +1,13 @@
 # レガシーツール移行分析・要件定義書
 
-本ドキュメントでは、既存ツール `sysup` および `Setup-Repository` の機能を分析し、`devsync` への統合・移行方針を定義します。
+本ドキュメントでは、既存ツール `sysup` および `Setup-Repository` の機能を分析し、`dsx` への統合・移行方針を定義します。
 
 ## 1. 移行対象ツールの分析
 
 ### 1.1 sysup (System Update Tool)
 システムおよび各種パッケージマネージャを統合的に更新するPython製ツール。
 
-| 機能カテゴリ | 主要機能 | devsync での対応方針 |
+| 機能カテゴリ | 主要機能 | dsx での対応方針 |
 | :--- | :--- | :--- |
 | **対応パッケージマネージャ** | **Linux**: APT, Snap, Flatpak, Firmware | `sys` コマンドで実装 (Hostモード) |
 | | **macOS/Linux**: Homebrew | 同上 |
@@ -23,7 +23,7 @@
 ### 1.2 Setup-Repository
 GitHubリポジトリの同期・管理ツール。
 
-| 機能カテゴリ | 主要機能 | devsync での対応方針 |
+| 機能カテゴリ | 主要機能 | dsx での対応方針 |
 | :--- | :--- | :--- |
 | **同期機能** | GitHub全リポジトリ取得 (My repos) | `repo update` で実装。GitHub API連携必須 |
 | | `git clone` / `git pull` | 並列実行により高速化 |
@@ -34,14 +34,14 @@ GitHubリポジトリの同期・管理ツール。
 
 ---
 
-## 2. 統合設計 (devsync)
+## 2. 統合設計 (dsx)
 
-両ツールの機能を単一のバイナリ `devsync` に統合するための機能マッピングです。
+両ツールの機能を単一のバイナリ `dsx` に統合するための機能マッピングです。
 
 ### 2.1 コマンド体系
 
 ```bash
-devsync
+dsx
 ├── tool (ALIAS: update)
 │   ├── update      # sys と repo の一括実行 (sysup機能 + repo sync機能)
 │   └── cleanup     # 掃除系タスクの一括実行 (sysupのcache clear + repo cleanup)
@@ -111,7 +111,7 @@ sys:
 * ロギング基盤
 
 ### Phase 2.1: `sys` 機能の移植 (優先)
-* `sysup` の主要なUpdater (apt, brew, go, npm 等) を `devsync sys update` に実装。
+* `sysup` の主要なUpdater (apt, brew, go, npm 等) を `dsx sys update` に実装。
 * インターフェース更新: `Updater` インターフェースを定義し、各マネージャを実装。
 * 並列実行機能の実装。
 

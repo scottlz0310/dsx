@@ -13,8 +13,8 @@ Thank you for your interest in contributing to this project! 🎉
 
 1. **Fork and clone the repository**
    ```bash
-   git clone https://github.com/scottlz0310/devsync.git
-   cd devsync
+   git clone https://github.com/scottlz0310/dsx.git
+   cd dsx
    ```
 
 2. **Install dependencies**

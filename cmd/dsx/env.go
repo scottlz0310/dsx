@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/scottlz0310/devsync/internal/secret"
+	"github.com/scottlz0310/dsx/internal/secret"
 	"github.com/spf13/cobra"
 )
 
@@ -22,8 +22,8 @@ var envExportCmd = &cobra.Command{
 	Long: `Bitwardenから環境変数を取得し、現在のシェルにエクスポートできる形式で出力します。
 
 使用方法:
-  bash/zsh:    eval "$(devsync env export)"
-  PowerShell:  & devsync env export | Invoke-Expression
+  bash/zsh:    eval "$(dsx env export)"
+  PowerShell:  & dsx env export | Invoke-Expression
 
 注意:
 - 環境変数名は大文字とアンダースコアのみ（例: MY_VAR, API_KEY）
@@ -40,8 +40,8 @@ var envRunCmd = &cobra.Command{
 これは eval を使わずに環境変数を利用する安全な方法です。
 
 使用例:
-  devsync env run npm run build
-  devsync env run go test ./...`,
+  dsx env run npm run build
+  dsx env run go test ./...`,
 	RunE:               runEnvRun,
 	DisableFlagParsing: true, // コマンド引数をそのまま渡す
 }

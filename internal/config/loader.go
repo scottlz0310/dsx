@@ -24,16 +24,16 @@ func Load() (*Config, error) {
 	setDefaults(v)
 
 	// 環境変数の設定
-	// 環境変数は DEVSYNC_ で始まり、ドットはアンダースコアに置換される
-	// 例: DEVSYNC_CONTROL_DRY_RUN -> control.dry_run
-	v.SetEnvPrefix("devsync")
+	// 環境変数は DSX_ で始まり、ドットはアンダースコアに置換される
+	// 例: DSX_CONTROL_DRY_RUN -> control.dry_run
+	v.SetEnvPrefix("dsx")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
 	// 設定ファイルの探索パス
 	home, err := os.UserHomeDir()
 	if err == nil {
-		configDir := filepath.Join(home, ".config", "devsync")
+		configDir := filepath.Join(home, ".config", "dsx")
 		v.AddConfigPath(configDir)
 		v.SetConfigName("config")
 		v.SetConfigType("yaml")
@@ -170,7 +170,7 @@ func ConfigPath() (string, error) {
 		return "", fmt.Errorf("ホームディレクトリの取得に失敗: %w", err)
 	}
 
-	return filepath.Join(home, ".config", "devsync", "config.yaml"), nil
+	return filepath.Join(home, ".config", "dsx", "config.yaml"), nil
 }
 
 // ConfigFileExists は設定ファイルの存在有無を返します。
