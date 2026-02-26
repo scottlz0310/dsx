@@ -87,6 +87,8 @@ func init() {
 }
 
 func runSysUpdate(cmd *cobra.Command, args []string) error {
+	defer printSelfUpdateNoticeAtEnd()
+
 	// 設定の読み込み
 	cfg, opts := loadSysUpdateConfig(cmd)
 
