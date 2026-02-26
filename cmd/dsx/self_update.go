@@ -221,7 +221,7 @@ func applySelfUpdate(ctx context.Context) error {
 
 func isDevelopmentBuildVersion(v string) bool {
 	trimmed := strings.TrimSpace(v)
-	return trimmed == "" || trimmed == "dev"
+	return trimmed == "" || trimmed == "dev" || trimmed == "(devel)"
 }
 
 func parseSemverCore(v string) (semverCore, bool) {
