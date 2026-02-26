@@ -6,6 +6,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- `dsx self-update` サブコマンドを追加（`--check` で更新確認のみ実行可能）
+
+### Changed
+
+- `dsx run` / `dsx sys update` の終了時に、`dsx` 本体の更新がある場合のみ最後に通知するよう改善
+
 ## [v0.2.0-alpha] - 2026-02-25
 
 ### Added

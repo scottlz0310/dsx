@@ -81,6 +81,8 @@ func propagateRunFlags(cmd *cobra.Command) {
 }
 
 func runDaily(cmd *cobra.Command, args []string) error {
+	defer printSelfUpdateNoticeAtEnd()
+
 	fmt.Println("🚀 開発環境の同期を開始します...")
 	fmt.Println()
 

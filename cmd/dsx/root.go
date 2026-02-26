@@ -43,6 +43,7 @@ var rootCmd = &cobra.Command{
   dsx config validate   設定を検証
   dsx config uninstall  シェル設定からdsxを削除
   dsx doctor            依存ツールと環境の診断
+  dsx self-update       dsx 本体を更新
 
 使用例:
   eval "$(dsx env export)"    # シェルに環境変数を読み込み
@@ -50,7 +51,8 @@ var rootCmd = &cobra.Command{
   dsx sys update -n           # ドライラン（計画のみ表示）
   dsx sys update --jobs 4     # 4並列で更新
   dsx repo update --jobs 4    # リポジトリを4並列で更新
-  dsx repo cleanup -n         # 削除対象ブランチの計画を表示（DryRun）`,
+  dsx repo cleanup -n         # 削除対象ブランチの計画を表示（DryRun）
+  dsx self-update --check     # 新バージョンの有無だけ確認`,
 }
 
 // Execute はコマンド実行のエントリーポイントです
