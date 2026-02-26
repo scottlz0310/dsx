@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [v0.2.1-alpha] - 2026-02-26
+
 ### Added
 
 - `dsx self-update` サブコマンドを追加（`--check` で更新確認のみ実行可能）
@@ -13,7 +15,7 @@
 ### Changed
 
 - `dsx run` / `dsx sys update` の終了時に、`dsx` 本体の更新がある場合のみ最後に通知するよう改善
-- `task lint` と CI の lint 実行を `go run .../golangci-lint@latest` に統一し、Go バージョン不一致による失敗を回避
+- `task lint` と CI の lint 実行を `go run .../golangci-lint/v2/...@latest` に統一し、Go バージョン不一致による失敗を回避
 
 ## [v0.2.0-alpha] - 2026-02-25
 
@@ -207,6 +209,7 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.2.0-alpha...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.2.1-alpha...HEAD
+[v0.2.1-alpha]: https://github.com/scottlz0310/dsx/compare/v0.2.0-alpha...v0.2.1-alpha
 [v0.2.0-alpha]: https://github.com/scottlz0310/dsx/compare/v0.1.0-alpha...v0.2.0-alpha
 [v0.1.0-alpha]: https://github.com/scottlz0310/dsx/releases/tag/v0.1.0-alpha

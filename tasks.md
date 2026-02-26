@@ -160,4 +160,5 @@
     - [x] `dsx run`（将来 `tool update`）への進捗UI適用
     - [ ] ~~通知機能向けイベントフックの追加~~ (見送り: 通知機能と合わせて見送り)
 - [x] `dsx run` / `dsx sys update` の完了時に `dsx` 本体更新通知を末尾表示し、`dsx self-update` サブコマンドを追加
-- [x] lint 実行を Go バージョン整合で安定化（Taskfile/CI ともに `go run .../golangci-lint@latest` へ統一）
+- [x] lint 実行を Go バージョン整合で安定化（Taskfile/CI ともに `go run .../golangci-lint/v2/...@latest` へ統一）
+- [x] `v0.2.1-alpha` リリース向けに README / CHANGELOG の更新とタグ運用手順を反映
