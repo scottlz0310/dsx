@@ -122,6 +122,49 @@ func TestCompareSemverCore(t *testing.T) {
 	}
 }
 
+func TestIsDevelopmentBuildVersion(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{
+			name:  "devは開発版",
+			input: "dev",
+			want:  true,
+		},
+		{
+			name:  "develは開発版",
+			input: "(devel)",
+			want:  true,
+		},
+		{
+			name:  "空文字は開発版",
+			input: "",
+			want:  true,
+		},
+		{
+			name:  "タグ版は開発版ではない",
+			input: "v0.2.2-alpha",
+			want:  false,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := isDevelopmentBuildVersion(tc.input)
+			if got != tc.want {
+				t.Fatalf("isDevelopmentBuildVersion(%q) = %v, want %v", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestCheckSelfUpdateAvailable(t *testing.T) {
 	originalFetch := selfUpdateFetchReleaseStep
 	t.Cleanup(func() {

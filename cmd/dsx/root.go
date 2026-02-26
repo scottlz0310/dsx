@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
+	"strings"
 
 	"github.com/scottlz0310/dsx/internal/config"
 	"github.com/spf13/cobra"
@@ -64,8 +66,32 @@ func Execute() {
 }
 
 func init() {
+	version = resolveVersion(version)
+	rootCmd.Version = version
+
 	cobra.OnInitialize(initConfig)
 }
+
+func resolveVersion(currentVersion string) string {
+	trimmed := strings.TrimSpace(currentVersion)
+	if !isDevelopmentBuildVersion(trimmed) {
+		return trimmed
+	}
+
+	info, ok := readBuildInfoStep()
+	if !ok || info == nil {
+		return trimmed
+	}
+
+	buildVersion := strings.TrimSpace(info.Main.Version)
+	if buildVersion == "" {
+		return trimmed
+	}
+
+	return buildVersion
+}
+
+var readBuildInfoStep = debug.ReadBuildInfo
 
 func initConfig() {
 	// 設定ファイルが存在しない場合（初回実行時など）はエラーを無視して続行

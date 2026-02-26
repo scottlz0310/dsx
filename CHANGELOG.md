@@ -6,6 +6,13 @@
 
 ## [Unreleased]
 
+## [v0.2.2-alpha] - 2026-02-26
+
+### Changed
+
+- `dsx --version` が `-ldflags` 未注入時でも `debug.ReadBuildInfo().Main.Version` からバージョン表示できるように改善（`go install ...@latest` 導線を改善）
+- `self-update` の開発ビルド判定に `(devel)` を追加し、開発ビルドでは更新比較をスキップする挙動を安定化
+
 ## [v0.2.1-alpha] - 2026-02-26
 
 ### Added
@@ -209,7 +216,8 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.2.1-alpha...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.2.2-alpha...HEAD
+[v0.2.2-alpha]: https://github.com/scottlz0310/dsx/compare/v0.2.1-alpha...v0.2.2-alpha
 [v0.2.1-alpha]: https://github.com/scottlz0310/dsx/compare/v0.2.0-alpha...v0.2.1-alpha
 [v0.2.0-alpha]: https://github.com/scottlz0310/dsx/compare/v0.1.0-alpha...v0.2.0-alpha
 [v0.1.0-alpha]: https://github.com/scottlz0310/dsx/releases/tag/v0.1.0-alpha

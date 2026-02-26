@@ -162,3 +162,4 @@
 - [x] `dsx run` / `dsx sys update` の完了時に `dsx` 本体更新通知を末尾表示し、`dsx self-update` サブコマンドを追加
 - [x] lint 実行を Go バージョン整合で安定化（Taskfile/CI ともに `go run .../golangci-lint/v2/...@latest` へ統一）
 - [x] `v0.2.1-alpha` リリース向けに README / CHANGELOG の更新とタグ運用手順を反映
+- [x] `go install ...@latest` でも `dsx --version` が実バージョンを表示できるようフォールバック実装し、`v0.2.2-alpha` リリース準備を反映

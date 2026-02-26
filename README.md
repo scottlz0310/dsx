@@ -31,8 +31,8 @@ dsx は、開発環境の運用作業を統合・一元化するためのクロ�
 [Releases ページ](https://github.com/scottlz0310/dsx/releases) からお使いの OS 向けのバイナリをダウンロードして PATH に配置してください。
 
 ```bash
-# 例: Linux amd64（v0.2.1-alpha の場合）
-curl -Lo dsx.tar.gz https://github.com/scottlz0310/dsx/releases/download/v0.2.1-alpha/dsx_0.2.1-alpha_linux_amd64.tar.gz
+# 例: Linux amd64（v0.2.2-alpha の場合）
+curl -Lo dsx.tar.gz https://github.com/scottlz0310/dsx/releases/download/v0.2.2-alpha/dsx_0.2.2-alpha_linux_amd64.tar.gz
 tar xzf dsx.tar.gz
 sudo mv dsx /usr/local/bin/
 ```
@@ -46,6 +46,7 @@ go install github.com/scottlz0310/dsx/cmd/dsx@latest
 `$GOPATH/bin`（通常は `~/go/bin`）に `dsx` が配置されます。  
 PATH未設定の場合は、シェルの設定ファイルに追加してください。
 
+`dsx --version` は、`-ldflags` 未注入ビルド時でもモジュールのビルド情報からバージョン表示を試みます。
 ```bash
 export PATH="$HOME/go/bin:$PATH"
 ```
@@ -156,7 +157,7 @@ Remove-Item -Force (Get-Command dsx).Source
 
 ### メインコマンド
 ```
-dsx --version      # バージョン表示（現在: v0.2.1-alpha）
+dsx --version      # バージョン表示（現在: v0.2.2-alpha）
 dsx run           # 日次の統合タスクを実行（Bitwarden解錠→環境変数読込→更新処理）
 dsx run -n        # ドライラン（sys/repo に伝播）
 dsx run --tui     # TUI 進捗表示を有効化（sys/repo に伝播）
@@ -231,7 +232,7 @@ dsx config validate   # 設定内容を検証
 dsx config uninstall  # シェル設定からdsxを削除
 ```
 
-## 🚧 Alpha リリース方針（v0.2.1-alpha）
+## 🚧 Alpha リリース方針（v0.2.2-alpha）
 
 本バージョンは **運用検証向け Alpha** です。安定化期間中は `setup-repo` との併用を推奨します。
 
@@ -428,8 +429,8 @@ task snapshot       # スナップショットビルド（ローカル検証用�
 `v*` タグをプッシュすると GitHub Actions で自動リリースされます。
 
 ```bash
-git tag v0.2.1-alpha
-git push origin v0.2.1-alpha
+git tag v0.2.2-alpha
+git push origin v0.2.2-alpha
 ```
 
 ### Windows で `task lint` が gofmt で落ちる場合
@@ -455,7 +456,7 @@ task lint
 
 ## 📅 ステータス
 
-現在 **v0.2.1-alpha（運用検証フェーズ）** です。
+現在 **v0.2.2-alpha（運用検証フェーズ）** です。
 詳細なロードマップについては [docs/Implementation_Plan.md](docs/Implementation_Plan.md) を参照してください。
 
 ## 📄 ライセンス
