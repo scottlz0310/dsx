@@ -275,7 +275,7 @@ func TestRunSelfUpdate(t *testing.T) {
 			selfUpdateCheckStep = func(context.Context, string) (*selfUpdateInfo, error) {
 				return tc.checkResult, tc.checkErr
 			}
-			selfUpdateApplyStep = func() error {
+			selfUpdateApplyStep = func(context.Context) error {
 				applyCalled = true
 				return tc.applyErr
 			}

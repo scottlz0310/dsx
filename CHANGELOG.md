@@ -13,6 +13,7 @@
 ### Changed
 
 - `dsx run` / `dsx sys update` の終了時に、`dsx` 本体の更新がある場合のみ最後に通知するよう改善
+- `task lint` と CI の lint 実行を `go run .../golangci-lint@latest` に統一し、Go バージョン不一致による失敗を回避
 
 ## [v0.2.0-alpha] - 2026-02-25
 

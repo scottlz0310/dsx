@@ -79,6 +79,7 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("🆕 新しいバージョン %s が利用可能です（現在: %s）\n", info.LatestVersion, info.CurrentVersion)
+
 	if info.ReleaseURL != "" {
 		fmt.Printf("   リリース情報: %s\n", info.ReleaseURL)
 	}
@@ -89,7 +90,12 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 
 	fmt.Println("🔄 self-update を実行します...")
 
-	if err := selfUpdateApplyStep(); err != nil {
+	applyCtx := cmd.Context()
+	if applyCtx == nil {
+		applyCtx = context.Background()
+	}
+
+	if err := selfUpdateApplyStep(applyCtx); err != nil {
 		return err
 	}
 
@@ -108,6 +114,7 @@ func printSelfUpdateNoticeAtEnd() {
 	fmt.Println()
 	fmt.Printf("🆕 dsx の新しいバージョン %s が利用可能です（現在: %s）\n", info.LatestVersion, info.CurrentVersion)
 	fmt.Println("   更新コマンド: dsx self-update")
+
 	if info.ReleaseURL != "" {
 		fmt.Printf("   リリース情報: %s\n", info.ReleaseURL)
 	}
@@ -147,8 +154,8 @@ func checkSelfUpdateAvailable(ctx context.Context, currentVersion string) (*self
 	}, nil
 }
 
-func fetchLatestRelease(ctx context.Context) (string, string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, selfUpdateLatestReleaseAPI, nil)
+func fetchLatestRelease(ctx context.Context) (latestVersion, releaseURL string, err error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, selfUpdateLatestReleaseAPI, http.NoBody)
 	if err != nil {
 		return "", "", err
 	}
@@ -156,15 +163,19 @@ func fetchLatestRelease(ctx context.Context) (string, string, error) {
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "dsx/"+strings.TrimSpace(version))
 
-	client := &http.Client{
-		Timeout: selfUpdateCheckTimeout,
-	}
+	client := &http.Client{}
 
+	//nolint:gosec // 固定URL（selfUpdateLatestReleaseAPI）のみへアクセスする
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", "", err
 	}
-	defer resp.Body.Close()
+
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			return
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", "", fmt.Errorf("最新リリース取得に失敗しました: status=%s", resp.Status)
@@ -183,8 +194,12 @@ func fetchLatestRelease(ctx context.Context) (string, string, error) {
 	return tag, strings.TrimSpace(payload.HTMLURL), nil
 }
 
-func applySelfUpdate() error {
-	cmd := exec.Command("go", "install", selfUpdateGoInstallTarget)
+func applySelfUpdate(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	cmd := exec.CommandContext(ctx, "go", "install", selfUpdateGoInstallTarget)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
