@@ -3,7 +3,7 @@ module github.com/scottlz0310/dsx
 go 1.26.0
 
 require (
-	charm.land/bubbletea/v2 v2.0.0
+	charm.land/bubbletea/v2 v2.0.1
 	charm.land/lipgloss/v2 v2.0.0
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/fatih/color v1.18.0
