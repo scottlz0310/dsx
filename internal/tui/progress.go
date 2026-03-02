@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/scottlz0310/dsx/internal/runner"
 )
 
@@ -173,7 +173,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-func (m *model) View() string {
+// View は Bubble Tea Model インターフェースを実装します。
+// v2 では戻り値が string から tea.View に変わったため、tea.NewView() でラップします。
+func (m *model) View() tea.View {
 	builder := strings.Builder{}
 	builder.WriteString(styleTitle.Render(fmt.Sprintf("🖥️  %s", m.title)))
 	builder.WriteString("\n")
@@ -212,7 +214,7 @@ func (m *model) View() string {
 		builder.WriteString("\n")
 	}
 
-	return builder.String()
+	return tea.NewView(builder.String())
 }
 
 func (m *model) applyEvent(event *runner.Event) {
