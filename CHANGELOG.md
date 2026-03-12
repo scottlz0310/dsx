@@ -8,9 +8,9 @@
 
 ### Fixed
 
-- CI Lint ジョブの失敗を修正
-  - `.golangci.yml` の `_test.go` 除外ルールに `gocyclo` を追加し、`TestRemoveDsxBlock_ブロック操作` の循環的複雑度警告を抑制
-  - `.golangci.yml` の `gosec.excludes` に `G703` を追加（`filepath.EvalSymlinks` によるパス検証済みのため安全）
+- CI Lint ジョブの失敗を根本修正
+  - `TestRemoveDsxBlock_ブロック操作` を `TestRemoveDsxBlock_マーカーなし` / `TestRemoveDsxBlock_マーカーあり` / `TestRemoveDsxBlock_パーミッション保持` の 3 関数に分割し、循環的複雑度を 16 から各 6 以下に削減（`gocyclo` 違反を解消）
+  - `removeDsxBlock` 内の `os.WriteFile` 呼び出し前に `filepath.Clean` を使ってパスを明示的に正規化し、gosec G703 パストラバーサル警告を解消
 
 ## [v0.2.2-alpha] - 2026-02-26
 

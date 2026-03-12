@@ -1376,8 +1376,11 @@ func removeDsxBlock(homeDir, rcFilePath string) (bool, error) {
 	}
 
 	// ファイルに書き戻す（元のパーミッションを保持）
+	// realPath は filepath.EvalSymlinks で解決済みだが、filepath.Clean で明示的に正規化する
 	newContent := strings.Join(newLines, "\n")
-	if err := os.WriteFile(realPath, []byte(newContent), originalMode); err != nil {
+	cleanPath := filepath.Clean(realPath)
+
+	if err := os.WriteFile(cleanPath, []byte(newContent), originalMode); err != nil {
 		return false, err
 	}
 

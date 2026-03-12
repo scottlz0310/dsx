@@ -19,6 +19,11 @@ import (
 	"github.com/scottlz0310/dsx/internal/testutil"
 )
 
+const (
+	testDsxMarkerBegin = "# >>> dsx >>>"
+	testDsxMarkerEnd   = "# <<< dsx <<<"
+)
+
 func captureStderr(t *testing.T, fn func()) string {
 	t.Helper()
 
@@ -1368,97 +1373,90 @@ func TestRemoveDsxBlock_パス検証(t *testing.T) {
 	})
 }
 
-func TestRemoveDsxBlock_ブロック操作(t *testing.T) {
-	const (
-		markerBegin = "# >>> dsx >>>"
-		markerEnd   = "# <<< dsx <<<"
-	)
+func TestRemoveDsxBlock_マーカーなし(t *testing.T) {
+	home := t.TempDir()
+	rcFile := filepath.Join(home, ".bashrc")
+	original := "export PATH=$PATH:/usr/local/bin\n"
 
-	t.Run("マーカーなし: falseを返し内容は変更なし", func(t *testing.T) {
-		home := t.TempDir()
-		rcFile := filepath.Join(home, ".bashrc")
-		original := "export PATH=$PATH:/usr/local/bin\n"
+	if err := os.WriteFile(rcFile, []byte(original), 0o600); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
 
-		if err := os.WriteFile(rcFile, []byte(original), 0o600); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
+	removed, err := removeDsxBlock(home, rcFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-		removed, err := removeDsxBlock(home, rcFile)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+	if removed {
+		t.Fatal("removed = true, want false")
+	}
 
-		if removed {
-			t.Fatal("removed = true, want false")
-		}
+	got, err := os.ReadFile(rcFile)
+	if err != nil {
+		t.Fatalf("failed to read file: %v", err)
+	}
 
-		got, err := os.ReadFile(rcFile)
-		if err != nil {
-			t.Fatalf("failed to read file: %v", err)
-		}
+	if string(got) != original {
+		t.Fatalf("content changed unexpectedly: %q", string(got))
+	}
+}
 
-		if string(got) != original {
-			t.Fatalf("content changed unexpectedly: %q", string(got))
-		}
-	})
+func TestRemoveDsxBlock_マーカーあり(t *testing.T) {
+	home := t.TempDir()
+	rcFile := filepath.Join(home, ".bashrc")
+	content := "export PATH=$PATH:/usr/local/bin\n" +
+		testDsxMarkerBegin + "\n" +
+		"source ~/.config/dsx/init.bash\n" +
+		testDsxMarkerEnd + "\n"
 
-	t.Run("マーカーあり: ブロックを削除しtrueを返す", func(t *testing.T) {
-		home := t.TempDir()
-		rcFile := filepath.Join(home, ".bashrc")
-		content := "export PATH=$PATH:/usr/local/bin\n" +
-			markerBegin + "\n" +
-			"source ~/.config/dsx/init.bash\n" +
-			markerEnd + "\n"
+	if err := os.WriteFile(rcFile, []byte(content), 0o600); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
 
-		if err := os.WriteFile(rcFile, []byte(content), 0o600); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
+	removed, err := removeDsxBlock(home, rcFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-		removed, err := removeDsxBlock(home, rcFile)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+	if !removed {
+		t.Fatal("removed = false, want true")
+	}
 
-		if !removed {
-			t.Fatal("removed = false, want true")
-		}
+	got, err := os.ReadFile(rcFile)
+	if err != nil {
+		t.Fatalf("failed to read file: %v", err)
+	}
 
-		got, err := os.ReadFile(rcFile)
-		if err != nil {
-			t.Fatalf("failed to read file: %v", err)
-		}
+	if strings.Contains(string(got), testDsxMarkerBegin) {
+		t.Fatal("marker still present after removal")
+	}
 
-		if strings.Contains(string(got), markerBegin) {
-			t.Fatal("marker still present after removal")
-		}
+	if !strings.Contains(string(got), "export PATH") {
+		t.Fatal("non-marker content was unexpectedly removed")
+	}
+}
 
-		if !strings.Contains(string(got), "export PATH") {
-			t.Fatal("non-marker content was unexpectedly removed")
-		}
-	})
+func TestRemoveDsxBlock_パーミッション保持(t *testing.T) {
+	home := t.TempDir()
+	rcFile := filepath.Join(home, ".bashrc")
+	content := testDsxMarkerBegin + "\n" +
+		"source ~/.config/dsx/init.bash\n" +
+		testDsxMarkerEnd + "\n"
 
-	t.Run("元のパーミッション(0o600)を保持する", func(t *testing.T) {
-		home := t.TempDir()
-		rcFile := filepath.Join(home, ".bashrc")
-		content := markerBegin + "\n" +
-			"source ~/.config/dsx/init.bash\n" +
-			markerEnd + "\n"
+	if err := os.WriteFile(rcFile, []byte(content), 0o600); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
 
-		if err := os.WriteFile(rcFile, []byte(content), 0o600); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
+	if _, err := removeDsxBlock(home, rcFile); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-		if _, err := removeDsxBlock(home, rcFile); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+	info, err := os.Stat(rcFile)
+	if err != nil {
+		t.Fatalf("stat error: %v", err)
+	}
 
-		info, err := os.Stat(rcFile)
-		if err != nil {
-			t.Fatalf("stat error: %v", err)
-		}
-
-		if info.Mode().Perm() != 0o600 {
-			t.Fatalf("file mode = %o, want 0600", info.Mode().Perm())
-		}
-	})
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("file mode = %o, want 0600", info.Mode().Perm())
+	}
 }
