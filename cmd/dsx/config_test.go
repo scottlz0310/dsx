@@ -1292,14 +1292,10 @@ func TestGenerateShellInit_PowerShell_ProfileLookupFailed(t *testing.T) {
 	}
 }
 
-func TestRemoveDsxBlock(t *testing.T) {
-	const (
-		markerBegin = "# >>> dsx >>>"
-		markerEnd   = "# <<< dsx <<<"
-	)
-
+func TestRemoveDsxBlock_パス検証(t *testing.T) {
 	t.Run("相対パスはエラーを返す", func(t *testing.T) {
 		home := t.TempDir()
+
 		_, err := removeDsxBlock(home, "relative/path/.bashrc")
 		if err == nil {
 			t.Fatal("error = nil, want error")
@@ -1308,7 +1304,7 @@ func TestRemoveDsxBlock(t *testing.T) {
 
 	t.Run("ホームディレクトリ外のパスはエラーを返す", func(t *testing.T) {
 		home := t.TempDir()
-		outside := t.TempDir() // 別のtmpdir = ホーム外
+		outside := t.TempDir()
 		rcFile := filepath.Join(outside, ".bashrc")
 
 		if err := os.WriteFile(rcFile, []byte("content"), 0o600); err != nil {
@@ -1320,6 +1316,35 @@ func TestRemoveDsxBlock(t *testing.T) {
 			t.Fatal("error = nil, want error for path outside home")
 		}
 	})
+
+	t.Run("シンボリックリンク経由のホーム外アクセスはエラーを返す", func(t *testing.T) {
+		home := t.TempDir()
+		outside := t.TempDir()
+
+		// ホーム外のファイル
+		outsideFile := filepath.Join(outside, ".bashrc")
+		if err := os.WriteFile(outsideFile, []byte("content"), 0o600); err != nil {
+			t.Fatalf("failed to create outside file: %v", err)
+		}
+
+		// ホーム内のシンボリックリンク -> ホーム外を指す
+		symlink := filepath.Join(home, ".bashrc")
+		if err := os.Symlink(outsideFile, symlink); err != nil {
+			t.Skipf("シンボリックリンクの作成に失敗しました（権限不足の可能性）: %v", err)
+		}
+
+		_, err := removeDsxBlock(home, symlink)
+		if err == nil {
+			t.Fatal("error = nil, want error for symlink pointing outside home")
+		}
+	})
+}
+
+func TestRemoveDsxBlock_ブロック操作(t *testing.T) {
+	const (
+		markerBegin = "# >>> dsx >>>"
+		markerEnd   = "# <<< dsx <<<"
+	)
 
 	t.Run("マーカーなし: falseを返し内容は変更なし", func(t *testing.T) {
 		home := t.TempDir()
@@ -1339,7 +1364,11 @@ func TestRemoveDsxBlock(t *testing.T) {
 			t.Fatal("removed = true, want false")
 		}
 
-		got, _ := os.ReadFile(rcFile)
+		got, err := os.ReadFile(rcFile)
+		if err != nil {
+			t.Fatalf("failed to read file: %v", err)
+		}
+
 		if string(got) != original {
 			t.Fatalf("content changed unexpectedly: %q", string(got))
 		}
@@ -1366,7 +1395,11 @@ func TestRemoveDsxBlock(t *testing.T) {
 			t.Fatal("removed = false, want true")
 		}
 
-		got, _ := os.ReadFile(rcFile)
+		got, err := os.ReadFile(rcFile)
+		if err != nil {
+			t.Fatalf("failed to read file: %v", err)
+		}
+
 		if strings.Contains(string(got), markerBegin) {
 			t.Fatal("marker still present after removal")
 		}
@@ -1398,28 +1431,6 @@ func TestRemoveDsxBlock(t *testing.T) {
 
 		if info.Mode().Perm() != 0o600 {
 			t.Fatalf("file mode = %o, want 0600", info.Mode().Perm())
-		}
-	})
-
-	t.Run("シンボリックリンク経由のホーム外アクセスはエラーを返す", func(t *testing.T) {
-		home := t.TempDir()
-		outside := t.TempDir()
-
-		// ホーム外のファイル
-		outsideFile := filepath.Join(outside, ".bashrc")
-		if err := os.WriteFile(outsideFile, []byte("content"), 0o600); err != nil {
-			t.Fatalf("failed to create outside file: %v", err)
-		}
-
-		// ホーム内のシンボリックリンク -> ホーム外を指す
-		symlink := filepath.Join(home, ".bashrc")
-		if err := os.Symlink(outsideFile, symlink); err != nil {
-			t.Skipf("シンボリックリンクの作成に失敗しました（権限不足の可能性）: %v", err)
-		}
-
-		_, err := removeDsxBlock(home, symlink)
-		if err == nil {
-			t.Fatal("error = nil, want error for symlink pointing outside home")
 		}
 	})
 }
