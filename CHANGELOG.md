@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- CI Lint ジョブの失敗を根本修正
+  - `TestRemoveDsxBlock_ブロック操作` を `TestRemoveDsxBlock_マーカーなし` / `TestRemoveDsxBlock_マーカーあり` / `TestRemoveDsxBlock_パーミッション保持` の 3 関数に分割し、循環的複雑度を 16 から各 6 以下に削減（`gocyclo` 違反を解消）
+  - `removeDsxBlock` 内の `os.WriteFile` 呼び出しに `//nolint:gosec` コメントを付加し、gosec のパストラバーサル警告（false positive）を抑制（`realPath` は `filepath.EvalSymlinks` で解決済みかつ `filepath.Rel` によるホームディレクトリ境界チェック済みのため安全）
+
 ## [v0.2.2-alpha] - 2026-02-26
 
 ### Changed

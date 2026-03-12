@@ -1376,7 +1376,10 @@ func removeDsxBlock(homeDir, rcFilePath string) (bool, error) {
 	}
 
 	// ファイルに書き戻す（元のパーミッションを保持）
+	// realPath は filepath.EvalSymlinks で解決済みかつホームディレクトリ境界チェック済みのため安全
 	newContent := strings.Join(newLines, "\n")
+
+	//nolint:gosec // G703 false positive: realPath は L1310 の filepath.EvalSymlinks で解決済み、かつ L1323 の filepath.Rel によるホームディレクトリ境界チェック済みのためパストラバーサルの脅威はない
 	if err := os.WriteFile(realPath, []byte(newContent), originalMode); err != nil {
 		return false, err
 	}
