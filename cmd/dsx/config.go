@@ -1297,7 +1297,7 @@ func removeDsxBlock(rcFilePath string) (bool, error) {
 		markerEnd   = "# <<< dsx <<<"
 	)
 
-	// パストラバーサルを防止するためパスを正規化する
+	// パスを正規化して相対要素（.. など）を除去する（gosec 対応）
 	rcFilePath = filepath.Clean(rcFilePath)
 
 	content, err := os.ReadFile(rcFilePath)
