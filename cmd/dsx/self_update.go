@@ -165,7 +165,6 @@ func fetchLatestRelease(ctx context.Context) (latestVersion, releaseURL string, 
 
 	client := &http.Client{}
 
-	//nolint:gosec // 固定URL（selfUpdateLatestReleaseAPI）のみへアクセスする
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", "", err
