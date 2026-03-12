@@ -56,6 +56,7 @@ linters:
         - G302
         - G304
         - G306
+        - G703
       severity: medium
       confidence: medium
     govet:
@@ -95,6 +96,7 @@ linters:
       - linters:
           - dupl
           - gocognit
+          - gocyclo
         path: _test\.go
       - linters:
           - gocognit

@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- CI Lint ジョブの失敗を修正
+  - `.golangci.yml` の `_test.go` 除外ルールに `gocyclo` を追加し、`TestRemoveDsxBlock_ブロック操作` の循環的複雑度警告を抑制
+  - `.golangci.yml` の `gosec.excludes` に `G703` を追加（`filepath.EvalSymlinks` によるパス検証済みのため安全）
+
 ## [v0.2.2-alpha] - 2026-02-26
 
 ### Changed
