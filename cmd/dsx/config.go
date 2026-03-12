@@ -1325,7 +1325,7 @@ func removeDsxBlock(homeDir, rcFilePath string) (bool, error) {
 		return false, fmt.Errorf("相対パス解決に失敗しました: %w", err)
 	}
 
-	if strings.HasPrefix(rel, "..") {
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return false, fmt.Errorf("ファイルパスがホームディレクトリ外です: %s", rcFilePath)
 	}
 
@@ -1377,7 +1377,7 @@ func removeDsxBlock(homeDir, rcFilePath string) (bool, error) {
 
 	// ファイルに書き戻す（元のパーミッションを保持）
 	newContent := strings.Join(newLines, "\n")
-	if err := os.WriteFile(realPath, []byte(newContent), originalMode); err != nil { //nolint:gosec // EvalSymlinks+HasPrefixでホーム配下を検証済み
+	if err := os.WriteFile(realPath, []byte(newContent), originalMode); err != nil {
 		return false, err
 	}
 

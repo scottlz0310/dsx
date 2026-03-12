@@ -1317,6 +1317,34 @@ func TestRemoveDsxBlock_パス検証(t *testing.T) {
 		}
 	})
 
+	t.Run("..で始まるファイル名はホーム内として受理する", func(t *testing.T) {
+		// ..bashrc や ...bashrc のようにファイル名が ".." で始まっても、
+		// ホームディレクトリ配下であれば誤拒否しないことを確認する（境界値テスト）
+		tests := []struct {
+			name     string
+			filename string
+		}{
+			{"..bashrc（2ドット）", "..bashrc"},
+			{"...bashrc（3ドット）", "...bashrc"},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				home := t.TempDir()
+				rcFile := filepath.Join(home, tt.filename)
+
+				if err := os.WriteFile(rcFile, []byte("export PATH=$PATH:/usr/local/bin\n"), 0o600); err != nil {
+					t.Fatalf("failed to create test file: %v", err)
+				}
+
+				_, err := removeDsxBlock(home, rcFile)
+				if err != nil {
+					t.Fatalf("unexpected error for file %q: %v", tt.filename, err)
+				}
+			})
+		}
+	})
+
 	t.Run("シンボリックリンク経由のホーム外アクセスはエラーを返す", func(t *testing.T) {
 		home := t.TempDir()
 		outside := t.TempDir()
