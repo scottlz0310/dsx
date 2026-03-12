@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"unicode/utf16"
@@ -1437,6 +1438,10 @@ func TestRemoveDsxBlock_マーカーあり(t *testing.T) {
 }
 
 func TestRemoveDsxBlock_パーミッション保持(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("WindowsはUNIXスタイルのファイルパーミッションをサポートしないためスキップ")
+	}
+
 	home := t.TempDir()
 	rcFile := filepath.Join(home, ".bashrc")
 	content := testDsxMarkerBegin + "\n" +
