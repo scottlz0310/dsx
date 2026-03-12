@@ -1276,7 +1276,7 @@ func runConfigUninstall(cmd *cobra.Command, args []string) error {
 	}
 
 	// マーカーブロックを削除
-	removed, err := removeDsxBlock(rcFilePath)
+	removed, err := removeDsxBlock(home, rcFilePath)
 	if err != nil {
 		return fmt.Errorf("設定の削除に失敗しました: %w", err)
 	}
@@ -1290,17 +1290,54 @@ func runConfigUninstall(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// removeDsxBlock はrcファイルからdsxのマーカーブロックを削除します
-func removeDsxBlock(rcFilePath string) (bool, error) {
+// removeDsxBlock はrcファイルからdsxのマーカーブロックを削除します。
+// homeDir はユーザーのホームディレクトリパスで、rcFilePath の実体パスがその配下にあることを
+// シンボリックリンクを解決した上で検証します。
+func removeDsxBlock(homeDir, rcFilePath string) (bool, error) {
 	const (
 		markerBegin = "# >>> dsx >>>"
 		markerEnd   = "# <<< dsx <<<"
 	)
 
-	// パスを正規化して相対要素（.. など）を除去する（gosec 対応）
+	// パスを正規化して相対要素（.. など）を除去し、絶対パスであることを確認する
 	rcFilePath = filepath.Clean(rcFilePath)
 
-	content, err := os.ReadFile(rcFilePath)
+	if !filepath.IsAbs(rcFilePath) {
+		return false, fmt.Errorf("絶対パスが必要です: %s", rcFilePath)
+	}
+
+	// シンボリックリンクを解決して実体パスを取得する（シンボリックリンク経由のホーム外アクセスを防止）
+	realPath, err := filepath.EvalSymlinks(rcFilePath)
+	if err != nil {
+		return false, fmt.Errorf("パスの解決に失敗しました: %w", err)
+	}
+
+	// ホームディレクトリ側もシンボリックリンクを解決する
+	realHome, err := filepath.EvalSymlinks(homeDir)
+	if err != nil {
+		return false, fmt.Errorf("ホームディレクトリの解決に失敗しました: %w", err)
+	}
+
+	// パストラバーサル防止: 実体パスがホームディレクトリ配下であることを確認する
+	// filepath.Rel を使うことで Windows の大文字小文字の差異にも対応する
+	rel, err := filepath.Rel(realHome, realPath)
+	if err != nil {
+		return false, fmt.Errorf("相対パス解決に失敗しました: %w", err)
+	}
+
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return false, fmt.Errorf("ファイルパスがホームディレクトリ外です: %s", rcFilePath)
+	}
+
+	// ファイルの既存パーミッションを取得して書き戻し時に保持する
+	info, err := os.Stat(realPath)
+	if err != nil {
+		return false, err
+	}
+
+	originalMode := info.Mode()
+
+	content, err := os.ReadFile(realPath)
 	if err != nil {
 		return false, err
 	}
@@ -1338,9 +1375,9 @@ func removeDsxBlock(rcFilePath string) (bool, error) {
 		}
 	}
 
-	// ファイルに書き戻す
+	// ファイルに書き戻す（元のパーミッションを保持）
 	newContent := strings.Join(newLines, "\n")
-	if err := os.WriteFile(rcFilePath, []byte(newContent), 0o644); err != nil {
+	if err := os.WriteFile(realPath, []byte(newContent), originalMode); err != nil {
 		return false, err
 	}
 

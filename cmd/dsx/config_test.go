@@ -1291,3 +1291,174 @@ func TestGenerateShellInit_PowerShell_ProfileLookupFailed(t *testing.T) {
 		t.Fatalf("init script should exist, statErr=%v", statErr)
 	}
 }
+
+func TestRemoveDsxBlock_パス検証(t *testing.T) {
+	t.Run("相対パスはエラーを返す", func(t *testing.T) {
+		home := t.TempDir()
+
+		_, err := removeDsxBlock(home, "relative/path/.bashrc")
+		if err == nil {
+			t.Fatal("error = nil, want error")
+		}
+	})
+
+	t.Run("ホームディレクトリ外のパスはエラーを返す", func(t *testing.T) {
+		home := t.TempDir()
+		outside := t.TempDir()
+		rcFile := filepath.Join(outside, ".bashrc")
+
+		if err := os.WriteFile(rcFile, []byte("content"), 0o600); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
+
+		_, err := removeDsxBlock(home, rcFile)
+		if err == nil {
+			t.Fatal("error = nil, want error for path outside home")
+		}
+	})
+
+	t.Run("..で始まるファイル名はホーム内として受理する", func(t *testing.T) {
+		// ..bashrc や ...bashrc のようにファイル名が ".." で始まっても、
+		// ホームディレクトリ配下であれば誤拒否しないことを確認する（境界値テスト）
+		tests := []struct {
+			name     string
+			filename string
+		}{
+			{"..bashrc（2ドット）", "..bashrc"},
+			{"...bashrc（3ドット）", "...bashrc"},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				home := t.TempDir()
+				rcFile := filepath.Join(home, tt.filename)
+
+				if err := os.WriteFile(rcFile, []byte("export PATH=$PATH:/usr/local/bin\n"), 0o600); err != nil {
+					t.Fatalf("failed to create test file: %v", err)
+				}
+
+				_, err := removeDsxBlock(home, rcFile)
+				if err != nil {
+					t.Fatalf("unexpected error for file %q: %v", tt.filename, err)
+				}
+			})
+		}
+	})
+
+	t.Run("シンボリックリンク経由のホーム外アクセスはエラーを返す", func(t *testing.T) {
+		home := t.TempDir()
+		outside := t.TempDir()
+
+		// ホーム外のファイル
+		outsideFile := filepath.Join(outside, ".bashrc")
+		if err := os.WriteFile(outsideFile, []byte("content"), 0o600); err != nil {
+			t.Fatalf("failed to create outside file: %v", err)
+		}
+
+		// ホーム内のシンボリックリンク -> ホーム外を指す
+		symlink := filepath.Join(home, ".bashrc")
+		if err := os.Symlink(outsideFile, symlink); err != nil {
+			t.Skipf("シンボリックリンクの作成に失敗しました（権限不足の可能性）: %v", err)
+		}
+
+		_, err := removeDsxBlock(home, symlink)
+		if err == nil {
+			t.Fatal("error = nil, want error for symlink pointing outside home")
+		}
+	})
+}
+
+func TestRemoveDsxBlock_ブロック操作(t *testing.T) {
+	const (
+		markerBegin = "# >>> dsx >>>"
+		markerEnd   = "# <<< dsx <<<"
+	)
+
+	t.Run("マーカーなし: falseを返し内容は変更なし", func(t *testing.T) {
+		home := t.TempDir()
+		rcFile := filepath.Join(home, ".bashrc")
+		original := "export PATH=$PATH:/usr/local/bin\n"
+
+		if err := os.WriteFile(rcFile, []byte(original), 0o600); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
+
+		removed, err := removeDsxBlock(home, rcFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if removed {
+			t.Fatal("removed = true, want false")
+		}
+
+		got, err := os.ReadFile(rcFile)
+		if err != nil {
+			t.Fatalf("failed to read file: %v", err)
+		}
+
+		if string(got) != original {
+			t.Fatalf("content changed unexpectedly: %q", string(got))
+		}
+	})
+
+	t.Run("マーカーあり: ブロックを削除しtrueを返す", func(t *testing.T) {
+		home := t.TempDir()
+		rcFile := filepath.Join(home, ".bashrc")
+		content := "export PATH=$PATH:/usr/local/bin\n" +
+			markerBegin + "\n" +
+			"source ~/.config/dsx/init.bash\n" +
+			markerEnd + "\n"
+
+		if err := os.WriteFile(rcFile, []byte(content), 0o600); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
+
+		removed, err := removeDsxBlock(home, rcFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !removed {
+			t.Fatal("removed = false, want true")
+		}
+
+		got, err := os.ReadFile(rcFile)
+		if err != nil {
+			t.Fatalf("failed to read file: %v", err)
+		}
+
+		if strings.Contains(string(got), markerBegin) {
+			t.Fatal("marker still present after removal")
+		}
+
+		if !strings.Contains(string(got), "export PATH") {
+			t.Fatal("non-marker content was unexpectedly removed")
+		}
+	})
+
+	t.Run("元のパーミッション(0o600)を保持する", func(t *testing.T) {
+		home := t.TempDir()
+		rcFile := filepath.Join(home, ".bashrc")
+		content := markerBegin + "\n" +
+			"source ~/.config/dsx/init.bash\n" +
+			markerEnd + "\n"
+
+		if err := os.WriteFile(rcFile, []byte(content), 0o600); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
+
+		if _, err := removeDsxBlock(home, rcFile); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		info, err := os.Stat(rcFile)
+		if err != nil {
+			t.Fatalf("stat error: %v", err)
+		}
+
+		if info.Mode().Perm() != 0o600 {
+			t.Fatalf("file mode = %o, want 0600", info.Mode().Perm())
+		}
+	})
+}
