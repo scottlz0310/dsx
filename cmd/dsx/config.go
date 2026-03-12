@@ -1276,7 +1276,7 @@ func runConfigUninstall(cmd *cobra.Command, args []string) error {
 	}
 
 	// マーカーブロックを削除
-	removed, err := removeDsxBlock(rcFilePath)
+	removed, err := removeDsxBlock(home, rcFilePath)
 	if err != nil {
 		return fmt.Errorf("設定の削除に失敗しました: %w", err)
 	}
@@ -1290,17 +1290,28 @@ func runConfigUninstall(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// removeDsxBlock はrcファイルからdsxのマーカーブロックを削除します
-func removeDsxBlock(rcFilePath string) (bool, error) {
+// removeDsxBlock はrcファイルからdsxのマーカーブロックを削除します。
+// homeDir はユーザーのホームディレクトリパスで、rcFilePath がその配下にあることを検証します。
+func removeDsxBlock(homeDir, rcFilePath string) (bool, error) {
 	const (
 		markerBegin = "# >>> dsx >>>"
 		markerEnd   = "# <<< dsx <<<"
 	)
 
-	// パスを正規化して相対要素（.. など）を除去する（gosec 対応）
+	// パスを正規化して相対要素（.. など）を除去し、絶対パスであることを確認する
 	rcFilePath = filepath.Clean(rcFilePath)
+	cleanHome := filepath.Clean(homeDir)
 
-	content, err := os.ReadFile(rcFilePath)
+	if !filepath.IsAbs(rcFilePath) {
+		return false, fmt.Errorf("絶対パスが必要です: %s", rcFilePath)
+	}
+
+	// パストラバーサル防止: ホームディレクトリ配下であることを確認する
+	if !strings.HasPrefix(rcFilePath, cleanHome+string(os.PathSeparator)) {
+		return false, fmt.Errorf("ファイルパスがホームディレクトリ外です: %s", rcFilePath)
+	}
+
+	content, err := os.ReadFile(rcFilePath) //nolint:gosec // ホームディレクトリ配下であることを検証済み
 	if err != nil {
 		return false, err
 	}
@@ -1340,7 +1351,7 @@ func removeDsxBlock(rcFilePath string) (bool, error) {
 
 	// ファイルに書き戻す
 	newContent := strings.Join(newLines, "\n")
-	if err := os.WriteFile(rcFilePath, []byte(newContent), 0o644); err != nil {
+	if err := os.WriteFile(rcFilePath, []byte(newContent), 0o644); err != nil { //nolint:gosec // ホームディレクトリ配下であることを検証済み
 		return false, err
 	}
 
