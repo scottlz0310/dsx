@@ -1291,7 +1291,8 @@ func runConfigUninstall(cmd *cobra.Command, args []string) error {
 }
 
 // removeDsxBlock はrcファイルからdsxのマーカーブロックを削除します。
-// homeDir はユーザーのホームディレクトリパスで、rcFilePath がその配下にあることを検証します。
+// homeDir はユーザーのホームディレクトリパスで、rcFilePath の実体パスがその配下にあることを
+// シンボリックリンクを解決した上で検証します。
 func removeDsxBlock(homeDir, rcFilePath string) (bool, error) {
 	const (
 		markerBegin = "# >>> dsx >>>"
@@ -1300,18 +1301,37 @@ func removeDsxBlock(homeDir, rcFilePath string) (bool, error) {
 
 	// パスを正規化して相対要素（.. など）を除去し、絶対パスであることを確認する
 	rcFilePath = filepath.Clean(rcFilePath)
-	cleanHome := filepath.Clean(homeDir)
 
 	if !filepath.IsAbs(rcFilePath) {
 		return false, fmt.Errorf("絶対パスが必要です: %s", rcFilePath)
 	}
 
-	// パストラバーサル防止: ホームディレクトリ配下であることを確認する
-	if !strings.HasPrefix(rcFilePath, cleanHome+string(os.PathSeparator)) {
+	// シンボリックリンクを解決して実体パスを取得する（シンボリックリンク経由のホーム外アクセスを防止）
+	realPath, err := filepath.EvalSymlinks(rcFilePath)
+	if err != nil {
+		return false, fmt.Errorf("パスの解決に失敗しました: %w", err)
+	}
+
+	// ホームディレクトリ側もシンボリックリンクを解決する
+	realHome, err := filepath.EvalSymlinks(homeDir)
+	if err != nil {
+		return false, fmt.Errorf("ホームディレクトリの解決に失敗しました: %w", err)
+	}
+
+	// パストラバーサル防止: 実体パスがホームディレクトリ配下であることを確認する
+	if !strings.HasPrefix(realPath, realHome+string(os.PathSeparator)) {
 		return false, fmt.Errorf("ファイルパスがホームディレクトリ外です: %s", rcFilePath)
 	}
 
-	content, err := os.ReadFile(rcFilePath) //nolint:gosec // ホームディレクトリ配下であることを検証済み
+	// ファイルの既存パーミッションを取得して書き戻し時に保持する
+	info, err := os.Stat(realPath)
+	if err != nil {
+		return false, err
+	}
+
+	originalMode := info.Mode()
+
+	content, err := os.ReadFile(realPath) //nolint:gosec // EvalSymlinks+HasPrefixでホーム配下を検証済み
 	if err != nil {
 		return false, err
 	}
@@ -1349,9 +1369,9 @@ func removeDsxBlock(homeDir, rcFilePath string) (bool, error) {
 		}
 	}
 
-	// ファイルに書き戻す
+	// ファイルに書き戻す（元のパーミッションを保持）
 	newContent := strings.Join(newLines, "\n")
-	if err := os.WriteFile(rcFilePath, []byte(newContent), 0o644); err != nil { //nolint:gosec // ホームディレクトリ配下であることを検証済み
+	if err := os.WriteFile(realPath, []byte(newContent), originalMode); err != nil { //nolint:gosec // EvalSymlinks+HasPrefixでホーム配下を検証済み
 		return false, err
 	}
 
