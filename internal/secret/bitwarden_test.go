@@ -593,19 +593,22 @@ func TestSync(t *testing.T) {
 	}
 }
 
-// setupUnlockMocks は unlockRawFunc と loginCheckFunc を差し替えるヘルパーです。
+// setupUnlockMocks は unlockRawFunc と loginCheckFunc と bwLookPathFunc を差し替えるヘルパーです。
 func setupUnlockMocks(t *testing.T, unlock func() (string, error), login func() error) {
 	t.Helper()
 
 	origUnlock := unlockRawFunc
 	origLogin := loginCheckFunc
+	origLookPath := bwLookPathFunc
 
 	unlockRawFunc = unlock
 	loginCheckFunc = login
+	bwLookPathFunc = func() error { return nil } // CI では bw が未インストールのためモック
 
 	t.Cleanup(func() {
 		unlockRawFunc = origUnlock
 		loginCheckFunc = origLogin
+		bwLookPathFunc = origLookPath
 	})
 }
 
@@ -698,10 +701,17 @@ func TestUnlockGetTokenBwNotLoggedIn(t *testing.T) {
 	t.Setenv("BW_SESSION", "")
 
 	// loginCheckFunc がエラーを返す = 未ログイン状態
+	// bwLookPathFunc を成功扱いにして CI（bw未インストール環境）でも動作させる
 	origLogin := loginCheckFunc
-	loginCheckFunc = func() error { return fmt.Errorf("not logged in") }
+	origLookPath := bwLookPathFunc
 
-	t.Cleanup(func() { loginCheckFunc = origLogin })
+	loginCheckFunc = func() error { return fmt.Errorf("not logged in") }
+	bwLookPathFunc = func() error { return nil }
+
+	t.Cleanup(func() {
+		loginCheckFunc = origLogin
+		bwLookPathFunc = origLookPath
+	})
 
 	_, err := UnlockGetToken()
 

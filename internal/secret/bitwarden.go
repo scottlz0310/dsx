@@ -25,6 +25,12 @@ var unlockRawFunc = runBWUnlockRaw
 // loginCheckFunc はテストで差し替え可能な bw login --check 実行の関数変数です。
 var loginCheckFunc = runBWLoginCheck
 
+// bwLookPathFunc はテストで差し替え可能な bw コマンド存在確認の関数変数です。
+var bwLookPathFunc = func() error {
+	_, err := exec.LookPath("bw")
+	return err
+}
+
 // runBWLoginCheck は bw login --check を実行してログイン状態を確認します。
 func runBWLoginCheck() error {
 	cmd := exec.CommandContext(context.Background(), "bw", "login", "--check")
@@ -542,7 +548,7 @@ func UnlockGetToken() (string, error) {
 	defer debugTimerStart("UnlockGetToken 全体")()
 
 	// bwコマンドの存在確認
-	if _, err := exec.LookPath("bw"); err != nil {
+	if err := bwLookPathFunc(); err != nil {
 		return "", fmt.Errorf("bw コマンドが見つかりません。Bitwarden CLI をインストールしてください")
 	}
 
