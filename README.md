@@ -220,9 +220,38 @@ CLI では `--submodule` / `--no-submodule` で明示的に上書きできます
 
 ### 環境変数 (`env`)
 ```
-dsx env export    # Bitwardenから環境変数をシェル形式でエクスポート
-dsx env run       # 環境変数を注入してコマンドを実行
+dsx env unlock              # Bitwardenをアンロックして BW_SESSION をシェルに設定
+dsx env unlock --sync       # アンロック後にBitwardenサーバーと強制同期（トークンロール後など）
+dsx env export              # Bitwardenから環境変数をシェル形式でエクスポート
+dsx env run <cmd>           # 環境変数を注入してコマンドを実行（bw sync なし・高速）
+dsx env run --sync <cmd>    # Bitwardenと強制同期してからコマンドを実行
+dsx env run --detach <cmd>  # 環境変数を注入してGUIアプリをデタッチ起動
+dsx env run --sync --detach -- <cmd>  # 同期後にデタッチ起動
 ```
+
+**`env unlock` の使用方法（親シェルへの BW_SESSION 反映）:**
+```powershell
+# PowerShell
+dsx env unlock | Invoke-Expression
+
+# トークンロール後（強制同期）
+dsx env unlock --sync | Invoke-Expression
+```
+```bash
+# bash / zsh
+eval "$(dsx env unlock)"
+```
+
+**GUIアプリ（Claude Desktop など）のショートカット設定例:**
+
+ショートカットの「ターゲット」に以下を設定することで、Bitwardenから環境変数を注入した状態でGUIアプリを起動できます。
+```
+pwsh.exe -WindowStyle Hidden -Command "dsx env run --detach -- 'C:\Users\%USERNAME%\AppData\Local\AnthropicClaude\Claude.exe'"
+```
+
+`env run` は `bw sync` をデフォルトでスキップします（ローカルキャッシュを使用）。シークレットの更新を即時反映したい場合は `--sync` フラグを指定してください。
+
+`env unlock` は既にアンロック済みの場合、即座に既存の BW_SESSION トークンを返します（`bw unlock` を実行しません）。
 
 ### 設定管理 (`config`)
 ```
