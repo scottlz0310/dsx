@@ -6,6 +6,26 @@
 
 ## [Unreleased]
 
+### Added
+
+- `dsx env unlock` サブコマンドを追加
+  - `bw unlock --raw` でBitwardenをアンロックし、`BW_SESSION` 設定コマンドを標準出力に出力
+  - `eval "$(dsx env unlock)"` / `dsx env unlock | Invoke-Expression` で親シェルへ反映できる（子プロセスの環境変数が消える問題を解決）
+  - 既にアンロック済みの場合は即座に既存トークンを返す（高速）
+  - `--sync` フラグでアンロック後にBitwardenサーバーと強制同期（トークンロール直後に使用）
+- `dsx env run` に `--sync` / `--detach` フラグを追加
+  - `--sync`: Bitwardenサーバーと強制同期してからコマンドを実行（トークンロール後の即時反映）
+  - `--detach`: プロセスをデタッチ起動（完了を待たない）。GUIアプリ起動用
+  - `--detach` + `--sync` の組み合わせ対応
+  - ショートカットのターゲットに設定することでGUIアプリ（Claude Desktopなど）へ環境変数を注入可能
+- `GetEnvVarsWithSync()` を `internal/secret` に追加（`--sync` フラグから使用）
+
+### Changed
+
+- `dsx env run` / `dsx env export` がデフォルトで `bw sync` をスキップするよう変更（高速化）
+  - 変更前: 毎回 `bw sync`（2〜5秒のオーバーヘッド）
+  - 変更後: ローカルキャッシュを使用（0.5秒以下）。即時反映が必要な場合は `--sync` を指定
+
 ### Fixed
 
 - CI Lint ジョブの失敗を根本修正

@@ -592,3 +592,129 @@ func TestSync(t *testing.T) {
 		})
 	}
 }
+
+// setupUnlockMocks は unlockRawFunc と loginCheckFunc と bwLookPathFunc を差し替えるヘルパーです。
+func setupUnlockMocks(t *testing.T, unlock func() (string, error), login func() error) {
+	t.Helper()
+
+	origUnlock := unlockRawFunc
+	origLogin := loginCheckFunc
+	origLookPath := bwLookPathFunc
+
+	unlockRawFunc = unlock
+	loginCheckFunc = login
+	bwLookPathFunc = func() error { return nil } // CI では bw が未インストールのためモック
+
+	t.Cleanup(func() {
+		unlockRawFunc = origUnlock
+		loginCheckFunc = origLogin
+		bwLookPathFunc = origLookPath
+	})
+}
+
+// alwaysLoggedIn は常にログイン済みを返すモック loginCheckFunc です。
+func alwaysLoggedIn() error { return nil }
+
+func TestUnlockGetToken(t *testing.T) {
+	tests := []struct {
+		name        string
+		bwSession   string                 // BW_SESSION 環境変数（空 = 未アンロック状態）
+		mockUnlock  func() (string, error) // unlockRawFunc の差し替え
+		expectToken string
+		expectErr   bool
+		errContains string
+	}{
+		// 失敗系: unlockRawFunc が空トークンを返す
+		{
+			name: "空トークンはエラー",
+			mockUnlock: func() (string, error) {
+				return "", nil
+			},
+			expectErr:   true,
+			errContains: "出力が空です",
+		},
+
+		// 失敗系: 不正なトークン形式
+		{
+			name: "不正なトークン形式はエラー",
+			mockUnlock: func() (string, error) {
+				return "invalid!@#$%token", nil
+			},
+			expectErr:   true,
+			errContains: "出力形式が認識できません",
+		},
+
+		// 失敗系: unlockRawFunc 自体がエラーを返す
+		{
+			name: "bw unlock 失敗はエラーを伝播する",
+			mockUnlock: func() (string, error) {
+				return "", fmt.Errorf("bw unlock が失敗しました: exit status 1")
+			},
+			expectErr:   true,
+			errContains: "bw unlock が失敗しました",
+		},
+
+		// 正常系: 有効なトークンが返される
+		{
+			name: "有効なトークンは正常に返す",
+			mockUnlock: func() (string, error) {
+				return "validToken.abc123/XYZ==", nil
+			},
+			expectToken: "validToken.abc123/XYZ==",
+			expectErr:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// BW_SESSION をクリアして「未アンロック」状態を強制する
+			t.Setenv("BW_SESSION", tt.bwSession)
+
+			// unlockRawFunc と loginCheckFunc を両方差し替えて bw コマンド依存を除去する
+			setupUnlockMocks(t, tt.mockUnlock, alwaysLoggedIn)
+
+			got, err := UnlockGetToken()
+
+			if tt.expectErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errContains)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectToken, got)
+			}
+		})
+	}
+}
+
+func TestUnlockGetTokenBwNotFound(t *testing.T) {
+	// PATH を空にして bw コマンドが見つからない状態をシミュレート
+	t.Setenv("PATH", "")
+	t.Setenv("BW_SESSION", "")
+
+	_, err := UnlockGetToken()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "bw コマンドが見つかりません")
+}
+
+func TestUnlockGetTokenBwNotLoggedIn(t *testing.T) {
+	t.Setenv("BW_SESSION", "")
+
+	// loginCheckFunc がエラーを返す = 未ログイン状態
+	// bwLookPathFunc を成功扱いにして CI（bw未インストール環境）でも動作させる
+	origLogin := loginCheckFunc
+	origLookPath := bwLookPathFunc
+
+	loginCheckFunc = func() error { return fmt.Errorf("not logged in") }
+	bwLookPathFunc = func() error { return nil }
+
+	t.Cleanup(func() {
+		loginCheckFunc = origLogin
+		bwLookPathFunc = origLookPath
+	})
+
+	_, err := UnlockGetToken()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ログインしていません")
+}

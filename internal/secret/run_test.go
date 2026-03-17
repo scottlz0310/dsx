@@ -66,6 +66,9 @@ func TestRunWithEnv(t *testing.T) {
 	})
 }
 
+// TestRunWithEnvHelperProcess は RunWithEnv のテストから子プロセスとして起動されるヘルパーです。
+// DSX_TEST_HELPER_PROCESS=1 の場合のみヘルパーとして動作します。
+// DSX_TEST=1 でない場合は異常終了して呼び元のテストを失敗させます。
 func TestRunWithEnvHelperProcess(t *testing.T) {
 	if os.Getenv("DSX_TEST_HELPER_PROCESS") != "1" {
 		return
@@ -73,6 +76,41 @@ func TestRunWithEnvHelperProcess(t *testing.T) {
 
 	if os.Getenv("DSX_TEST") != "1" {
 		os.Exit(1)
+	}
+
+	os.Exit(0)
+}
+
+func TestRunWithEnvDetach(t *testing.T) {
+	t.Run("コマンド未指定はエラー", func(t *testing.T) {
+		err := RunWithEnvDetach(nil, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "コマンドが指定されていません")
+	})
+
+	t.Run("存在しないコマンドは起動エラー", func(t *testing.T) {
+		// LookPath が失敗してもフォールバックするため、Start() で失敗する
+		err := RunWithEnvDetach([]string{"definitely-not-a-real-command-dsx-detach"}, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "の起動に失敗しました")
+	})
+
+	t.Run("有効なコマンドではプロセスが即時起動する", func(t *testing.T) {
+		exe, err := os.Executable()
+		require.NoError(t, err)
+
+		// すぐ終了するヘルパープロセスをデタッチ起動する（完了を待たない）
+		err = RunWithEnvDetach([]string{
+			exe,
+			"-test.run=TestRunWithEnvDetachHelperProcess",
+		}, map[string]string{"DSX_TEST_DETACH_HELPER": "1"})
+		require.NoError(t, err)
+	})
+}
+
+func TestRunWithEnvDetachHelperProcess(t *testing.T) {
+	if os.Getenv("DSX_TEST_DETACH_HELPER") != "1" {
+		return
 	}
 
 	os.Exit(0)

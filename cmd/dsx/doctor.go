@@ -56,6 +56,8 @@ func runDoctor() {
 	if cfg == nil {
 		fmt.Println("\n❌ 重大なエラー: 設定がロードできないため、以降のチェックを中断します")
 		os.Exit(1)
+
+		return
 	}
 
 	fmt.Println("\n🛠️  基本ツール:")
