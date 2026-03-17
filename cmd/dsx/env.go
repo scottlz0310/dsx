@@ -125,7 +125,9 @@ func runEnvUnlock(cmd *cobra.Command, args []string) error {
 	// --sync 指定時はアンロック後にサーバーと同期
 	if envUnlockSync {
 		// 子プロセス（bw sync）に BW_SESSION を引き継ぐため現プロセスにも設定
-		_ = os.Setenv("BW_SESSION", token)
+		if setErr := os.Setenv("BW_SESSION", token); setErr != nil {
+			fmt.Fprintf(os.Stderr, "⚠️  BW_SESSION の設定に失敗しました: %v\n", setErr)
+		}
 
 		if err := secret.Sync(); err != nil {
 			// 同期失敗はエラーとして返す（unlock 自体は成功している）
@@ -169,21 +171,15 @@ func runEnvRun(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("実行するコマンドを指定してください")
 	}
 
-	// Bitwarden から環境変数を取得
-	var envVars map[string]string
-
+	// Bitwarden から環境変数を取得（--sync 指定時は強制同期）
+	getFunc := secret.GetEnvVars
 	if withSync {
-		var err error
-		envVars, err = secret.GetEnvVarsWithSync()
-		if err != nil {
-			return fmt.Errorf("環境変数の取得に失敗しました: %w", err)
-		}
-	} else {
-		var err error
-		envVars, err = secret.GetEnvVars()
-		if err != nil {
-			return fmt.Errorf("環境変数の取得に失敗しました: %w", err)
-		}
+		getFunc = secret.GetEnvVarsWithSync
+	}
+
+	envVars, err := getFunc()
+	if err != nil {
+		return fmt.Errorf("環境変数の取得に失敗しました: %w", err)
 	}
 
 	// デタッチ起動（GUIアプリ用）

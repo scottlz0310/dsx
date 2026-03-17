@@ -60,12 +60,13 @@ func RunWithEnvDetach(args []string, envVars map[string]string) error {
 
 	currentEnv := mergeEnv(os.Environ(), envVars)
 
-	cmd := exec.Command(cmdPath, cmdArgs...)
+	cmd := exec.CommandContext(context.Background(), cmdPath, cmdArgs...)
 	cmd.Env = currentEnv
 	// ターミナルとのI/Oを切り離す（GUIアプリのデタッチ起動）
 	cmd.Stdin = nil
 	cmd.Stdout = nil
 	cmd.Stderr = nil
+	cmd.SysProcAttr = detachProcAttr()
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("コマンドの起動に失敗しました: %w", err)
@@ -73,7 +74,9 @@ func RunWithEnvDetach(args []string, envVars map[string]string) error {
 
 	// プロセスをデタッチ（待機せず即時リターン）
 	// Wait はゾンビプロセス回避のため goroutine で処理
-	go func() { _ = cmd.Wait() }()
+	go func() {
+		_ = cmd.Wait() //nolint:errcheck // デタッチ起動のため終了コードの監視は不要
+	}()
 
 	fmt.Fprintf(os.Stderr, "✅ プロセスを起動しました (PID: %d)\n", cmd.Process.Pid)
 

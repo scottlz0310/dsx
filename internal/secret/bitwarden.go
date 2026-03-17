@@ -19,6 +19,34 @@ const (
 // syncFunc はテストで差し替え可能な同期処理の関数変数です。
 var syncFunc = Sync
 
+// unlockRawFunc はテストで差し替え可能な bw unlock --raw 実行の関数変数です。
+var unlockRawFunc = runBWUnlockRaw
+
+// loginCheckFunc はテストで差し替え可能な bw login --check 実行の関数変数です。
+var loginCheckFunc = runBWLoginCheck
+
+// runBWLoginCheck は bw login --check を実行してログイン状態を確認します。
+func runBWLoginCheck() error {
+	cmd := exec.CommandContext(context.Background(), "bw", "login", "--check")
+	return cmd.Run()
+}
+
+// runBWUnlockRaw は bw unlock --raw を実行してトークンを返します。
+func runBWUnlockRaw() (string, error) {
+	defer debugTimerStart("bw unlock --raw")()
+
+	cmd := exec.CommandContext(context.Background(), "bw", "unlock", "--raw")
+	cmd.Stdin = os.Stdin
+	cmd.Stderr = os.Stderr
+
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("bw unlock が失敗しました: %w", err)
+	}
+
+	return strings.TrimSpace(string(output)), nil
+}
+
 // debugLog はデバッグログを出力します。DSX_DEBUG=1 で有効化されます。
 func debugLog(format string, args ...interface{}) {
 	if os.Getenv("DSX_DEBUG") != "1" {
@@ -375,31 +403,65 @@ func GetEnvVarsWithSync() (map[string]string, error) {
 	return getEnvVarsInternal(true)
 }
 
+// checkBitwardenSession は bw CLI が利用可能かつセッションがアンロック済みかを確認します。
+func checkBitwardenSession() error {
+	if _, err := exec.LookPath("bw"); err != nil {
+		return fmt.Errorf("bw コマンドが見つかりません")
+	}
+
+	if os.Getenv("BW_SESSION") == "" {
+		return fmt.Errorf("BW_SESSION が設定されていません。bitwarden をアンロックしてください")
+	}
+
+	status, err := getBitwardenStatus()
+	if err != nil {
+		return fmt.Errorf("bitwarden のステータス確認に失敗しました: %w", err)
+	}
+
+	if status != statusUnlocked {
+		return fmt.Errorf("bitwarden がロックされています。'bw unlock' を実行してください")
+	}
+
+	return nil
+}
+
+// buildEnvMapFromItems は BitwardenItem スライスから env: プレフィックス付き項目を
+// 環境変数マップに変換します。
+func buildEnvMapFromItems(items []BitwardenItem) map[string]string {
+	envVars := make(map[string]string)
+
+	for _, item := range items {
+		if !strings.HasPrefix(item.Name, "env:") {
+			continue
+		}
+
+		varName := strings.TrimPrefix(item.Name, "env:")
+		if !isValidEnvVarName(varName) {
+			continue
+		}
+
+		value := getCustomFieldValue(item.Fields, "value")
+		if value == "" && item.Login != nil {
+			value = strings.TrimSpace(item.Login.Secret)
+		}
+
+		if value == "" {
+			continue
+		}
+
+		envVars[varName] = value
+	}
+
+	return envVars
+}
+
 // getEnvVarsInternal はBitwardenから環境変数を取得する内部実装です。
 // withSync が true の場合、取得前に bw sync を実行します。
 func getEnvVarsInternal(withSync bool) (map[string]string, error) {
 	defer debugTimerStart("GetEnvVars 全体")()
 
-	envVars := make(map[string]string)
-
-	// bwコマンドの存在確認
-	if _, err := exec.LookPath("bw"); err != nil {
-		return nil, fmt.Errorf("bw コマンドが見つかりません")
-	}
-
-	// BW_SESSIONが設定されていない場合はエラー
-	if os.Getenv("BW_SESSION") == "" {
-		return nil, fmt.Errorf("BW_SESSION が設定されていません。bitwarden をアンロックしてください")
-	}
-
-	// ステータス確認
-	status, err := getBitwardenStatus()
-	if err != nil {
-		return nil, fmt.Errorf("bitwarden のステータス確認に失敗しました: %w", err)
-	}
-
-	if status != statusUnlocked {
-		return nil, fmt.Errorf("bitwarden がロックされています。'bw unlock' を実行してください")
+	if err := checkBitwardenSession(); err != nil {
+		return nil, err
 	}
 
 	// --sync 指定時のみサーバーと同期（デフォルトはローカルキャッシュを使用）
@@ -426,33 +488,7 @@ func getEnvVarsInternal(withSync bool) (map[string]string, error) {
 		return nil, fmt.Errorf("JSON のパースに失敗しました: %w", err)
 	}
 
-	// 各項目を処理
-	for _, item := range items {
-		if !strings.HasPrefix(item.Name, "env:") {
-			continue
-		}
-
-		// 変数名を抽出（env: プレフィックスを除去）
-		varName := strings.TrimPrefix(item.Name, "env:")
-
-		// 変数名の検証
-		if !isValidEnvVarName(varName) {
-			continue
-		}
-
-		// カスタムフィールド "value" から値を取得
-		value := getCustomFieldValue(item.Fields, "value")
-		// フィールドがない場合は login.password をフォールバック
-		if value == "" && item.Login != nil {
-			value = strings.TrimSpace(item.Login.Secret)
-		}
-
-		if value == "" {
-			continue
-		}
-
-		envVars[varName] = value
-	}
+	envVars := buildEnvMapFromItems(items)
 
 	if len(envVars) == 0 {
 		return nil, fmt.Errorf("bitwarden に env: 項目が見つかりません")
@@ -516,36 +552,32 @@ func UnlockGetToken() (string, error) {
 		if err == nil && status == statusUnlocked {
 			debugLog("既にアンロック済み → 既存トークンを返す")
 			fmt.Fprintln(os.Stderr, "✅ Bitwarden は既にアンロックされています。")
+
 			return existing, nil
 		}
+
 		fmt.Fprintln(os.Stderr, "BW_SESSION が設定されていますがロックされています。再アンロックします...")
 	}
 
 	// ログイン状態の確認
 	done := debugTimerStart("bw login --check")
-	loginCheck := exec.CommandContext(context.Background(), "bw", "login", "--check")
-	if err := loginCheck.Run(); err != nil {
+
+	if err := loginCheckFunc(); err != nil {
 		done()
+
 		return "", fmt.Errorf("bitwarden にログインしていません。'bw login' を実行してください")
 	}
+
 	done()
 
 	// アンロック実行（マスターパスワードを対話入力）
 	fmt.Fprintln(os.Stderr, "🔐 Bitwarden をアンロックしています...")
 
-	done = debugTimerStart("bw unlock --raw")
-	unlockCmd := exec.CommandContext(context.Background(), "bw", "unlock", "--raw")
-	unlockCmd.Stdin = os.Stdin
-	unlockCmd.Stderr = os.Stderr
-
-	output, err := unlockCmd.Output()
-	done()
-
+	token, err := unlockRawFunc()
 	if err != nil {
-		return "", fmt.Errorf("bw unlock が失敗しました: %w", err)
+		return "", err
 	}
 
-	token := strings.TrimSpace(string(output))
 	if token == "" {
 		return "", fmt.Errorf("bw unlock --raw の出力が空です")
 	}
