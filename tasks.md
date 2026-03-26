@@ -163,3 +163,4 @@
 - [x] lint 実行を Go バージョン整合で安定化（Taskfile/CI ともに `go run .../golangci-lint/v2/...@latest` へ統一）
 - [x] `v0.2.1-alpha` リリース向けに README / CHANGELOG の更新とタグ運用手順を反映
 - [x] `go install ...@latest` でも `dsx --version` が実バージョンを表示できるようフォールバック実装し、`v0.2.2-alpha` リリース準備を反映
+- [x] `rustup check` の exit code 100 を正常処理するよう修正し、初の安定版 `v0.2.3` リリース準備を反映（`/releases/latest` API が安定版のみ返す仕様のため、self-update 通知が機能するようになる）
