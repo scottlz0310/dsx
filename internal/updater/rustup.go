@@ -1,8 +1,11 @@
 package updater
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -36,9 +39,20 @@ func (r *RustupUpdater) Configure(cfg config.ManagerConfig) error {
 }
 
 func (r *RustupUpdater) Check(ctx context.Context) (*CheckResult, error) {
-	output, err := runCommandOutputWithLocaleC(ctx, "rustup", []string{"check"}, "rustup check の実行に失敗: %w")
+	cmd := exec.CommandContext(ctx, "rustup", "check")
+	cmd.Env = append(os.Environ(), "LANG=C", "LC_ALL=C")
+
+	var stderr bytes.Buffer
+
+	cmd.Stderr = &stderr
+
+	output, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		var exitErr *exec.ExitError
+		// exit code 100 は「更新あり」を意味する正常な終了コードなのでエラー扱いしない
+		if !errors.As(err, &exitErr) || exitErr.ExitCode() != 100 {
+			return nil, fmt.Errorf("rustup check の実行に失敗: %w", buildCommandOutputErr(err, combineCommandOutputs(output, stderr.Bytes())))
+		}
 	}
 
 	packages := r.parseCheckOutput(string(output))
