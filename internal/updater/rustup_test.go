@@ -266,7 +266,7 @@ if "%mode%"=="none" (
 )
 echo stable-x86_64-unknown-linux-gnu - Update available : 1.81.0 -^> 1.82.0
 echo rustup - Update available : 1.28.1 -^> 1.29.0
-exit /b 0
+exit /b 100
 :update
 if "%mode%"=="update_error" (
   >&2 echo rustup update failed
@@ -290,7 +290,7 @@ if [ "$1" = "check" ]; then
   fi
   echo "stable-x86_64-unknown-linux-gnu - Update available : 1.81.0 -> 1.82.0"
   echo "rustup - Update available : 1.28.1 -> 1.29.0"
-  exit 0
+  exit 100
 fi
 if [ "$1" = "update" ]; then
   if [ "${mode}" = "update_error" ]; then

@@ -36,7 +36,8 @@ func (r *RustupUpdater) Configure(cfg config.ManagerConfig) error {
 }
 
 func (r *RustupUpdater) Check(ctx context.Context) (*CheckResult, error) {
-	output, err := runCommandOutputWithLocaleC(ctx, "rustup", []string{"check"}, "rustup check の実行に失敗: %w")
+	// exit code 100 は「更新あり」を意味する正常な終了コードなのでエラー扱いしない
+	output, err := runCommandOutputWithLocaleCAllowExitCodes(ctx, "rustup", []string{"check"}, "rustup check の実行に失敗: %w", 100)
 	if err != nil {
 		return nil, err
 	}
