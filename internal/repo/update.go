@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -30,6 +31,7 @@ type UpdateResult struct {
 	RepoPath        string
 	Commands        []string
 	SkippedMessages []string
+	Warnings        []string // pull 実行後の警告（BEHIND 残存等）
 	UpstreamChecked bool
 	HasUpstream     bool
 }
@@ -143,6 +145,11 @@ func planAndRunPull(ctx context.Context, repoPath string, opts UpdateOptions, re
 		result.Commands = append(result.Commands, formatGitCommand(repoPath, pullArgs))
 		if err := runGitCommand(ctx, repoPath, pullArgs...); err != nil {
 			return fmt.Errorf("pull に失敗: %w", err)
+		}
+
+		if behind, checkErr := getBehindCount(ctx, repoPath); checkErr == nil && behind > 0 {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("pull 後も BEHIND:%d のままです（conflict や rebase 失敗の可能性があります）", behind))
 		}
 	case !opts.DryRun:
 		result.SkippedMessages = append(result.SkippedMessages, skipPullNoUpstreamMessage)
@@ -343,7 +350,14 @@ func detectNonDefaultTrackingBranch(ctx context.Context, repoPath string) string
 
 	defaultRef, err := getRemoteDefaultRef(ctx, repoPath, remote)
 	if err != nil {
-		return fmt.Sprintf("%s: %v。`refs/remotes/%s/HEAD` が存在しないか壊れている可能性があります。`git remote set-head %s -a` または `git fetch %s` を実行してから再実行してください。", skipPullDefaultBranchDetectFailedMessage, err, remote, remote, remote)
+		// stderr なし（--quiet による「参照未設定」）の場合のみ無視して pull を続行する。
+		// stderr あり（git の実行エラー等）の場合はスキップ扱いにする。
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && len(exitErr.Stderr) == 0 {
+			return ""
+		}
+
+		return fmt.Sprintf("%s: %v", skipPullDefaultBranchDetectFailedMessage, err)
 	}
 
 	if defaultRef == upstreamRef {
@@ -437,6 +451,20 @@ func isDetachedHEAD(ctx context.Context, repoPath string) (bool, error) {
 	}
 
 	return strings.TrimSpace(string(output)) == "HEAD", nil
+}
+
+func getBehindCount(ctx context.Context, repoPath string) (int, error) {
+	output, err := runGitCommandOutput(ctx, repoPath, "rev-list", "--count", "HEAD..@{u}")
+	if err != nil {
+		return 0, fmt.Errorf("git rev-list --count HEAD..@{u} に失敗しました: %w", err)
+	}
+
+	count, err := strconv.Atoi(strings.TrimSpace(string(output)))
+	if err != nil {
+		return 0, fmt.Errorf("BEHIND 件数のパースに失敗: %w", err)
+	}
+
+	return count, nil
 }
 
 func runGitCommandOutput(ctx context.Context, repoPath string, args ...string) ([]byte, error) {

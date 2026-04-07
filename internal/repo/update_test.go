@@ -118,6 +118,11 @@ func TestUpdateDryRunPlan(t *testing.T) {
 			expectPullCommand: true,
 		},
 		{
+			name:              "refs/remotes/origin/HEAD 未設定でも upstream があれば pull 計画を含む",
+			setupRepo:         createRepoWithUpstreamWithoutRemoteHead,
+			expectPullCommand: true,
+		},
+		{
 			name:               "upstreamなしはpull計画を除外",
 			setupRepo:          createLocalRepoWithoutUpstream,
 			expectPullCommand:  false,
@@ -199,11 +204,6 @@ func TestUpdateSkipsOnUnsafeRepoState(t *testing.T) {
 			name:               "detached HEAD の場合はスキップ",
 			setupRepo:          createRepoWithUpstreamAndDetachedHEAD,
 			expectSkipContains: "detached HEAD のため pull/submodule をスキップ",
-		},
-		{
-			name:               "リモートのデフォルトブランチが判定できない場合はスキップ",
-			setupRepo:          createRepoWithUpstreamWithoutRemoteHead,
-			expectSkipContains: skipPullDefaultBranchDetectFailedMessage,
 		},
 		{
 			name:               "upstream が <remote>/<branch> 形式でない場合はスキップ",
@@ -303,11 +303,6 @@ func TestUpdateSkipsOnNonDefaultTrackingNonDryRun(t *testing.T) {
 			expectSkipContains: skipPullNonDefaultUpstreamMessage,
 		},
 		{
-			name:               "リモートのデフォルトブランチが判定できない場合はスキップ",
-			setupRepo:          createRepoWithUpstreamWithoutRemoteHead,
-			expectSkipContains: skipPullDefaultBranchDetectFailedMessage,
-		},
-		{
 			name:               "upstream が <remote>/<branch> 形式でない場合はスキップ",
 			setupRepo:          createRepoWithUpstreamAndLocalUpstreamRef,
 			expectSkipContains: skipPullUpstreamDetectFailedMessage,
@@ -349,6 +344,61 @@ func TestUpdateSkipsOnNonDefaultTrackingNonDryRun(t *testing.T) {
 
 			if !hasMessageContaining(result.SkippedMessages, tc.expectSkipContains) {
 				t.Fatalf("skipメッセージに %q が含まれていません: %v", tc.expectSkipContains, result.SkippedMessages)
+			}
+		})
+	}
+}
+
+func TestGetBehindCount(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name      string
+		setupRepo func(t *testing.T) string
+		wantCount int
+		wantErr   bool
+	}{
+		{
+			name:      "同期済みリポジトリは 0 を返す",
+			setupRepo: createRepoWithUpstream,
+			wantCount: 0,
+			wantErr:   false,
+		},
+		{
+			name:      "リモートに新しいコミットがある場合は BEHIND 件数を返す",
+			setupRepo: createRepoWithUpstreamAndRemoteAhead,
+			wantCount: 1,
+			wantErr:   false,
+		},
+		{
+			name:      "upstream 未設定の場合はエラー",
+			setupRepo: createLocalRepoWithoutUpstream,
+			wantCount: 0,
+			wantErr:   true,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			repoPath := tc.setupRepo(t)
+
+			count, err := getBehindCount(context.Background(), repoPath)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("getBehindCount() エラーが期待されましたが nil でした")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("getBehindCount() error = %v", err)
+			}
+
+			if count != tc.wantCount {
+				t.Fatalf("getBehindCount() = %d, want %d", count, tc.wantCount)
 			}
 		})
 	}
@@ -495,6 +545,48 @@ func createRepoWithUpstreamWithoutRemoteHead(t *testing.T) string {
 	runGit(t, repoPath, "symbolic-ref", "-d", "refs/remotes/origin/HEAD")
 
 	return repoPath
+}
+
+func createRepoWithUpstreamAndRemoteAhead(t *testing.T) string {
+	t.Helper()
+
+	base := t.TempDir()
+	remotePath := filepath.Join(base, "remote.git")
+	sourcePath := filepath.Join(base, "source")
+	workPath := filepath.Join(base, "work")
+
+	runGit(t, "", "init", "--bare", remotePath)
+	runGit(t, "", "clone", remotePath, sourcePath)
+	runGit(t, sourcePath, "config", "user.email", "dsx-test@example.com")
+	runGit(t, sourcePath, "config", "user.name", "dsx-test")
+
+	filePath := filepath.Join(sourcePath, "README.md")
+	if err := os.WriteFile(filePath, []byte("# upstream\n"), 0o644); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+
+	runGit(t, sourcePath, "add", "README.md")
+	runGit(t, sourcePath, "commit", "-m", "initial commit")
+	runGit(t, sourcePath, "push", "-u", "origin", "HEAD")
+
+	// work リポジトリを clone して fetch のみ行い、pull していない状態にする
+	runGit(t, "", "clone", remotePath, workPath)
+	runGit(t, workPath, "config", "user.email", "dsx-test@example.com")
+	runGit(t, workPath, "config", "user.name", "dsx-test")
+
+	// remote にさらにコミットを積んで work が BEHIND になる状態を作る
+	if err := os.WriteFile(filePath, []byte("# upstream\nremote update\n"), 0o644); err != nil {
+		t.Fatalf("failed to update file: %v", err)
+	}
+
+	runGit(t, sourcePath, "add", "README.md")
+	runGit(t, sourcePath, "commit", "-m", "remote commit")
+	runGit(t, sourcePath, "push", "origin", "HEAD")
+
+	// work で fetch のみ実行（pull はしない）
+	runGit(t, workPath, "fetch", "origin")
+
+	return workPath
 }
 
 func createRepoWithNonDefaultUpstream(t *testing.T) string {
