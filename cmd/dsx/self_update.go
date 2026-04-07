@@ -18,7 +18,7 @@ import (
 
 const (
 	selfUpdateLatestReleaseAPI = "https://api.github.com/repos/scottlz0310/dsx/releases/latest"
-	selfUpdateGoInstallTarget  = "github.com/scottlz0310/dsx/cmd/dsx@latest"
+	selfUpdateGoInstallPkg     = "github.com/scottlz0310/dsx/cmd/dsx"
 	selfUpdateCheckTimeout     = 2 * time.Second
 )
 
@@ -46,6 +46,23 @@ var (
 	selfUpdateApplyStep        = applySelfUpdate
 	selfUpdateFetchReleaseStep = fetchLatestRelease
 )
+
+func normalizeSelfUpdateVersion(version string) string {
+	normalized := strings.TrimSpace(version)
+	if normalized == "" {
+		return normalized
+	}
+
+	if !strings.HasPrefix(normalized, "v") {
+		normalized = "v" + normalized
+	}
+
+	return normalized
+}
+
+func selfUpdateInstallTarget(version string) string {
+	return selfUpdateGoInstallPkg + "@" + normalizeSelfUpdateVersion(version)
+}
 
 var selfUpdateCmd = &cobra.Command{
 	Use:   "self-update",
@@ -95,7 +112,7 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 		applyCtx = context.Background()
 	}
 
-	if err := selfUpdateApplyStep(applyCtx); err != nil {
+	if err := selfUpdateApplyStep(applyCtx, info.LatestVersion); err != nil {
 		return err
 	}
 
@@ -193,12 +210,13 @@ func fetchLatestRelease(ctx context.Context) (latestVersion, releaseURL string, 
 	return tag, strings.TrimSpace(payload.HTMLURL), nil
 }
 
-func applySelfUpdate(ctx context.Context) error {
+func applySelfUpdate(ctx context.Context, version string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	cmd := exec.CommandContext(ctx, "go", "install", selfUpdateGoInstallTarget)
+	target := selfUpdateInstallTarget(version)
+	cmd := exec.CommandContext(ctx, "go", "install", target)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -207,7 +225,7 @@ func applySelfUpdate(ctx context.Context) error {
 		if runtime.GOOS == "windows" {
 			return fmt.Errorf(
 				"self-update に失敗しました（実行中バイナリの置換競合の可能性があります）。別シェルで `go install %s` を実行してください: %w",
-				selfUpdateGoInstallTarget,
+				target,
 				err,
 			)
 		}

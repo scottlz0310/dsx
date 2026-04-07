@@ -318,8 +318,13 @@ func TestRunSelfUpdate(t *testing.T) {
 			selfUpdateCheckStep = func(context.Context, string) (*selfUpdateInfo, error) {
 				return tc.checkResult, tc.checkErr
 			}
-			selfUpdateApplyStep = func(context.Context) error {
+			selfUpdateApplyStep = func(_ context.Context, ver string) error {
 				applyCalled = true
+
+				if tc.checkResult != nil && ver != tc.checkResult.LatestVersion {
+					t.Errorf("apply called with version = %q, want %q", ver, tc.checkResult.LatestVersion)
+				}
+
 				return tc.applyErr
 			}
 
@@ -385,6 +390,49 @@ func TestPrintSelfUpdateNoticeAtEnd(t *testing.T) {
 
 			if !strings.Contains(got, tc.wantText) {
 				t.Fatalf("stdout = %q, want contains %q", got, tc.wantText)
+			}
+		})
+	}
+}
+
+func TestSelfUpdateInstallTarget(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		version string
+		want    string
+	}{
+		{
+			name:    "通常バージョン",
+			version: "v0.2.5",
+			want:    "github.com/scottlz0310/dsx/cmd/dsx@v0.2.5",
+		},
+		{
+			name:    "パッチバージョン",
+			version: "v1.0.0",
+			want:    "github.com/scottlz0310/dsx/cmd/dsx@v1.0.0",
+		},
+		{
+			name:    "vプレフィックスなし",
+			version: "0.2.5",
+			want:    "github.com/scottlz0310/dsx/cmd/dsx@v0.2.5",
+		},
+		{
+			name:    "前後スペースあり",
+			version: " v0.2.5 ",
+			want:    "github.com/scottlz0310/dsx/cmd/dsx@v0.2.5",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := selfUpdateInstallTarget(tc.version)
+			if got != tc.want {
+				t.Fatalf("selfUpdateInstallTarget(%q) = %q, want %q", tc.version, got, tc.want)
 			}
 		})
 	}

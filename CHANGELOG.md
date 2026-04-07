@@ -6,6 +6,14 @@
 
 ## [Unreleased]
 
+## [v0.2.5] - 2026-04-07
+
+### Fixed
+
+- `dsx self-update` が「完了」と表示しながら実際にバージョンが更新されない問題を修正
+  - `go install @latest` は Go module proxy のインデックス遅延により旧バージョンをインストールする場合があった
+  - GitHub Releases API で取得した明示バージョン（例: `@v0.2.5`）を指定して `go install` するよう変更
+
 ## [v0.2.4] - 2026-04-07
 
 ### Added
@@ -267,7 +275,8 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.2.5...HEAD
+[v0.2.5]: https://github.com/scottlz0310/dsx/compare/v0.2.4...v0.2.5
 [v0.2.4]: https://github.com/scottlz0310/dsx/compare/v0.2.3...v0.2.4
 [v0.2.3]: https://github.com/scottlz0310/dsx/compare/v0.2.2-alpha...v0.2.3
 [v0.2.2-alpha]: https://github.com/scottlz0310/dsx/compare/v0.2.1-alpha...v0.2.2-alpha
