@@ -207,8 +207,11 @@ func runRepoUpdate(cmd *cobra.Command, args []string) error {
 	summary := runJobsWithOptionalTUI(ctx, "repo update 進捗", jobs, execJobs, useTUI, repoUpdateLogFile)
 
 	// TUI 使用時は TUI 側で完了サマリーを表示済みのため、テキストサマリーは非 TUI 時のみ出力
+	// pull スキップ一覧は TUI モードでも表示する
 	if !useTUI {
 		printRepoUpdateSummary(summary, getPullSkipped())
+	} else {
+		showTUIPullSkipSuffix(getPullSkipped())
 	}
 
 	// 失敗ジョブのエラー詳細を表示
@@ -385,21 +388,24 @@ func printRepoTable(repos []repomgr.Info) error {
 func writeRepoTable(output io.Writer, repos []repomgr.Info) error {
 	writer := tabwriter.NewWriter(output, 0, 8, 2, ' ', 0)
 
-	if _, err := fmt.Fprintln(writer, "名前\t状態\tAhead\tパス"); err != nil {
+	if _, err := fmt.Fprintln(writer, "名前\t状態\tAhead\tBehind\tパス"); err != nil {
 		return err
 	}
 
-	if _, err := fmt.Fprintln(writer, "----\t----\t-----\t----"); err != nil {
+	if _, err := fmt.Fprintln(writer, "----\t----\t-----\t------\t----"); err != nil {
 		return err
 	}
 
 	for _, repo := range repos {
 		ahead := "-"
+		behind := "-"
+
 		if repo.HasUpstream {
 			ahead = strconv.Itoa(repo.Ahead)
+			behind = strconv.Itoa(repo.Behind)
 		}
 
-		if _, err := fmt.Fprintf(writer, "%s\t%s\t%s\t%s\n", repo.Name, repomgr.StatusLabel(repo.Status), ahead, repo.Path); err != nil {
+		if _, err := fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\n", repo.Name, repomgr.StatusLabel(repo.Status), ahead, behind, repo.Path); err != nil {
 			return err
 		}
 	}
@@ -458,15 +464,42 @@ func printRepoUpdateSummary(summary runner.Summary, pullSkippedNames []string) {
 	fmt.Printf("  失敗: %d 件\n", summary.Failed)
 	fmt.Printf("  スキップ: %d 件\n", summary.Skipped)
 
-	if len(pullSkippedNames) > 0 {
-		fmt.Printf("  pull スキップ: %d 件\n", len(pullSkippedNames))
-
-		for _, name := range pullSkippedNames {
-			fmt.Printf("    - %s\n", name)
-		}
+	if err := printPullSkipList(os.Stdout, pullSkippedNames); err != nil {
+		fmt.Printf("警告: pull スキップ一覧の表示に失敗しました: %v\n", err)
 	}
 
 	fmt.Println()
+}
+
+// showTUIPullSkipSuffix は TUI モード終了後に pull スキップ一覧を表示します。
+func showTUIPullSkipSuffix(names []string) {
+	if len(names) == 0 {
+		return
+	}
+
+	fmt.Println()
+
+	if err := printPullSkipList(os.Stdout, names); err != nil {
+		fmt.Printf("警告: pull スキップ一覧の表示に失敗しました: %v\n", err)
+	}
+}
+
+func printPullSkipList(w io.Writer, pullSkippedNames []string) error {
+	if len(pullSkippedNames) == 0 {
+		return nil
+	}
+
+	if _, err := fmt.Fprintf(w, "  pull スキップ: %d 件\n", len(pullSkippedNames)); err != nil {
+		return err
+	}
+
+	for _, name := range pullSkippedNames {
+		if _, err := fmt.Fprintf(w, "    - %s\n", name); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func resolveRepoJobs(configJobs, flagJobs int) int {

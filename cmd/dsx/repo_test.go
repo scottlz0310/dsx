@@ -272,15 +272,70 @@ func TestWriteRepoTable(t *testing.T) {
 
 	dataLines := lines[2:]
 	for _, line := range dataLines {
-		if strings.Contains(line, "1/home/") || strings.Contains(line, "-/home/") {
-			t.Fatalf("Ahead列とパス列が結合されています: %q", line)
+		// Ahead / Behind 列とパス列が結合されていないか確認
+		for _, sep := range []string{"0/home/", "1/home/", "-/home/"} {
+			if strings.Contains(line, sep) {
+				t.Fatalf("列とパス列が結合されています（%q）: %q", sep, line)
+			}
 		}
 
 		fields := strings.Fields(line)
-		if len(fields) != 4 {
-			t.Fatalf("table row fields = %d, want 4. line=%q", len(fields), line)
+		if len(fields) != 5 {
+			t.Fatalf("table row fields = %d, want 5 (名前/状態/Ahead/Behind/パス). line=%q", len(fields), line)
 		}
 	}
+}
+
+func TestPrintPullSkipList(t *testing.T) {
+	t.Parallel()
+
+	t.Run("0件のとき何も出力しない", func(t *testing.T) {
+		t.Parallel()
+
+		var buf bytes.Buffer
+		if err := printPullSkipList(&buf, nil); err != nil {
+			t.Fatalf("printPullSkipList() unexpected error: %v", err)
+		}
+
+		if buf.Len() != 0 {
+			t.Fatalf("expected no output, got %q", buf.String())
+		}
+	})
+
+	t.Run("空スライスのとき何も出力しない", func(t *testing.T) {
+		t.Parallel()
+
+		var buf bytes.Buffer
+		if err := printPullSkipList(&buf, []string{}); err != nil {
+			t.Fatalf("printPullSkipList() unexpected error: %v", err)
+		}
+
+		if buf.Len() != 0 {
+			t.Fatalf("expected no output, got %q", buf.String())
+		}
+	})
+
+	t.Run("複数件のときリポジトリ一覧を出力する", func(t *testing.T) {
+		t.Parallel()
+
+		var buf bytes.Buffer
+		if err := printPullSkipList(&buf, []string{"repo-a", "repo-b"}); err != nil {
+			t.Fatalf("printPullSkipList() unexpected error: %v", err)
+		}
+
+		out := buf.String()
+		if !strings.Contains(out, "pull スキップ: 2 件") {
+			t.Fatalf("expected pull skip header, got %q", out)
+		}
+
+		if !strings.Contains(out, "- repo-a") {
+			t.Fatalf("expected repo-a in output, got %q", out)
+		}
+
+		if !strings.Contains(out, "- repo-b") {
+			t.Fatalf("expected repo-b in output, got %q", out)
+		}
+	})
 }
 
 func TestSelectRepoCloneURL(t *testing.T) {

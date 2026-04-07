@@ -80,7 +80,7 @@ func Update(ctx context.Context, repoPath string, opts UpdateOptions) (*UpdateRe
 	go func() {
 		defer wg.Done()
 
-		up, _, err := getAheadCount(ctx, cleanPath)
+		up, _, _, err := getAheadBehindCount(ctx, cleanPath)
 		upstream = upstreamResult{checked: err == nil, hasUpstream: up, err: err}
 	}()
 

@@ -2,7 +2,7 @@ pre-commit:
   commands:
     gofmt:
       glob: "**/*.go"
-      run: sh -c 'output="$(gofmt -l "$@")"; if [ -n "$output" ]; then printf "%s\n" "$output"; exit 1; fi' -- {staged_files}
+      run: sh scripts/gofmt-check.sh {staged_files}
       fail_text: |
         フォーマットされていないファイルがあります。
         `gofmt -w <ファイル名>` を実行してください。
