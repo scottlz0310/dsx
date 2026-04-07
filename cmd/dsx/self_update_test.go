@@ -318,7 +318,7 @@ func TestRunSelfUpdate(t *testing.T) {
 			selfUpdateCheckStep = func(context.Context, string) (*selfUpdateInfo, error) {
 				return tc.checkResult, tc.checkErr
 			}
-			selfUpdateApplyStep = func(context.Context) error {
+			selfUpdateApplyStep = func(context.Context, string) error {
 				applyCalled = true
 				return tc.applyErr
 			}
@@ -385,6 +385,37 @@ func TestPrintSelfUpdateNoticeAtEnd(t *testing.T) {
 
 			if !strings.Contains(got, tc.wantText) {
 				t.Fatalf("stdout = %q, want contains %q", got, tc.wantText)
+			}
+		})
+	}
+}
+
+func TestSelfUpdateInstallTarget(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		version string
+		want    string
+	}{
+		{
+			name:    "通常バージョン",
+			version: "v0.2.5",
+			want:    "github.com/scottlz0310/dsx/cmd/dsx@v0.2.5",
+		},
+		{
+			name:    "パッチバージョン",
+			version: "v1.0.0",
+			want:    "github.com/scottlz0310/dsx/cmd/dsx@v1.0.0",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := selfUpdateInstallTarget(tc.version)
+			if got != tc.want {
+				t.Fatalf("selfUpdateInstallTarget(%q) = %q, want %q", tc.version, got, tc.want)
 			}
 		})
 	}
