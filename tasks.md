@@ -14,7 +14,7 @@
 
 - [x] `detectNonDefaultTrackingBranch()` で `getRemoteDefaultRef()` が失敗した場合、スキップではなく空文字（pull 許可）を返すよう修正
 - [x] 修正に対応するユニットテストを追加（`internal/repo/update_test.go`）
-- [ ] `scripts/branch-chk.ps1` で `spotify-ad-analyzer` の BEHIND 状態が解消されることを確認（実機検証）
+- [x] `scripts/branch-chk.ps1` で `spotify-ad-analyzer` の BEHIND 状態が解消されることを確認（実機検証）
 
 ### 修正2（中優先）: スキップ時の表示を「成功」から区別
 
