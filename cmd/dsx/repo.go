@@ -292,7 +292,7 @@ func buildRepoUpdateOptions(cmd *cobra.Command, cfg *config.Config) (repomgr.Upd
 	return opts, nil
 }
 
-func buildRepoUpdateJobs(root string, repoPaths []string, opts repomgr.UpdateOptions, useTUI bool) ([]runner.Job, func() []string) {
+func buildRepoUpdateJobs(root string, repoPaths []string, opts repomgr.UpdateOptions, useTUI bool) (jobs []runner.Job, getPullSkipped func() []string) {
 	var outputMu sync.Mutex
 
 	var (
@@ -323,7 +323,9 @@ func buildRepoUpdateJobs(root string, repoPaths []string, opts repomgr.UpdateOpt
 
 				if updateErr == nil && updateResult != nil && len(updateResult.SkippedMessages) > 0 {
 					pullSkippedMu.Lock()
+
 					pullSkippedNames = append(pullSkippedNames, repoName)
+
 					pullSkippedMu.Unlock()
 				}
 
@@ -338,11 +340,14 @@ func buildRepoUpdateJobs(root string, repoPaths []string, opts repomgr.UpdateOpt
 		})
 	}
 
-	getPullSkipped := func() []string {
+	getPullSkipped = func() []string {
 		pullSkippedMu.Lock()
 		defer pullSkippedMu.Unlock()
 
-		return pullSkippedNames
+		result := make([]string, len(pullSkippedNames))
+		copy(result, pullSkippedNames)
+
+		return result
 	}
 
 	return execJobs, getPullSkipped
@@ -445,8 +450,10 @@ func printRepoUpdateSummary(summary runner.Summary, pullSkippedNames []string) {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("📊 repo update サマリー")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	pullSuccess := summary.Success - len(pullSkippedNames)
+
 	fmt.Printf("  対象: %d 件\n", summary.Total)
-	fmt.Printf("  成功: %d 件\n", summary.Success)
+	fmt.Printf("  成功: %d 件\n", pullSuccess)
 	fmt.Printf("  失敗: %d 件\n", summary.Failed)
 	fmt.Printf("  スキップ: %d 件\n", summary.Skipped)
 

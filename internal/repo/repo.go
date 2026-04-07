@@ -204,14 +204,33 @@ func hasGitMetadata(path string) bool {
 }
 
 func isDirty(ctx context.Context, repoPath string) (bool, error) {
-	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "status", "--porcelain")
+	tracked, untracked, err := classifyDirtyState(ctx, repoPath)
 
-	output, err := cmd.Output()
+	return tracked || untracked, err
+}
+
+// classifyDirtyState は作業ツリーの変更を tracked と untracked に分類します。
+// git pull --rebase --autostash は tracked の変更のみ退避するため、
+// untracked との区別が AutoStash 挙動の判定に必要です。
+func classifyDirtyState(ctx context.Context, repoPath string) (hasTracked, hasUntracked bool, err error) {
+	output, err := runGitCommandOutput(ctx, repoPath, "status", "--porcelain")
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
-	return strings.TrimSpace(string(output)) != "", nil
+	for _, line := range strings.Split(string(output), "\n") {
+		if len(line) < 2 {
+			continue
+		}
+
+		if line[:2] == "??" {
+			hasUntracked = true
+		} else {
+			hasTracked = true
+		}
+	}
+
+	return hasTracked, hasUntracked, nil
 }
 
 func getAheadCount(ctx context.Context, repoPath string) (hasUpstream bool, ahead int, err error) {

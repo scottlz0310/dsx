@@ -368,10 +368,10 @@ func TestAutoStashWithDirtyRepo(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		name              string
-		setupRepo         func(t *testing.T) string
-		autoStash         bool
-		expectPullCommand bool
+		name               string
+		setupRepo          func(t *testing.T) string
+		autoStash          bool
+		expectPullCommand  bool
 		expectSkipContains string
 	}{
 		{
@@ -381,10 +381,12 @@ func TestAutoStashWithDirtyRepo(t *testing.T) {
 			expectPullCommand: true,
 		},
 		{
-			name:              "AutoStash=true + DIRTY(untracked) → pull --autostash を計画する",
-			setupRepo:         createRepoWithUpstreamAndDirtyUntracked,
-			autoStash:         true,
-			expectPullCommand: true,
+			// untracked は --autostash の退避対象外のため、AutoStash=true でもスキップする。
+			name:               "AutoStash=true + DIRTY(untracked) → スキップ",
+			setupRepo:          createRepoWithUpstreamAndDirtyUntracked,
+			autoStash:          true,
+			expectPullCommand:  false,
+			expectSkipContains: skipPullUntrackedWithAutoStashMessage,
 		},
 		{
 			name:               "AutoStash=false + DIRTY(tracked) → スキップ（回帰）",
