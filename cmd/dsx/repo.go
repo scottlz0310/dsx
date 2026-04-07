@@ -399,7 +399,11 @@ func printRepoUpdateResult(name string, result *repomgr.UpdateResult, updateErr 
 	}
 
 	if updateErr == nil {
-		fmt.Println("  ✅ 成功")
+		if result != nil && len(result.SkippedMessages) > 0 {
+			fmt.Println("  ⚪ スキップ（pull を実行しませんでした）")
+		} else {
+			fmt.Println("  ✅ 成功")
+		}
 		fmt.Println()
 		return
 	}

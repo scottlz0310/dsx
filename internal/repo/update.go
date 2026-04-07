@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -143,6 +144,11 @@ func planAndRunPull(ctx context.Context, repoPath string, opts UpdateOptions, re
 		result.Commands = append(result.Commands, formatGitCommand(repoPath, pullArgs))
 		if err := runGitCommand(ctx, repoPath, pullArgs...); err != nil {
 			return fmt.Errorf("pull に失敗: %w", err)
+		}
+
+		if behind, checkErr := getBehindCount(ctx, repoPath); checkErr == nil && behind > 0 {
+			result.SkippedMessages = append(result.SkippedMessages,
+				fmt.Sprintf("pull 後も BEHIND:%d のままです（conflict や rebase 失敗の可能性があります）", behind))
 		}
 	case !opts.DryRun:
 		result.SkippedMessages = append(result.SkippedMessages, skipPullNoUpstreamMessage)
@@ -343,7 +349,9 @@ func detectNonDefaultTrackingBranch(ctx context.Context, repoPath string) string
 
 	defaultRef, err := getRemoteDefaultRef(ctx, repoPath, remote)
 	if err != nil {
-		return fmt.Sprintf("%s: %v。`refs/remotes/%s/HEAD` が存在しないか壊れている可能性があります。`git remote set-head %s -a` または `git fetch %s` を実行してから再実行してください。", skipPullDefaultBranchDetectFailedMessage, err, remote, remote, remote)
+		// refs/remotes/<remote>/HEAD が未設定でも upstream が設定されていれば pull を続行する。
+		// デフォルトブランチとの一致検証はスキップするが、pull 自体は安全に実行できる。
+		return ""
 	}
 
 	if defaultRef == upstreamRef {
@@ -437,6 +445,20 @@ func isDetachedHEAD(ctx context.Context, repoPath string) (bool, error) {
 	}
 
 	return strings.TrimSpace(string(output)) == "HEAD", nil
+}
+
+func getBehindCount(ctx context.Context, repoPath string) (int, error) {
+	output, err := runGitCommandOutput(ctx, repoPath, "rev-list", "--count", "HEAD..@{u}")
+	if err != nil {
+		return 0, err
+	}
+
+	count, err := strconv.Atoi(strings.TrimSpace(string(output)))
+	if err != nil {
+		return 0, fmt.Errorf("BEHIND 件数のパースに失敗: %w", err)
+	}
+
+	return count, nil
 }
 
 func runGitCommandOutput(ctx context.Context, repoPath string, args ...string) ([]byte, error) {
