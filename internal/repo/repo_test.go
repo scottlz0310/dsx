@@ -226,94 +226,92 @@ func TestHasGitMetadata(t *testing.T) {
 	}
 }
 
-func TestGetAheadBehindCount(t *testing.T) {
-	t.Run("upstream なしは hasUpstream=false と 0 件を返す", func(t *testing.T) {
-		t.Parallel()
+func TestGetAheadBehindCountNoUpstream(t *testing.T) {
+	t.Parallel()
 
-		repoPath := createLocalRepoWithoutUpstream(t)
+	repoPath := createLocalRepoWithoutUpstream(t)
 
-		hasUpstream, ahead, behind, err := getAheadBehindCount(context.Background(), repoPath)
-		if err != nil {
-			t.Fatalf("getAheadBehindCount() error = %v", err)
-		}
+	hasUpstream, ahead, behind, err := getAheadBehindCount(context.Background(), repoPath)
+	if err != nil {
+		t.Fatalf("getAheadBehindCount() error = %v", err)
+	}
 
-		if hasUpstream {
-			t.Fatalf("hasUpstream = true, want false")
-		}
+	if hasUpstream {
+		t.Fatalf("hasUpstream = true, want false")
+	}
 
-		if ahead != 0 || behind != 0 {
-			t.Fatalf("ahead/behind = %d/%d, want 0/0", ahead, behind)
-		}
-	})
+	if ahead != 0 || behind != 0 {
+		t.Fatalf("ahead/behind = %d/%d, want 0/0", ahead, behind)
+	}
+}
 
-	t.Run("behind がある場合に behind 件数を返す", func(t *testing.T) {
-		t.Parallel()
+func TestGetAheadBehindCountRemoteAhead(t *testing.T) {
+	t.Parallel()
 
-		repoPath := createRepoWithUpstreamAndRemoteAhead(t)
+	repoPath := createRepoWithUpstreamAndRemoteAhead(t)
 
-		hasUpstream, ahead, behind, err := getAheadBehindCount(context.Background(), repoPath)
-		if err != nil {
-			t.Fatalf("getAheadBehindCount() error = %v", err)
-		}
+	hasUpstream, ahead, behind, err := getAheadBehindCount(context.Background(), repoPath)
+	if err != nil {
+		t.Fatalf("getAheadBehindCount() error = %v", err)
+	}
 
-		if !hasUpstream {
-			t.Fatalf("hasUpstream = false, want true")
-		}
+	if !hasUpstream {
+		t.Fatalf("hasUpstream = false, want true")
+	}
 
-		if ahead != 0 || behind != 1 {
-			t.Fatalf("ahead/behind = %d/%d, want 0/1", ahead, behind)
-		}
-	})
+	if ahead != 0 || behind != 1 {
+		t.Fatalf("ahead/behind = %d/%d, want 0/1", ahead, behind)
+	}
+}
 
-	t.Run("ahead がある場合に ahead 件数を返す", func(t *testing.T) {
-		t.Parallel()
+func TestGetAheadBehindCountLocalAhead(t *testing.T) {
+	t.Parallel()
 
-		repoPath := createRepoWithUpstreamAndLocalAhead(t)
+	repoPath := createRepoWithUpstreamAndLocalAhead(t)
 
-		hasUpstream, ahead, behind, err := getAheadBehindCount(context.Background(), repoPath)
-		if err != nil {
-			t.Fatalf("getAheadBehindCount() error = %v", err)
-		}
+	hasUpstream, ahead, behind, err := getAheadBehindCount(context.Background(), repoPath)
+	if err != nil {
+		t.Fatalf("getAheadBehindCount() error = %v", err)
+	}
 
-		if !hasUpstream {
-			t.Fatalf("hasUpstream = false, want true")
-		}
+	if !hasUpstream {
+		t.Fatalf("hasUpstream = false, want true")
+	}
 
-		if ahead != 1 || behind != 0 {
-			t.Fatalf("ahead/behind = %d/%d, want 1/0", ahead, behind)
-		}
-	})
+	if ahead != 1 || behind != 0 {
+		t.Fatalf("ahead/behind = %d/%d, want 1/0", ahead, behind)
+	}
+}
 
-	t.Run("異常出力はパースエラーになる", func(t *testing.T) {
-		prependFakeGitToPath(t, "invalid-output")
+func TestGetAheadBehindCountInvalidOutput(t *testing.T) {
+	prependFakeGitToPath(t, "invalid-output")
 
-		_, _, _, err := getAheadBehindCount(context.Background(), t.TempDir())
-		if err == nil {
-			t.Fatalf("getAheadBehindCount() error = nil, want error")
-		}
+	_, _, _, err := getAheadBehindCount(context.Background(), t.TempDir())
+	if err == nil {
+		t.Fatalf("getAheadBehindCount() error = nil, want error")
+	}
 
-		if !strings.Contains(err.Error(), "ahead/behind 件数のパースに失敗") {
-			t.Fatalf("error = %v, want parse error", err)
-		}
-	})
+	if !strings.Contains(err.Error(), "ahead/behind 件数のパースに失敗") {
+		t.Fatalf("error = %v, want parse error", err)
+	}
+}
 
-	t.Run("実行失敗時は stderr を含むエラーを返す", func(t *testing.T) {
-		prependFakeGitToPath(t, "stderr-failure")
+func TestGetAheadBehindCountCommandFailure(t *testing.T) {
+	prependFakeGitToPath(t, "stderr-failure")
 
-		_, _, _, err := getAheadBehindCount(context.Background(), t.TempDir())
-		if err == nil {
-			t.Fatalf("getAheadBehindCount() error = nil, want error")
-		}
+	_, _, _, err := getAheadBehindCount(context.Background(), t.TempDir())
+	if err == nil {
+		t.Fatalf("getAheadBehindCount() error = nil, want error")
+	}
 
-		errText := err.Error()
-		if !strings.Contains(errText, "ahead/behind 件数の取得に失敗") {
-			t.Fatalf("error = %v, want wrapped message", err)
-		}
+	errText := err.Error()
+	if !strings.Contains(errText, "ahead/behind 件数の取得に失敗") {
+		t.Fatalf("error = %v, want wrapped message", err)
+	}
 
-		if !strings.Contains(errText, "simulated git failure") {
-			t.Fatalf("error = %v, want stderr message", err)
-		}
-	})
+	if !strings.Contains(errText, "simulated git failure") {
+		t.Fatalf("error = %v, want stderr message", err)
+	}
 }
 
 func createRepoWithUpstreamAndLocalAhead(t *testing.T) string {
