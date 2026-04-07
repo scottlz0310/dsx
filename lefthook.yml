@@ -10,7 +10,7 @@ pre-commit:
 pre-push:
   commands:
     lint:
-      run: golangci-lint run ./cmd/... ./internal/...
+      run: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4 run ./cmd/... ./internal/...
       fail_text: |
         golangci-lint でエラーが検出されました。
         プッシュ前に修正してください。
