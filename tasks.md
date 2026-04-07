@@ -59,3 +59,20 @@ pull がスキップされ `git pull --rebase --autostash` が一切実行され
 
 - [ ] `AutoStash` が DIRTY リポジトリで機能するよう修正（上記方針に基づく実装）
 - [ ] `repo list` コマンドに BEHIND カウントの表示を追加（現在は `Ahead` のみ）
+
+### pull スキップのサマリー集約
+
+**問題**: pull がスキップされても `Update()` は `error = nil` を返すため、
+`runner.Summary` では `StatusSuccess` としてカウントされる。
+最終サマリーの「スキップ: N 件」はタイムアウト/キャンセルのみで、
+pull スキップは「成功」に混入している。
+
+**実装方針**:
+
+- `runner.Summary` に `PullSkipped int` フィールドを追加する
+- または `Update()` の戻り値（`UpdateResult`）に `Skipped bool` フラグを持たせ、
+  `buildRepoUpdateJobs()` 内でカウントして最後にサマリーへ集計する
+- `printRepoUpdateSummary()` に「pull スキップ: N 件」行を追加する
+- スキップしたリポジトリ名を末尾に一覧表示する
+
+対象: `internal/runner/runner.go` / `cmd/dsx/repo.go`
