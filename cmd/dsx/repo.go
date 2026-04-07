@@ -203,12 +203,12 @@ func runRepoUpdate(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 	}
 
-	execJobs := buildRepoUpdateJobs(root, repoPaths, opts, useTUI)
+	execJobs, getPullSkipped := buildRepoUpdateJobs(root, repoPaths, opts, useTUI)
 	summary := runJobsWithOptionalTUI(ctx, "repo update 進捗", jobs, execJobs, useTUI, repoUpdateLogFile)
 
 	// TUI 使用時は TUI 側で完了サマリーを表示済みのため、テキストサマリーは非 TUI 時のみ出力
 	if !useTUI {
-		printRepoUpdateSummary(summary)
+		printRepoUpdateSummary(summary, getPullSkipped())
 	}
 
 	// 失敗ジョブのエラー詳細を表示
@@ -292,8 +292,13 @@ func buildRepoUpdateOptions(cmd *cobra.Command, cfg *config.Config) (repomgr.Upd
 	return opts, nil
 }
 
-func buildRepoUpdateJobs(root string, repoPaths []string, opts repomgr.UpdateOptions, useTUI bool) []runner.Job {
+func buildRepoUpdateJobs(root string, repoPaths []string, opts repomgr.UpdateOptions, useTUI bool) (jobs []runner.Job, getPullSkipped func() []string) {
 	var outputMu sync.Mutex
+
+	var (
+		pullSkippedMu    sync.Mutex
+		pullSkippedNames []string
+	)
 
 	nameCounts := make(map[string]int, len(repoPaths))
 	for _, path := range repoPaths {
@@ -315,6 +320,15 @@ func buildRepoUpdateJobs(root string, repoPaths []string, opts repomgr.UpdateOpt
 			Name: repoName,
 			Run: func(jobCtx context.Context) error {
 				updateResult, updateErr := repomgr.Update(jobCtx, repoPath, opts)
+
+				if updateErr == nil && updateResult != nil && len(updateResult.SkippedMessages) > 0 {
+					pullSkippedMu.Lock()
+
+					pullSkippedNames = append(pullSkippedNames, repoName)
+
+					pullSkippedMu.Unlock()
+				}
+
 				if !useTUI {
 					outputMu.Lock()
 					printRepoUpdateResult(repoName, updateResult, updateErr)
@@ -326,7 +340,17 @@ func buildRepoUpdateJobs(root string, repoPaths []string, opts repomgr.UpdateOpt
 		})
 	}
 
-	return execJobs
+	getPullSkipped = func() []string {
+		pullSkippedMu.Lock()
+		defer pullSkippedMu.Unlock()
+
+		result := make([]string, len(pullSkippedNames))
+		copy(result, pullSkippedNames)
+
+		return result
+	}
+
+	return execJobs, getPullSkipped
 }
 
 func buildRepoJobDisplayName(root, repoPath string) string {
@@ -422,14 +446,26 @@ func printRepoUpdateResult(name string, result *repomgr.UpdateResult, updateErr 
 	fmt.Printf("  ❌ 失敗: %v\n\n", updateErr)
 }
 
-func printRepoUpdateSummary(summary runner.Summary) {
+func printRepoUpdateSummary(summary runner.Summary, pullSkippedNames []string) {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("📊 repo update サマリー")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+	pullSuccess := summary.Success - len(pullSkippedNames)
+
 	fmt.Printf("  対象: %d 件\n", summary.Total)
-	fmt.Printf("  成功: %d 件\n", summary.Success)
+	fmt.Printf("  成功: %d 件\n", pullSuccess)
 	fmt.Printf("  失敗: %d 件\n", summary.Failed)
 	fmt.Printf("  スキップ: %d 件\n", summary.Skipped)
+
+	if len(pullSkippedNames) > 0 {
+		fmt.Printf("  pull スキップ: %d 件\n", len(pullSkippedNames))
+
+		for _, name := range pullSkippedNames {
+			fmt.Printf("    - %s\n", name)
+		}
+	}
+
 	fmt.Println()
 }
 
