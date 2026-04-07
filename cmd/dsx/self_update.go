@@ -182,7 +182,7 @@ func fetchLatestRelease(ctx context.Context) (latestVersion, releaseURL string, 
 
 	client := &http.Client{}
 
-	resp, err := client.Do(req) //nolint:gosec // G704 false positive: URL は selfUpdateLatestReleaseAPI 定数であり、ユーザー入力を含まない
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", "", err
 	}
