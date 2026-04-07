@@ -30,6 +30,7 @@ type Info struct {
 	Status      Status
 	Dirty       bool
 	Ahead       int
+	Behind      int
 	HasUpstream bool
 }
 
@@ -111,6 +112,15 @@ func Inspect(ctx context.Context, repoPath string) (Info, error) {
 		return Info{}, fmt.Errorf("%s の追跡状態取得に失敗: %w", cleanPath, err)
 	}
 
+	var behind int
+
+	if hasUpstream {
+		behind, err = getBehindCount(ctx, cleanPath)
+		if err != nil {
+			return Info{}, fmt.Errorf("%s の BEHIND 件数取得に失敗: %w", cleanPath, err)
+		}
+	}
+
 	status := classifyStatus(dirty, hasUpstream, ahead)
 
 	return Info{
@@ -119,6 +129,7 @@ func Inspect(ctx context.Context, repoPath string) (Info, error) {
 		Status:      status,
 		Dirty:       dirty,
 		Ahead:       ahead,
+		Behind:      behind,
 		HasUpstream: hasUpstream,
 	}, nil
 }

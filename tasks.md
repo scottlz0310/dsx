@@ -58,7 +58,7 @@ pull がスキップされ `git pull --rebase --autostash` が一切実行され
 ---
 
 - [x] `AutoStash` が DIRTY リポジトリで機能するよう修正（上記方針に基づく実装）
-- [ ] `repo list` コマンドに BEHIND カウントの表示を追加（現在は `Ahead` のみ）
+- [x] `repo list` コマンドに BEHIND カウントの表示を追加（現在は `Ahead` のみ）
 
 ### pull スキップのサマリー集約
 

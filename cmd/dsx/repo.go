@@ -209,6 +209,8 @@ func runRepoUpdate(cmd *cobra.Command, args []string) error {
 	// TUI 使用時は TUI 側で完了サマリーを表示済みのため、テキストサマリーは非 TUI 時のみ出力
 	if !useTUI {
 		printRepoUpdateSummary(summary, getPullSkipped())
+	} else {
+		printPullSkipList(getPullSkipped())
 	}
 
 	// 失敗ジョブのエラー詳細を表示
@@ -385,21 +387,24 @@ func printRepoTable(repos []repomgr.Info) error {
 func writeRepoTable(output io.Writer, repos []repomgr.Info) error {
 	writer := tabwriter.NewWriter(output, 0, 8, 2, ' ', 0)
 
-	if _, err := fmt.Fprintln(writer, "名前\t状態\tAhead\tパス"); err != nil {
+	if _, err := fmt.Fprintln(writer, "名前\t状態\tAhead\tBehind\tパス"); err != nil {
 		return err
 	}
 
-	if _, err := fmt.Fprintln(writer, "----\t----\t-----\t----"); err != nil {
+	if _, err := fmt.Fprintln(writer, "----\t----\t-----\t------\t----"); err != nil {
 		return err
 	}
 
 	for _, repo := range repos {
 		ahead := "-"
+		behind := "-"
+
 		if repo.HasUpstream {
 			ahead = strconv.Itoa(repo.Ahead)
+			behind = strconv.Itoa(repo.Behind)
 		}
 
-		if _, err := fmt.Fprintf(writer, "%s\t%s\t%s\t%s\n", repo.Name, repomgr.StatusLabel(repo.Status), ahead, repo.Path); err != nil {
+		if _, err := fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\n", repo.Name, repomgr.StatusLabel(repo.Status), ahead, behind, repo.Path); err != nil {
 			return err
 		}
 	}
@@ -467,6 +472,18 @@ func printRepoUpdateSummary(summary runner.Summary, pullSkippedNames []string) {
 	}
 
 	fmt.Println()
+}
+
+func printPullSkipList(pullSkippedNames []string) {
+	if len(pullSkippedNames) == 0 {
+		return
+	}
+
+	fmt.Printf("\n⚪ pull スキップ: %d 件\n", len(pullSkippedNames))
+
+	for _, name := range pullSkippedNames {
+		fmt.Printf("  - %s\n", name)
+	}
 }
 
 func resolveRepoJobs(configJobs, flagJobs int) int {

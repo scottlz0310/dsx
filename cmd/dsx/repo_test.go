@@ -277,8 +277,8 @@ func TestWriteRepoTable(t *testing.T) {
 		}
 
 		fields := strings.Fields(line)
-		if len(fields) != 4 {
-			t.Fatalf("table row fields = %d, want 4. line=%q", len(fields), line)
+		if len(fields) != 5 {
+			t.Fatalf("table row fields = %d, want 5. line=%q", len(fields), line)
 		}
 	}
 }
