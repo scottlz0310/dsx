@@ -35,5 +35,27 @@
 
 ## Backlog / 改善候補
 
-- [ ] DIRTY + BEHIND リポジトリへの `--autostash` 対応（現在は DIRTY なら AutoStash 設定に関わらずスキップ）
+### `AutoStash` オプションの修正（設定が機能していないバグ）
+
+**問題**: `AutoStash=true` に設定しても、DIRTY チェック（`detectUnsafeRepoState`）が先に走るため
+pull がスキップされ `git pull --rebase --autostash` が一切実行されない。
+設定として存在するのに意味をなさない状態であり、対応するテストも存在しない。
+
+**実装方針**:
+
+- `AutoStash=true` かつ DIRTY の場合は、スキップせずに `git pull --rebase --autostash` を実行する
+- `AutoStash=false`（デフォルト）の場合は現在と同様に DIRTY でスキップする
+- 具体的には `buildUnsafeMessages()` または `planAndRunPull()` の分岐で `AutoStash` を参照する
+
+**必要なテスト**:
+
+- `AutoStash=true` + DIRTY リポジトリ → pull が実行されることを検証
+- `AutoStash=false` + DIRTY リポジトリ → 現在通りスキップされることを検証（回帰）
+- `AutoStash=true` + DIRTY + pull 成功 → SkippedMessages が空であることを検証
+
+対象: `internal/repo/update.go` / `internal/repo/update_test.go`
+
+---
+
+- [ ] `AutoStash` が DIRTY リポジトリで機能するよう修正（上記方針に基づく実装）
 - [ ] `repo list` コマンドに BEHIND カウントの表示を追加（現在は `Ahead` のみ）
