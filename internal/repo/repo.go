@@ -107,18 +107,9 @@ func Inspect(ctx context.Context, repoPath string) (Info, error) {
 		return Info{}, fmt.Errorf("%s の状態取得に失敗: %w", cleanPath, err)
 	}
 
-	hasUpstream, ahead, err := getAheadCount(ctx, cleanPath)
+	hasUpstream, ahead, behind, err := getAheadBehindCount(ctx, cleanPath)
 	if err != nil {
 		return Info{}, fmt.Errorf("%s の追跡状態取得に失敗: %w", cleanPath, err)
-	}
-
-	var behind int
-
-	if hasUpstream {
-		behind, err = getBehindCount(ctx, cleanPath)
-		if err != nil {
-			return Info{}, fmt.Errorf("%s の BEHIND 件数取得に失敗: %w", cleanPath, err)
-		}
 	}
 
 	status := classifyStatus(dirty, hasUpstream, ahead)
@@ -244,29 +235,34 @@ func classifyDirtyState(ctx context.Context, repoPath string) (hasTracked, hasUn
 	return hasTracked, hasUntracked, nil
 }
 
-func getAheadCount(ctx context.Context, repoPath string) (hasUpstream bool, ahead int, err error) {
-	upstreamCmd := exec.CommandContext(ctx, "git", "-C", repoPath, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
-	if _, cmdErr := upstreamCmd.Output(); cmdErr != nil {
-		if isNoUpstreamError(cmdErr) {
-			return false, 0, nil
+func getAheadBehindCount(ctx context.Context, repoPath string) (hasUpstream bool, ahead, behind int, err error) {
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "rev-list", "--left-right", "--count", "@{u}...HEAD")
+
+	output, err := cmd.Output()
+	if err != nil {
+		if isNoUpstreamError(err) {
+			return false, 0, 0, nil
 		}
 
-		return false, 0, cmdErr
+		return false, 0, 0, err
 	}
 
-	aheadCmd := exec.CommandContext(ctx, "git", "-C", repoPath, "rev-list", "--count", "@{u}..HEAD")
+	parts := strings.Fields(strings.TrimSpace(string(output)))
+	if len(parts) != 2 {
+		return true, 0, 0, fmt.Errorf("ahead/behind 件数のパースに失敗: %q", output)
+	}
 
-	output, err := aheadCmd.Output()
+	behind, err = strconv.Atoi(parts[0])
 	if err != nil {
-		return true, 0, err
+		return true, 0, 0, fmt.Errorf("BEHIND 件数のパースに失敗: %w", err)
 	}
 
-	ahead, err = strconv.Atoi(strings.TrimSpace(string(output)))
+	ahead, err = strconv.Atoi(parts[1])
 	if err != nil {
-		return true, 0, fmt.Errorf("ahead 件数のパースに失敗: %w", err)
+		return true, 0, 0, fmt.Errorf("ahead 件数のパースに失敗: %w", err)
 	}
 
-	return true, ahead, nil
+	return true, ahead, behind, nil
 }
 
 func isNoUpstreamError(err error) bool {

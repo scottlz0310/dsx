@@ -207,10 +207,11 @@ func runRepoUpdate(cmd *cobra.Command, args []string) error {
 	summary := runJobsWithOptionalTUI(ctx, "repo update 進捗", jobs, execJobs, useTUI, repoUpdateLogFile)
 
 	// TUI 使用時は TUI 側で完了サマリーを表示済みのため、テキストサマリーは非 TUI 時のみ出力
+	// pull スキップ一覧は TUI モードでも表示する
 	if !useTUI {
 		printRepoUpdateSummary(summary, getPullSkipped())
 	} else {
-		printPullSkipList(getPullSkipped())
+		showTUIPullSkipSuffix(getPullSkipped())
 	}
 
 	// 失敗ジョブのエラー詳細を表示
@@ -463,27 +464,42 @@ func printRepoUpdateSummary(summary runner.Summary, pullSkippedNames []string) {
 	fmt.Printf("  失敗: %d 件\n", summary.Failed)
 	fmt.Printf("  スキップ: %d 件\n", summary.Skipped)
 
-	if len(pullSkippedNames) > 0 {
-		fmt.Printf("  pull スキップ: %d 件\n", len(pullSkippedNames))
-
-		for _, name := range pullSkippedNames {
-			fmt.Printf("    - %s\n", name)
-		}
+	if err := printPullSkipList(os.Stdout, pullSkippedNames); err != nil {
+		fmt.Printf("警告: pull スキップ一覧の表示に失敗しました: %v\n", err)
 	}
 
 	fmt.Println()
 }
 
-func printPullSkipList(pullSkippedNames []string) {
-	if len(pullSkippedNames) == 0 {
+// showTUIPullSkipSuffix は TUI モード終了後に pull スキップ一覧を表示します。
+func showTUIPullSkipSuffix(names []string) {
+	if len(names) == 0 {
 		return
 	}
 
-	fmt.Printf("\n⚪ pull スキップ: %d 件\n", len(pullSkippedNames))
+	fmt.Println()
+
+	if err := printPullSkipList(os.Stdout, names); err != nil {
+		fmt.Printf("警告: pull スキップ一覧の表示に失敗しました: %v\n", err)
+	}
+}
+
+func printPullSkipList(w io.Writer, pullSkippedNames []string) error {
+	if len(pullSkippedNames) == 0 {
+		return nil
+	}
+
+	if _, err := fmt.Fprintf(w, "  pull スキップ: %d 件\n", len(pullSkippedNames)); err != nil {
+		return err
+	}
 
 	for _, name := range pullSkippedNames {
-		fmt.Printf("  - %s\n", name)
+		if _, err := fmt.Fprintf(w, "    - %s\n", name); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
 func resolveRepoJobs(configJobs, flagJobs int) int {
