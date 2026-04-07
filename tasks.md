@@ -62,17 +62,7 @@ pull がスキップされ `git pull --rebase --autostash` が一切実行され
 
 ### pull スキップのサマリー集約
 
-**問題**: pull がスキップされても `Update()` は `error = nil` を返すため、
-`runner.Summary` では `StatusSuccess` としてカウントされる。
-最終サマリーの「スキップ: N 件」はタイムアウト/キャンセルのみで、
-pull スキップは「成功」に混入している。
+- [x] `buildRepoUpdateJobs()` 内で pull スキップ発生時にリポジトリ名を収集
+- [x] `printRepoUpdateSummary()` に「pull スキップ: N 件」行と一覧を追加
 
-**実装方針**:
-
-- `runner.Summary` に `PullSkipped int` フィールドを追加する
-- または `Update()` の戻り値（`UpdateResult`）に `Skipped bool` フラグを持たせ、
-  `buildRepoUpdateJobs()` 内でカウントして最後にサマリーへ集計する
-- `printRepoUpdateSummary()` に「pull スキップ: N 件」行を追加する
-- スキップしたリポジトリ名を末尾に一覧表示する
-
-対象: `internal/runner/runner.go` / `cmd/dsx/repo.go`
+対象: `cmd/dsx/repo.go`
