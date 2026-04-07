@@ -396,6 +396,10 @@ func printRepoUpdateResult(name string, result *repomgr.UpdateResult, updateErr 
 		for _, message := range result.SkippedMessages {
 			fmt.Printf("  ⚪ %s\n", message)
 		}
+
+		for _, warning := range result.Warnings {
+			fmt.Printf("  ⚠️  %s\n", warning)
+		}
 	}
 
 	if updateErr == nil {
@@ -404,7 +408,9 @@ func printRepoUpdateResult(name string, result *repomgr.UpdateResult, updateErr 
 		} else {
 			fmt.Println("  ✅ 成功")
 		}
+
 		fmt.Println()
+
 		return
 	}
 

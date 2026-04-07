@@ -31,6 +31,7 @@ type UpdateResult struct {
 	RepoPath        string
 	Commands        []string
 	SkippedMessages []string
+	Warnings        []string // pull 実行後の警告（BEHIND 残存等）
 	UpstreamChecked bool
 	HasUpstream     bool
 }
@@ -147,7 +148,7 @@ func planAndRunPull(ctx context.Context, repoPath string, opts UpdateOptions, re
 		}
 
 		if behind, checkErr := getBehindCount(ctx, repoPath); checkErr == nil && behind > 0 {
-			result.SkippedMessages = append(result.SkippedMessages,
+			result.Warnings = append(result.Warnings,
 				fmt.Sprintf("pull 後も BEHIND:%d のままです（conflict や rebase 失敗の可能性があります）", behind))
 		}
 	case !opts.DryRun:
@@ -349,9 +350,14 @@ func detectNonDefaultTrackingBranch(ctx context.Context, repoPath string) string
 
 	defaultRef, err := getRemoteDefaultRef(ctx, repoPath, remote)
 	if err != nil {
-		// refs/remotes/<remote>/HEAD が未設定でも upstream が設定されていれば pull を続行する。
-		// デフォルトブランチとの一致検証はスキップするが、pull 自体は安全に実行できる。
-		return ""
+		// stderr なし（--quiet による「参照未設定」）の場合のみ無視して pull を続行する。
+		// stderr あり（git の実行エラー等）の場合はスキップ扱いにする。
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && len(exitErr.Stderr) == 0 {
+			return ""
+		}
+
+		return fmt.Sprintf("%s: %v", skipPullDefaultBranchDetectFailedMessage, err)
 	}
 
 	if defaultRef == upstreamRef {
@@ -450,7 +456,7 @@ func isDetachedHEAD(ctx context.Context, repoPath string) (bool, error) {
 func getBehindCount(ctx context.Context, repoPath string) (int, error) {
 	output, err := runGitCommandOutput(ctx, repoPath, "rev-list", "--count", "HEAD..@{u}")
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("git rev-list --count HEAD..@{u} に失敗しました: %w", err)
 	}
 
 	count, err := strconv.Atoi(strings.TrimSpace(string(output)))
