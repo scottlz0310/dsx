@@ -275,7 +275,8 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.2.5...HEAD
+[v0.2.5]: https://github.com/scottlz0310/dsx/compare/v0.2.4...v0.2.5
 [v0.2.4]: https://github.com/scottlz0310/dsx/compare/v0.2.3...v0.2.4
 [v0.2.3]: https://github.com/scottlz0310/dsx/compare/v0.2.2-alpha...v0.2.3
 [v0.2.2-alpha]: https://github.com/scottlz0310/dsx/compare/v0.2.1-alpha...v0.2.2-alpha

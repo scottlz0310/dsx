@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	selfUpdateLatestReleaseAPI  = "https://api.github.com/repos/scottlz0310/dsx/releases/latest"
-	selfUpdateGoInstallPkg      = "github.com/scottlz0310/dsx/cmd/dsx"
-	selfUpdateCheckTimeout      = 2 * time.Second
+	selfUpdateLatestReleaseAPI = "https://api.github.com/repos/scottlz0310/dsx/releases/latest"
+	selfUpdateGoInstallPkg     = "github.com/scottlz0310/dsx/cmd/dsx"
+	selfUpdateCheckTimeout     = 2 * time.Second
 )
 
 type selfUpdateInfo struct {
@@ -43,12 +43,25 @@ var (
 	selfUpdateCheckOnly bool
 
 	selfUpdateCheckStep        = checkSelfUpdateAvailable
-	selfUpdateApplyStep        func(ctx context.Context, version string) error = applySelfUpdate
+	selfUpdateApplyStep        = applySelfUpdate
 	selfUpdateFetchReleaseStep = fetchLatestRelease
 )
 
+func normalizeSelfUpdateVersion(version string) string {
+	normalized := strings.TrimSpace(version)
+	if normalized == "" {
+		return normalized
+	}
+
+	if !strings.HasPrefix(normalized, "v") {
+		normalized = "v" + normalized
+	}
+
+	return normalized
+}
+
 func selfUpdateInstallTarget(version string) string {
-	return selfUpdateGoInstallPkg + "@" + version
+	return selfUpdateGoInstallPkg + "@" + normalizeSelfUpdateVersion(version)
 }
 
 var selfUpdateCmd = &cobra.Command{
