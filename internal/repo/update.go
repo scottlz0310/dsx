@@ -73,7 +73,7 @@ func Update(ctx context.Context, repoPath string, opts UpdateOptions) (*UpdateRe
 	go func() {
 		defer wg.Done()
 
-		skipMessages, stateErr = detectUnsafeRepoState(ctx, cleanPath)
+		skipMessages, stateErr = detectUnsafeRepoState(ctx, cleanPath, opts.AutoStash)
 	}()
 
 	go func() {
@@ -228,14 +228,14 @@ type repoStateCheckResult struct {
 	detached bool
 }
 
-func detectUnsafeRepoState(ctx context.Context, repoPath string) ([]string, error) {
+func detectUnsafeRepoState(ctx context.Context, repoPath string, autoStash bool) ([]string, error) {
 	// isDirty / hasStash / isDetachedHEAD は互いに独立なので並列実行する。
 	result, err := runParallelStateChecks(ctx, repoPath)
 	if err != nil {
 		return nil, err
 	}
 
-	messages := buildUnsafeMessages(ctx, repoPath, result)
+	messages := buildUnsafeMessages(ctx, repoPath, result, autoStash)
 
 	return messages, nil
 }
@@ -309,10 +309,11 @@ func runParallelStateChecks(ctx context.Context, repoPath string) (repoStateChec
 }
 
 // buildUnsafeMessages はチェック結果からスキップメッセージを構築します。
-func buildUnsafeMessages(ctx context.Context, repoPath string, result repoStateCheckResult) []string {
+// autoStash が true の場合、DIRTY 状態は pull --rebase --autostash で吸収するためスキップしません。
+func buildUnsafeMessages(ctx context.Context, repoPath string, result repoStateCheckResult, autoStash bool) []string {
 	messages := make([]string, 0, 3)
 
-	if result.dirty {
+	if result.dirty && !autoStash {
 		messages = append(messages, "未コミットの変更があるため pull/submodule をスキップしました（tracked/untracked を含む）")
 	}
 

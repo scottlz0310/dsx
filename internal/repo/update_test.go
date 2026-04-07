@@ -183,37 +183,52 @@ func TestUpdateSkipsOnUnsafeRepoState(t *testing.T) {
 	testCases := []struct {
 		name               string
 		setupRepo          func(t *testing.T) string
+		autoStash          bool
 		expectSkipContains string
 	}{
 		{
-			name:               "tracked の未コミット変更がある場合はスキップ",
+			// AutoStash=false のとき DIRTY はスキップされる。
+			name:               "tracked の未コミット変更がある場合はスキップ（AutoStash=false）",
 			setupRepo:          createRepoWithUpstreamAndDirtyTracked,
+			autoStash:          false,
 			expectSkipContains: "未コミットの変更があるため pull/submodule をスキップ",
 		},
 		{
-			name:               "untracked の未コミット変更がある場合はスキップ",
+			name:               "untracked の未コミット変更がある場合はスキップ（AutoStash=false）",
 			setupRepo:          createRepoWithUpstreamAndDirtyUntracked,
+			autoStash:          false,
 			expectSkipContains: "未コミットの変更があるため pull/submodule をスキップ",
 		},
 		{
 			name:               "stash が残っている場合はスキップ",
 			setupRepo:          createRepoWithUpstreamAndStash,
+			autoStash:          false,
 			expectSkipContains: "stash が残っているため pull/submodule をスキップ",
 		},
 		{
 			name:               "detached HEAD の場合はスキップ",
 			setupRepo:          createRepoWithUpstreamAndDetachedHEAD,
+			autoStash:          false,
 			expectSkipContains: "detached HEAD のため pull/submodule をスキップ",
 		},
 		{
 			name:               "upstream が <remote>/<branch> 形式でない場合はスキップ",
 			setupRepo:          createRepoWithUpstreamAndLocalUpstreamRef,
+			autoStash:          false,
 			expectSkipContains: skipPullUpstreamDetectFailedMessage,
 		},
 		{
 			name:               "デフォルトブランチ以外を追跡している場合はスキップ",
 			setupRepo:          createRepoWithNonDefaultUpstream,
+			autoStash:          false,
 			expectSkipContains: skipPullNonDefaultUpstreamMessage,
+		},
+		{
+			// AutoStash=true でも stash 残存はスキップされる（autostash との競合を避けるため）。
+			name:               "stash が残っている場合は AutoStash=true でもスキップ",
+			setupRepo:          createRepoWithUpstreamAndStash,
+			autoStash:          true,
+			expectSkipContains: "stash が残っているため pull/submodule をスキップ",
 		},
 	}
 
@@ -226,7 +241,7 @@ func TestUpdateSkipsOnUnsafeRepoState(t *testing.T) {
 
 			result, err := Update(context.Background(), repoPath, UpdateOptions{
 				Prune:           true,
-				AutoStash:       true,
+				AutoStash:       tc.autoStash,
 				SubmoduleUpdate: false,
 				DryRun:          true,
 			})
@@ -264,7 +279,7 @@ func TestUpdateSkipsOnUnsafeRepoStateNonDryRun(t *testing.T) {
 
 	result, err := Update(context.Background(), repoPath, UpdateOptions{
 		Prune:           true,
-		AutoStash:       true,
+		AutoStash:       false,
 		SubmoduleUpdate: true,
 		DryRun:          false,
 	})
@@ -344,6 +359,75 @@ func TestUpdateSkipsOnNonDefaultTrackingNonDryRun(t *testing.T) {
 
 			if !hasMessageContaining(result.SkippedMessages, tc.expectSkipContains) {
 				t.Fatalf("skipメッセージに %q が含まれていません: %v", tc.expectSkipContains, result.SkippedMessages)
+			}
+		})
+	}
+}
+
+func TestAutoStashWithDirtyRepo(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name              string
+		setupRepo         func(t *testing.T) string
+		autoStash         bool
+		expectPullCommand bool
+		expectSkipContains string
+	}{
+		{
+			name:              "AutoStash=true + DIRTY(tracked) → pull --autostash を計画する",
+			setupRepo:         createRepoWithUpstreamAndDirtyTracked,
+			autoStash:         true,
+			expectPullCommand: true,
+		},
+		{
+			name:              "AutoStash=true + DIRTY(untracked) → pull --autostash を計画する",
+			setupRepo:         createRepoWithUpstreamAndDirtyUntracked,
+			autoStash:         true,
+			expectPullCommand: true,
+		},
+		{
+			name:               "AutoStash=false + DIRTY(tracked) → スキップ（回帰）",
+			setupRepo:          createRepoWithUpstreamAndDirtyTracked,
+			autoStash:          false,
+			expectPullCommand:  false,
+			expectSkipContains: "未コミットの変更があるため pull/submodule をスキップ",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			repoPath := tc.setupRepo(t)
+
+			result, err := Update(context.Background(), repoPath, UpdateOptions{
+				Prune:           true,
+				AutoStash:       tc.autoStash,
+				SubmoduleUpdate: false,
+				DryRun:          true,
+			})
+			if err != nil {
+				t.Fatalf("Update() error = %v", err)
+			}
+
+			if result == nil {
+				t.Fatalf("Update() result is nil")
+			}
+
+			gotPull := hasCommandContaining(result.Commands, " pull --rebase --autostash")
+			if gotPull != tc.expectPullCommand {
+				t.Fatalf("pull --autostash コマンド有無 = %v, want %v, commands=%v, skipped=%v",
+					gotPull, tc.expectPullCommand, result.Commands, result.SkippedMessages)
+			}
+
+			if tc.expectSkipContains != "" && !hasMessageContaining(result.SkippedMessages, tc.expectSkipContains) {
+				t.Fatalf("skipメッセージに %q が含まれていません: %v", tc.expectSkipContains, result.SkippedMessages)
+			}
+
+			if tc.expectPullCommand && len(result.SkippedMessages) > 0 {
+				t.Fatalf("AutoStash=true + DIRTY で pull 計画があるのに SkippedMessages が非空です: %v", result.SkippedMessages)
 			}
 		})
 	}
