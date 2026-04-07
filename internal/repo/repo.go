@@ -244,7 +244,15 @@ func getAheadBehindCount(ctx context.Context, repoPath string) (hasUpstream bool
 			return false, 0, 0, nil
 		}
 
-		return false, 0, 0, err
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			stderr := strings.TrimSpace(string(exitErr.Stderr))
+			if stderr != "" {
+				return false, 0, 0, fmt.Errorf("ahead/behind 件数の取得に失敗: %s: %w", stderr, err)
+			}
+		}
+
+		return false, 0, 0, fmt.Errorf("ahead/behind 件数の取得に失敗: %w", err)
 	}
 
 	parts := strings.Fields(strings.TrimSpace(string(output)))

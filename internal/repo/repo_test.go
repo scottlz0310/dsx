@@ -1,9 +1,12 @@
 package repo
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/scottlz0310/dsx/internal/testutil"
@@ -220,6 +223,154 @@ func TestHasGitMetadata(t *testing.T) {
 				t.Fatalf("hasGitMetadata() = %v, want %v", got, tc.expectFound)
 			}
 		})
+	}
+}
+
+func TestGetAheadBehindCount(t *testing.T) {
+	t.Run("upstream なしは hasUpstream=false と 0 件を返す", func(t *testing.T) {
+		t.Parallel()
+
+		repoPath := createLocalRepoWithoutUpstream(t)
+
+		hasUpstream, ahead, behind, err := getAheadBehindCount(context.Background(), repoPath)
+		if err != nil {
+			t.Fatalf("getAheadBehindCount() error = %v", err)
+		}
+
+		if hasUpstream {
+			t.Fatalf("hasUpstream = true, want false")
+		}
+
+		if ahead != 0 || behind != 0 {
+			t.Fatalf("ahead/behind = %d/%d, want 0/0", ahead, behind)
+		}
+	})
+
+	t.Run("behind がある場合に behind 件数を返す", func(t *testing.T) {
+		t.Parallel()
+
+		repoPath := createRepoWithUpstreamAndRemoteAhead(t)
+
+		hasUpstream, ahead, behind, err := getAheadBehindCount(context.Background(), repoPath)
+		if err != nil {
+			t.Fatalf("getAheadBehindCount() error = %v", err)
+		}
+
+		if !hasUpstream {
+			t.Fatalf("hasUpstream = false, want true")
+		}
+
+		if ahead != 0 || behind != 1 {
+			t.Fatalf("ahead/behind = %d/%d, want 0/1", ahead, behind)
+		}
+	})
+
+	t.Run("ahead がある場合に ahead 件数を返す", func(t *testing.T) {
+		t.Parallel()
+
+		repoPath := createRepoWithUpstreamAndLocalAhead(t)
+
+		hasUpstream, ahead, behind, err := getAheadBehindCount(context.Background(), repoPath)
+		if err != nil {
+			t.Fatalf("getAheadBehindCount() error = %v", err)
+		}
+
+		if !hasUpstream {
+			t.Fatalf("hasUpstream = false, want true")
+		}
+
+		if ahead != 1 || behind != 0 {
+			t.Fatalf("ahead/behind = %d/%d, want 1/0", ahead, behind)
+		}
+	})
+
+	t.Run("異常出力はパースエラーになる", func(t *testing.T) {
+		prependFakeGitToPath(t, "invalid-output")
+
+		_, _, _, err := getAheadBehindCount(context.Background(), t.TempDir())
+		if err == nil {
+			t.Fatalf("getAheadBehindCount() error = nil, want error")
+		}
+
+		if !strings.Contains(err.Error(), "ahead/behind 件数のパースに失敗") {
+			t.Fatalf("error = %v, want parse error", err)
+		}
+	})
+
+	t.Run("実行失敗時は stderr を含むエラーを返す", func(t *testing.T) {
+		prependFakeGitToPath(t, "stderr-failure")
+
+		_, _, _, err := getAheadBehindCount(context.Background(), t.TempDir())
+		if err == nil {
+			t.Fatalf("getAheadBehindCount() error = nil, want error")
+		}
+
+		errText := err.Error()
+		if !strings.Contains(errText, "ahead/behind 件数の取得に失敗") {
+			t.Fatalf("error = %v, want wrapped message", err)
+		}
+
+		if !strings.Contains(errText, "simulated git failure") {
+			t.Fatalf("error = %v, want stderr message", err)
+		}
+	})
+}
+
+func createRepoWithUpstreamAndLocalAhead(t *testing.T) string {
+	t.Helper()
+
+	repoPath := createRepoWithUpstream(t)
+
+	filePath := filepath.Join(repoPath, "LOCAL_AHEAD.txt")
+	if err := os.WriteFile(filePath, []byte("local ahead\n"), 0o644); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+
+	runGit(t, repoPath, "add", "LOCAL_AHEAD.txt")
+	runGit(t, repoPath, "commit", "-m", "local ahead commit")
+
+	return repoPath
+}
+
+func prependFakeGitToPath(t *testing.T, mode string) {
+	t.Helper()
+
+	dir := t.TempDir()
+	oldPath := os.Getenv("PATH")
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+oldPath)
+
+	if runtime.GOOS == "windows" {
+		var script string
+		switch mode {
+		case "invalid-output":
+			script = "@echo off\r\necho invalid\r\nexit /b 0\r\n"
+		case "stderr-failure":
+			script = "@echo off\r\n>&2 echo simulated git failure\r\nexit /b 1\r\n"
+		default:
+			t.Fatalf("unknown mode: %s", mode)
+		}
+
+		filePath := filepath.Join(dir, "git.bat")
+		if err := os.WriteFile(filePath, []byte(script), 0o755); err != nil {
+			t.Fatalf("failed to write fake git script: %v", err)
+		}
+
+		return
+	}
+
+	var script string
+	switch mode {
+	case "invalid-output":
+		script = "#!/bin/sh\nprintf '%s\\n' 'invalid'\nexit 0\n"
+	case "stderr-failure":
+		script = "#!/bin/sh\nprintf '%s\\n' 'simulated git failure' >&2\nexit 1\n"
+	default:
+		t.Fatalf("unknown mode: %s", mode)
+	}
+
+	filePath := filepath.Join(dir, "git")
+	if err := os.WriteFile(filePath, []byte(script), 0o755); err != nil {
+		t.Fatalf("failed to write fake git script: %v", err)
 	}
 }
 
