@@ -10,6 +10,7 @@ Get-ChildItem $Root -Directory | ForEach-Object {
     }
 
     git -C $repoPath fetch --quiet 2>$null
+    $fetchFailed = $LASTEXITCODE -ne 0
 
     $currentBranch = (git -C $repoPath branch --show-current 2>$null).Trim()
     $detached = -not $currentBranch
@@ -44,7 +45,9 @@ Get-ChildItem $Root -Directory | ForEach-Object {
     $flags = @()
 
     if ($dirty) { $flags += "DIRTY" }
-    if ($detached) {
+    if ($fetchFailed) {
+        $flags += "FETCH_FAILED"
+    } elseif ($detached) {
         $flags += "DETACHED"
     } elseif (-not $hasUpstream) {
         $flags += "NO_UPSTREAM"
