@@ -264,11 +264,11 @@ Before submitting a PR, ensure:
 
 ## 🏷️ Release Process
 
-1. Update version in `pyproject.toml`
-2. Update `CHANGELOG.md`
-3. Create a release PR
-4. Tag the release after merging
-5. GitHub Actions will automatically publish to PyPI
+1. Update `CHANGELOG.md` and version references in user-facing docs such as `README.md`
+2. Create a release branch and open a release PR
+3. Merge the release PR into `main`
+4. Create and push a `v*` tag after merging
+5. GitHub Actions + GoReleaser will automatically publish GitHub Releases artifacts
 
 ## 💬 Getting Help
 

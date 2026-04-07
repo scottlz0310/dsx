@@ -6,6 +6,26 @@
 
 ## [Unreleased]
 
+## [v0.2.4] - 2026-04-07
+
+### Added
+
+- `dsx repo list` に `Behind` 列を追加し、Ahead/Behind を一覧で確認できるよう改善
+- `scripts/branch-chk.ps1` を追加し、`repo.root` 配下のリポジトリで `DIRTY` / `AHEAD` / `BEHIND` / `NO_UPSTREAM` などの異常状態を一括確認できるよう改善
+- [docs/Dev_Tools.md](docs/Dev_Tools.md) に開発補助スクリプトの説明を追加
+
+### Changed
+
+- `repo update` / `dsx run` で発生した `pull` スキップ対象を集約し、完了サマリーに一覧表示するよう改善
+- TUI モードの `repo update` / `dsx run` 完了後も、`pull` スキップ一覧をテキストで確認できるよう改善
+- `repo update` の DryRun / 実行時に Ahead/Behind を 1 回の Git 呼び出しで取得するよう改善
+
+### Fixed
+
+- `repo update` で `refs/remotes/origin/HEAD` が未設定でも、`pull` を不必要にスキップせず継続できるよう修正
+- `repo update` で `AutoStash=true` の tracked 変更ありリポジトリが常にスキップされる問題を修正し、`git pull --rebase --autostash` が有効に動作するよう改善
+- `repo update` で `pull` 実行後も `Behind` が残る場合に警告を表示し、成功表示だけで見落とさないよう改善
+
 ## [v0.2.3] - 2026-03-27
 
 ### Added
@@ -247,7 +267,8 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.2.4...HEAD
+[v0.2.4]: https://github.com/scottlz0310/dsx/compare/v0.2.3...v0.2.4
 [v0.2.3]: https://github.com/scottlz0310/dsx/compare/v0.2.2-alpha...v0.2.3
 [v0.2.2-alpha]: https://github.com/scottlz0310/dsx/compare/v0.2.1-alpha...v0.2.2-alpha
 [v0.2.1-alpha]: https://github.com/scottlz0310/dsx/compare/v0.2.0-alpha...v0.2.1-alpha
