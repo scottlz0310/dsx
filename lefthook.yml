@@ -2,10 +2,10 @@ pre-commit:
   commands:
     gofmt:
       glob: "**/*.go"
-      run: gofmt -l {staged_files}
+      run: sh -c 'output="$(gofmt -l "$@")"; if [ -n "$output" ]; then printf "%s\n" "$output"; exit 1; fi' -- {staged_files}
       fail_text: |
         フォーマットされていないファイルがあります。
-        `gofmt -w {staged_files}` を実行してください。
+        `gofmt -w <ファイル名>` を実行してください。
 
 pre-push:
   commands:
