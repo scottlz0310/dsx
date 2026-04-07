@@ -1,0 +1,21 @@
+pre-commit:
+  commands:
+    gofmt:
+      glob: "**/*.go"
+      run: gofmt -l {staged_files}
+      fail_text: |
+        フォーマットされていないファイルがあります。
+        `gofmt -w {staged_files}` を実行してください。
+
+pre-push:
+  commands:
+    lint:
+      run: golangci-lint run ./cmd/... ./internal/...
+      fail_text: |
+        golangci-lint でエラーが検出されました。
+        プッシュ前に修正してください。
+    test:
+      run: go test ./...
+      fail_text: |
+        テストが失敗しました。
+        プッシュ前に修正してください。

@@ -450,6 +450,7 @@ func printRepoUpdateSummary(summary runner.Summary, pullSkippedNames []string) {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("📊 repo update サマリー")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
 	pullSuccess := summary.Success - len(pullSkippedNames)
 
 	fmt.Printf("  対象: %d 件\n", summary.Total)
