@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [v0.4.0] - 2026-05-09
+
 ### Added
 
 - `dsx sys discover --apply` フラグを追加。検出した Go バイナリを `config.yaml` の `go.targets` へ自動書き込みする機能を実装
