@@ -101,7 +101,17 @@
 - [x] `internal/updater/pnpm_test.go` に `[WARN]` 混入ケースおよび JSON なし出力のテストケースを追加
 - [x] `task check` 通過（全テストパス）
 - [x] `CHANGELOG.md` 更新
+- [x] PR 作成・マージ（PR #59 マージ済み）
+
+---
+
+## Codecov カバレッジ計測の有効化 + v0.4.1 リリース準備
+
+- [x] `ci.yml` に `CODECOV_TOKEN` を追加（`fail_ci_if_error: true` に変更）
+- [x] `codecov.yml` を新規追加（閾値・PR コメント設定）
+- [x] `CHANGELOG.md` を `[v0.4.1]` としてリリース準備
 - [ ] PR 作成・マージ
+- [ ] `v0.4.1` タグを打ってリリース
 
 ---
 
