@@ -101,7 +101,7 @@
 - [x] `internal/updater/pnpm_test.go` に `[WARN]` 混入ケースおよび JSON なし出力のテストケースを追加
 - [x] `task check` 通過（全テストパス）
 - [x] `CHANGELOG.md` 更新
-- [ ] PR 作成・マージ
+- [x] PR 作成・マージ（PR #59 マージ済み）
 
 ---
 
