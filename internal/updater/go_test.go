@@ -198,17 +198,17 @@ func TestListInstalledGoTools(t *testing.T) {
 func TestGoBinaryInfo_UpdateTarget(t *testing.T) {
 	tests := []struct {
 		name     string
-		info     GoBinaryInfo
+		info     *GoBinaryInfo
 		expected string
 	}{
 		{
 			name:     "PackagePathあり",
-			info:     GoBinaryInfo{PackagePath: "github.com/foo/bar"},
+			info:     &GoBinaryInfo{PackagePath: "github.com/foo/bar"},
 			expected: "github.com/foo/bar@latest",
 		},
 		{
 			name:     "PackagePathが空",
-			info:     GoBinaryInfo{PackagePath: ""},
+			info:     &GoBinaryInfo{PackagePath: ""},
 			expected: "",
 		},
 	}
