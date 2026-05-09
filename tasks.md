@@ -91,7 +91,7 @@
 - [x] テスト追加（`TestPackagePathFrom`・`TestMergeGoTargets`・`TestPrintGoApplyDryRun_*`・`TestSaveAtomic`）
 - [x] `task check` 通過（fmt/vet/test/lint）
 - [x] `CHANGELOG.md` 更新
-- [ ] PR 作成・マージ（close #56）
+- [x] PR 作成・マージ（close #56）→ PR #57 マージ済み
 
 ---
 
