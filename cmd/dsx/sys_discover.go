@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/scottlz0310/dsx/internal/updater"
 	"github.com/spf13/cobra"
@@ -44,17 +46,8 @@ func runSysDiscover(cmd *cobra.Command, args []string) error {
 		baseCtx = context.Background()
 	}
 
-	ctx, cancel := context.WithCancel(baseCtx)
-	defer cancel()
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt)
-
-	go func() {
-		<-sigCh
-		fmt.Println("\n⚠️  中断シグナルを受信しました。処理を終了します...")
-		cancel()
-	}()
+	ctx, stop := signal.NotifyContext(baseCtx, os.Interrupt)
+	defer stop()
 
 	for _, m := range managers {
 		if err := discoverManager(ctx, m); err != nil {
@@ -68,6 +61,7 @@ func runSysDiscover(cmd *cobra.Command, args []string) error {
 // resolveDiscoverManagers は --manager フラグを解決し、対象マネージャ一覧を返します。
 // 指定がなければ全対応マネージャを返します。未対応名を指定した場合はエラーを返します。
 func resolveDiscoverManagers(manager string) ([]string, error) {
+	manager = strings.TrimSpace(manager)
 	if manager == "" {
 		return supportedDiscoverManagers, nil
 	}
@@ -104,6 +98,14 @@ func discoverManager(ctx context.Context, manager string) error {
 func discoverGoManager(ctx context.Context) error {
 	result, err := updater.DiscoverGoBinaries(ctx)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return fmt.Errorf("処理が中断されました")
+		}
+
+		if errors.Is(err, context.DeadlineExceeded) {
+			return fmt.Errorf("処理がタイムアウトしました")
+		}
+
 		return fmt.Errorf("go バイナリのスキャンに失敗: %w", err)
 	}
 
