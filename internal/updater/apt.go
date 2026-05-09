@@ -53,7 +53,7 @@ func (a *AptUpdater) Configure(cfg config.ManagerConfig) error {
 
 func (a *AptUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	// パッケージリストを更新
-	if err := a.runCommand(ctx, "update"); err != nil {
+	if err := a.runCommand(ctx, updateCommand); err != nil {
 		return nil, fmt.Errorf("apt update に失敗: %w", err)
 	}
 
@@ -83,7 +83,7 @@ func (a *AptUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRes
 	}
 
 	if checkResult.AvailableUpdates == 0 {
-		result.Message = "すべてのパッケージは最新です"
+		result.Message = allPackagesUpToDateMessage
 		return result, nil
 	}
 

@@ -65,7 +65,7 @@ func (r *RustupUpdater) Update(ctx context.Context, opts UpdateOptions) (*Update
 			return fmt.Sprintf("%d 件の Rust ツールチェーン更新が可能です（DryRunモード）", count)
 		},
 		"rustup",
-		[]string{"update"},
+		[]string{updateCommand},
 		"rustup update に失敗: %w",
 		func(count int) string {
 			return fmt.Sprintf("%d 件の Rust ツールチェーンを更新しました", count)

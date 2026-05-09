@@ -68,7 +68,7 @@ func (n *NpmUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRes
 	}
 
 	if checkResult.AvailableUpdates == 0 {
-		result.Message = "すべてのパッケージは最新です"
+		result.Message = allPackagesUpToDateMessage
 		return result, nil
 	}
 
@@ -80,7 +80,7 @@ func (n *NpmUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRes
 	}
 
 	// 実際の更新を実行
-	cmd := exec.CommandContext(ctx, "npm", "update", "-g")
+	cmd := exec.CommandContext(ctx, "npm", updateCommand, "-g")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

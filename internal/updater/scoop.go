@@ -36,7 +36,7 @@ func (s *ScoopUpdater) Configure(cfg config.ManagerConfig) error {
 
 func (s *ScoopUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	// まず scoop のバケット情報を更新
-	updateCmd := exec.CommandContext(ctx, "scoop", "update")
+	updateCmd := exec.CommandContext(ctx, "scoop", updateCommand)
 
 	if output, err := updateCmd.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("scoop update の実行に失敗: %w", buildCommandOutputErr(err, output))
@@ -74,7 +74,7 @@ func (s *ScoopUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 			return fmt.Sprintf("%d 件の Scoop パッケージが更新可能です（DryRunモード）", count)
 		},
 		"scoop",
-		[]string{"update", "--all"},
+		[]string{updateCommand, "--all"},
 		"scoop update --all に失敗: %w",
 		func(count int) string {
 			return fmt.Sprintf("%d 件の Scoop パッケージを更新しました", count)

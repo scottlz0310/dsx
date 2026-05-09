@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [v0.3.0] - 2026-05-09
+
 ### Added
 
 - `GoBinaryInfo` 構造体を `internal/updater` に追加（`BinaryPath`・`BinaryName`・`PackagePath`・`ModulePath`・`InstalledVersion`・`GoVersion` の 6 フィールド）
@@ -290,7 +292,8 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.2.5...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.3.0...HEAD
+[v0.3.0]: https://github.com/scottlz0310/dsx/compare/v0.2.5...v0.3.0
 [v0.2.5]: https://github.com/scottlz0310/dsx/compare/v0.2.4...v0.2.5
 [v0.2.4]: https://github.com/scottlz0310/dsx/compare/v0.2.3...v0.2.4
 [v0.2.3]: https://github.com/scottlz0310/dsx/compare/v0.2.2-alpha...v0.2.3

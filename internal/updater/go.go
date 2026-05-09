@@ -84,7 +84,7 @@ func (g *GoUpdater) Check(ctx context.Context) (*CheckResult, error) {
 		name := extractToolName(target)
 		packages = append(packages, PackageInfo{
 			Name:       name,
-			NewVersion: "@latest",
+			NewVersion: latestVersionSuffix,
 		})
 	}
 
@@ -108,7 +108,7 @@ func (g *GoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateResu
 		for _, target := range g.targets {
 			packages = append(packages, PackageInfo{
 				Name:       extractToolName(target),
-				NewVersion: "@latest",
+				NewVersion: latestVersionSuffix,
 			})
 		}
 
@@ -125,7 +125,7 @@ func (g *GoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateResu
 		// @latest が付いていない場合は追加
 		pkg := target
 		if !strings.Contains(pkg, "@") {
-			pkg += "@latest"
+			pkg += latestVersionSuffix
 		}
 
 		fmt.Printf("  📦 %s をインストール中...\n", toolName)
@@ -145,7 +145,7 @@ func (g *GoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateResu
 		result.UpdatedCount++
 		result.Packages = append(result.Packages, PackageInfo{
 			Name:       toolName,
-			NewVersion: "@latest",
+			NewVersion: latestVersionSuffix,
 		})
 	}
 

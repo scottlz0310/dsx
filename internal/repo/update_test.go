@@ -21,12 +21,12 @@ func TestBuildFetchArgs(t *testing.T) {
 		{
 			name:  "prune有効",
 			prune: true,
-			want:  []string{"fetch", "--all", "--prune"},
+			want:  []string{fetchCommand, fetchAllFlag, "--prune"},
 		},
 		{
 			name:  "prune無効",
 			prune: false,
-			want:  []string{"fetch", "--all"},
+			want:  []string{fetchCommand, fetchAllFlag},
 		},
 	}
 
@@ -90,7 +90,7 @@ func TestBuildSubmoduleArgs(t *testing.T) {
 func TestFormatGitCommand(t *testing.T) {
 	t.Parallel()
 
-	got := formatGitCommand("/tmp/repo", []string{"fetch", "--all", "--prune"})
+	got := formatGitCommand("/tmp/repo", []string{fetchCommand, fetchAllFlag, "--prune"})
 	want := "git -C /tmp/repo fetch --all --prune"
 
 	if got != want {
@@ -670,7 +670,7 @@ func createRepoWithUpstreamAndRemoteAhead(t *testing.T) string {
 	runGit(t, sourcePath, "push", "origin", "HEAD")
 
 	// work で fetch のみ実行（pull はしない）
-	runGit(t, workPath, "fetch", "origin")
+	runGit(t, workPath, fetchCommand, "origin")
 
 	return workPath
 }

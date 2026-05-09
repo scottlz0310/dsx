@@ -74,7 +74,7 @@
 - [x] `internal/updater/go_test.go` に `TestGoUpdater_Check_EmptyTargets` 追加（改善後メッセージ文言検証）
 - [x] `task check` 通過（テスト全件パス）
 - [x] CHANGELOG.md 更新
-- [ ] PR 作成・マージ
+- [x] PR 作成・マージ（PR #48、main にマージ済み）
 
 ---
 
@@ -111,3 +111,14 @@ pull がスキップされ `git pull --rebase --autostash` が一切実行され
 - [x] `printRepoUpdateSummary()` に「pull スキップ: N 件」行と一覧を追加
 
 対象: `cmd/dsx/repo.go`
+
+---
+
+## v0.3.0 リリース準備（完了）
+
+- [x] `task check` 通過確認（fmt/vet/test/lint）
+- [x] バージョン: v0.3.0（マイナーバージョンアップ）
+- [x] CHANGELOG.md: [Unreleased] → [v0.3.0] - 2026-05-09
+- [x] README.md: dsx sys discover 追加・バージョン更新
+- [x] root.go Long description: dsx sys discover 追記
+- [x] PR 作成・マージ（[#55](https://github.com/scottlz0310/dsx/pull/55)）

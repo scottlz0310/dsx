@@ -12,6 +12,8 @@ import (
 )
 
 const (
+	fetchCommand                             = "fetch"
+	fetchAllFlag                             = "--all"
 	skipPullNoUpstreamMessage                = "upstream が未設定のため pull をスキップしました"
 	skipPullNonDefaultUpstreamMessage        = "デフォルトブランチ以外を追跡しているため pull/submodule をスキップしました"
 	skipPullUpstreamDetectFailedMessage      = "追跡ブランチの判定に失敗したため pull/submodule をスキップしました"
@@ -179,7 +181,7 @@ func planAndRunSubmodule(ctx context.Context, repoPath string, opts UpdateOption
 }
 
 func buildFetchArgs(prune bool) []string {
-	args := []string{"fetch", "--all"}
+	args := []string{fetchCommand, fetchAllFlag}
 	if prune {
 		args = append(args, "--prune")
 	}

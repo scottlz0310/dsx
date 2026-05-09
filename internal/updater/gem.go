@@ -64,7 +64,7 @@ func (g *GemUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRes
 			return fmt.Sprintf("%d 件の gem パッケージが更新可能です（DryRunモード）", count)
 		},
 		"gem",
-		[]string{"update"},
+		[]string{updateCommand},
 		"gem update に失敗: %w",
 		func(count int) string {
 			return fmt.Sprintf("%d 件の gem パッケージを更新しました", count)
