@@ -114,7 +114,7 @@ pull がスキップされ `git pull --rebase --autostash` が一切実行され
 
 ---
 
-## v0.3.0 リリース準備（完了）
+## v0.3.0 リリース準備
 
 - [x] `task check` 通過確認（fmt/vet/test/lint）
 - [x] バージョン: v0.3.0（マイナーバージョンアップ）
