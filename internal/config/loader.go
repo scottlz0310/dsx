@@ -44,13 +44,13 @@ func Load() (*Config, error) {
 		var configFileNotFoundError viper.ConfigFileNotFoundError
 		if !errors.As(err, &configFileNotFoundError) {
 			// 設定ファイルが存在するが読み込めない場合はエラー
-			return nil, fmt.Errorf("failed to read config file: %w", err)
+			return nil, fmt.Errorf("設定ファイルの読み込みに失敗: %w", err)
 		}
 	}
 
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+		return nil, fmt.Errorf("設定のデシリアライズに失敗: %w", err)
 	}
 
 	currentConfig = &cfg

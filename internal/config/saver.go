@@ -1,9 +1,11 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -14,7 +16,7 @@ func Save(cfg *Config, path string) error {
 	if path == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return fmt.Errorf("failed to get home directory: %w", err)
+			return fmt.Errorf("ホームディレクトリの取得に失敗: %w", err)
 		}
 
 		path = filepath.Join(home, ".config", "dsx", "config.yaml")
@@ -23,18 +25,110 @@ func Save(cfg *Config, path string) error {
 	// ディレクトリの作成
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
+		return fmt.Errorf("設定ディレクトリの作成に失敗: %w", err)
 	}
 
 	// YAMLへのマーシャル
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
+		return fmt.Errorf("設定のシリアライズに失敗: %w", err)
 	}
 
 	// ファイルへの書き込み
 	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
+		return fmt.Errorf("設定ファイルの書き込みに失敗: %w", err)
+	}
+
+	return nil
+}
+
+// SaveAtomic は既存ファイルをバックアップしてからアトミックに設定を保存します。
+// 既存ファイルがある場合はタイムスタンプ付きバックアップを作成します。
+// backupPath は作成したバックアップのパスを返します（既存ファイルがない場合は空文字列）。
+func SaveAtomic(cfg *Config, path string) (string, error) {
+	if path == "" {
+		home, homeErr := os.UserHomeDir()
+		if homeErr != nil {
+			return "", fmt.Errorf("ホームディレクトリの取得に失敗: %w", homeErr)
+		}
+
+		path = filepath.Join(home, ".config", "dsx", "config.yaml")
+	}
+
+	// ディレクトリの作成
+	dir := filepath.Dir(path)
+	if mkdirErr := os.MkdirAll(dir, 0o755); mkdirErr != nil {
+		return "", fmt.Errorf("設定ディレクトリの作成に失敗: %w", mkdirErr)
+	}
+
+	// マーシャルを先に行い、失敗時にバックアップが作成されないようにする
+	data, marshalErr := yaml.Marshal(cfg)
+	if marshalErr != nil {
+		return "", fmt.Errorf("設定のシリアライズに失敗: %w", marshalErr)
+	}
+
+	// 既存ファイルのバックアップ（マーシャル成功後に実施）
+	var backupPath string
+
+	info, statErr := os.Stat(path)
+	switch {
+	case statErr == nil:
+		if info.IsDir() {
+			return "", fmt.Errorf("設定ファイルのパスがディレクトリです: %s", path)
+		}
+
+		var backupErr error
+
+		backupPath, backupErr = backupFile(path)
+		if backupErr != nil {
+			return "", fmt.Errorf("バックアップの作成に失敗: %w", backupErr)
+		}
+	case errors.Is(statErr, os.ErrNotExist):
+		// ファイルが存在しない場合は新規作成（バックアップ不要）
+	default:
+		// 権限エラー等、状態確認自体に失敗した場合はエラーを返す
+		return "", fmt.Errorf("設定ファイルの状態確認に失敗: %w", statErr)
+	}
+
+	// アトミック書き込み
+	if writeErr := writeFileAtomic(path, data, 0o644); writeErr != nil {
+		return backupPath, writeErr
+	}
+
+	return backupPath, nil
+}
+
+// backupFile はファイルをナノ秒タイムスタンプ付きのバックアップパスにコピーします。
+// ナノ秒精度を使用することで、同一秒内の複数呼び出しでもファイル名衝突を回避します。
+func backupFile(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("バックアップ元の読み込みに失敗: %w", err)
+	}
+
+	timestamp := time.Now().Format("20060102-150405.000000000")
+	backupPath := path + ".bak." + timestamp
+
+	if err := os.WriteFile(backupPath, data, 0o644); err != nil {
+		return "", fmt.Errorf("バックアップファイルの書き込みに失敗: %w", err)
+	}
+
+	return backupPath, nil
+}
+
+// writeFileAtomic は一時ファイルへの書き込み後にリネームしてアトミックに更新します。
+// Go の os.Rename は Windows では MoveFileExW(MOVEFILE_REPLACE_EXISTING) を使用するため、
+// 既存ファイルへの上書き置換が正しく動作します。
+func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
+	tmp := path + ".tmp"
+
+	if err := os.WriteFile(tmp, data, perm); err != nil {
+		return fmt.Errorf("一時ファイルの書き込みに失敗: %w", err)
+	}
+
+	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp) //nolint:errcheck // ベストエフォートでクリーンアップ
+		return fmt.Errorf("ファイルのアトミック置換に失敗: %w", err)
 	}
 
 	return nil

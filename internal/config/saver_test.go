@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/scottlz0310/dsx/internal/testutil"
@@ -181,5 +183,103 @@ func TestSave(t *testing.T) {
 		assert.Equal(t, cfg.Repo.Cleanup.ExcludeBranches, loaded.Repo.Cleanup.ExcludeBranches)
 		assert.Equal(t, cfg.Sys.Enable, loaded.Sys.Enable)
 		assert.Equal(t, cfg.Secrets.Enabled, loaded.Secrets.Enabled)
+	})
+}
+
+func TestSaveAtomic(t *testing.T) {
+	t.Run("正常系: 既存ファイルなしで新規作成", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		path := filepath.Join(tmpDir, "config.yaml")
+
+		cfg := Default()
+		backupPath, err := SaveAtomic(cfg, path)
+		require.NoError(t, err)
+
+		assert.Empty(t, backupPath, "既存ファイルがない場合バックアップパスは空のはず")
+
+		_, err = os.Stat(path)
+		assert.NoError(t, err, "設定ファイルが作成されていない")
+	})
+
+	t.Run("正常系: 既存ファイルありでバックアップが作成される", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		path := filepath.Join(tmpDir, "config.yaml")
+
+		// 初回保存
+		cfg := Default()
+		_, err := SaveAtomic(cfg, path)
+		require.NoError(t, err)
+
+		// 2回目保存 → バックアップが作成される
+		backupPath, err := SaveAtomic(cfg, path)
+		require.NoError(t, err)
+
+		assert.NotEmpty(t, backupPath, "バックアップパスが返されていない")
+
+		_, err = os.Stat(backupPath)
+		assert.NoError(t, err, "バックアップファイルが存在しない")
+
+		assert.Contains(t, backupPath, ".bak.", "バックアップパスに .bak. が含まれていない")
+
+		// ナノ秒精度のタイムスタンプ（YYYYMMDD-HHMMSS.NNNNNNNNN）が含まれることを確認
+		suffix := backupPath[strings.LastIndex(backupPath, ".bak.")+len(".bak."):]
+		nanoPattern := regexp.MustCompile(`^\d{8}-\d{6}\.\d{9}$`)
+		assert.True(t, nanoPattern.MatchString(suffix), "バックアップ名のタイムスタンプが期待形式（YYYYMMDD-HHMMSS.NNNNNNNNN）でない: %s", suffix)
+	})
+
+	t.Run("正常系: 同一秒内の2回呼び出しでバックアップ名が衝突しない", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		path := filepath.Join(tmpDir, "config.yaml")
+
+		cfg := Default()
+		_, err := SaveAtomic(cfg, path)
+		require.NoError(t, err)
+
+		backup1, err := SaveAtomic(cfg, path)
+		require.NoError(t, err)
+
+		backup2, err := SaveAtomic(cfg, path)
+		require.NoError(t, err)
+
+		assert.NotEqual(t, backup1, backup2, "連続呼び出しでバックアップ名が衝突している")
+	})
+
+	t.Run("正常系: 保存後にデータが正しく読み込める", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		path := filepath.Join(tmpDir, "config.yaml")
+
+		cfg := &Config{
+			Version: 1,
+			Sys: SysConfig{
+				Enable: []string{"go"},
+				Managers: map[string]ManagerConfig{
+					"go": {"targets": []string{"golang.org/x/tools/gopls@latest"}},
+				},
+			},
+		}
+
+		_, err := SaveAtomic(cfg, path)
+		require.NoError(t, err)
+
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+
+		var loaded Config
+		require.NoError(t, yaml.Unmarshal(data, &loaded))
+
+		assert.Equal(t, 1, loaded.Version)
+		assert.Equal(t, []string{"go"}, loaded.Sys.Enable)
+	})
+
+	t.Run("正常系: .tmp ファイルが残っていない", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		path := filepath.Join(tmpDir, "config.yaml")
+
+		cfg := Default()
+		_, err := SaveAtomic(cfg, path)
+		require.NoError(t, err)
+
+		_, err = os.Stat(path + ".tmp")
+		assert.True(t, os.IsNotExist(err), ".tmp ファイルが残っている")
 	})
 }
