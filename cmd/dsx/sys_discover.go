@@ -136,7 +136,7 @@ func printGoDiscoverResult(result *updater.DiscoverResult) {
 		fmt.Println("[go] スキップ:")
 
 		for _, s := range result.Skipped {
-			fmt.Printf("  %-20s %s\n", s.Name, s.Reason)
+			fmt.Printf("  %-20s 理由: %s\n", s.Name, s.Reason)
 		}
 	}
 
