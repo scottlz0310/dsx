@@ -44,6 +44,19 @@
 
 ---
 
+## Issue #46: DiscoverGoBinaries / DiscoverGoBinariesInDir 実装（完了）
+
+- [x] `DiscoverResult` / `SkippedBinary` 構造体定義
+- [x] `discoverInDir` 実装（バックアップファイル除外・context キャンセル早期 return）
+- [x] `DiscoverGoBinariesInDir` 実装
+- [x] `DiscoverGoBinaries` 実装（GOBIN/GOPATH 複数エントリ対応・空エントリ ~/go フォールバック）
+- [x] `runGoVersionM` を `runCommandOutputWithLocaleC` ベースに変更
+- [x] テスト追加（table-driven、context キャンセル・GOBIN 優先 など）
+- [x] CHANGELOG.md 更新
+- [x] PR #51 作成・Copilot レビュー 3 サイクル対応（計 8 スレッド全件 accept）
+
+---
+
 ## Backlog / 改善候補
 
 ### `AutoStash` オプションの修正（設定が機能していないバグ）
