@@ -110,8 +110,9 @@
 - [x] `ci.yml` に `CODECOV_TOKEN` を追加（`fail_ci_if_error: true` に変更）
 - [x] `codecov.yml` を新規追加（閾値・PR コメント設定）
 - [x] `CHANGELOG.md` を `[v0.4.1]` としてリリース準備
-- [ ] PR 作成・マージ
-- [ ] `v0.4.1` タグを打ってリリース
+- [x] PR 作成・マージ（PR #60 マージ済み）
+- [x] `v0.4.1` タグ発行・push → GoReleaser が GitHub Release を自動作成
+- [x] GitHub Release ページを日本語で編集
 
 ---
 
