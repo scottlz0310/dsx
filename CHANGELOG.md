@@ -14,6 +14,7 @@
 - `DiscoverResult` / `SkippedBinary` 型を `internal/updater` に追加
 - `DiscoverGoBinariesInDir(ctx, binDir)` を実装（指定ディレクトリ内の Go バイナリをスキャンし、`go version -m` で情報を収集）
 - `DiscoverGoBinaries(ctx)` を実装（`GOBIN` → `GOPATH/bin` → `~/go/bin` の順で自動解決してスキャン）
+- `dsx sys discover` コマンドを追加（`GOBIN`/`GOPATH/bin`/`~/go/bin` 内の Go バイナリを検出し、モジュール情報と共に一覧表示）
 
 ### Changed
 
