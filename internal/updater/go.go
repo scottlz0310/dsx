@@ -248,8 +248,7 @@ type SkippedBinary struct {
 
 // runGoVersionM は "go version -m <binaryPath>" を実行して出力を返します。
 func runGoVersionM(ctx context.Context, binaryPath string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "go", "version", "-m", binaryPath) //nolint:gosec // binaryPath は os.ReadDir 由来のシステムパスであり外部入力ではない
-	return cmd.Output()
+	return runCommandOutputWithLocaleC(ctx, "go", []string{"version", "-m", binaryPath}, "go version -m の実行に失敗: %w")
 }
 
 // discoverInDir は binDir 内のバイナリをスキャンし、DiscoverResult を返します。
@@ -328,7 +327,10 @@ func DiscoverGoBinaries(ctx context.Context) (*DiscoverResult, error) {
 			gopath = filepath.Join(home, "go")
 		}
 
-		binDir = filepath.Join(gopath, "bin")
+		// GOPATH は OS によってはパスリスト（Unix では ":" 区切り、Windows では ";" 区切り）に
+		// なり得るため、filepath.SplitList で先頭エントリを取得してから "bin" を連結する。
+		gopathEntries := filepath.SplitList(gopath)
+		binDir = filepath.Join(gopathEntries[0], "bin")
 	}
 
 	return DiscoverGoBinariesInDir(ctx, binDir)
