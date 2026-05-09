@@ -401,6 +401,16 @@ func TestMergeGoTargets(t *testing.T) {
 			wantToAdd:   nil,
 			wantSkipped: 0,
 		},
+		{
+			name:     "detected 側に同一 PackagePath が複数 → 重複を除外して 1 件のみ追加",
+			existing: nil,
+			detected: []updater.GoBinaryInfo{
+				{PackagePath: "golang.org/x/tools/gopls"},
+				{PackagePath: "golang.org/x/tools/gopls"},
+			},
+			wantToAdd:   []string{"golang.org/x/tools/gopls@latest"},
+			wantSkipped: 1,
+		},
 	}
 
 	for _, tc := range tests {

@@ -240,10 +240,12 @@ func mergeGoTargets(existing []string, detected []updater.GoBinaryInfo) (toAdd [
 			continue
 		}
 
-		if _, ok := existingPaths[packagePathFrom(target)]; ok {
+		pkgPath := packagePathFrom(target)
+		if _, ok := existingPaths[pkgPath]; ok {
 			skippedCount++
 		} else {
 			toAdd = append(toAdd, target)
+			existingPaths[pkgPath] = struct{}{} // detected 側の重複も除外
 		}
 	}
 

@@ -218,6 +218,26 @@ func TestSaveAtomic(t *testing.T) {
 		assert.NoError(t, err, "バックアップファイルが存在しない")
 
 		assert.Contains(t, backupPath, ".bak.", "バックアップパスに .bak. が含まれていない")
+
+		// ナノ秒精度のタイムスタンプが含まれることを確認（衝突回避）
+		assert.Contains(t, backupPath, ".", "バックアップパスにナノ秒区切りの . が含まれていない")
+	})
+
+	t.Run("正常系: 同一秒内の2回呼び出しでバックアップ名が衝突しない", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		path := filepath.Join(tmpDir, "config.yaml")
+
+		cfg := Default()
+		_, err := SaveAtomic(cfg, path)
+		require.NoError(t, err)
+
+		backup1, err := SaveAtomic(cfg, path)
+		require.NoError(t, err)
+
+		backup2, err := SaveAtomic(cfg, path)
+		require.NoError(t, err)
+
+		assert.NotEqual(t, backup1, backup2, "連続呼び出しでバックアップ名が衝突している")
 	})
 
 	t.Run("正常系: 保存後にデータが正しく読み込める", func(t *testing.T) {
