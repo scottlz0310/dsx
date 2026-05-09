@@ -57,14 +57,24 @@
 
 ---
 
-## Issue #47: dsx sys discover コマンド実装（PR #53、CI確認待ち）
+## Issue #47: dsx sys discover コマンド実装（PR #53、マージ済み）
 
 - [x] `cmd/dsx/sys_discover.go` 実装（`dsx sys discover` コマンド）
 - [x] `cmd/dsx/sys_discover_test.go` テスト追加（table-driven・境界値・エラー系）
 - [x] `task check` 通過
 - [x] PR #53 作成・Copilot レビュー 3 サイクル対応（計 8 スレッド全件 accept）
 - [x] CHANGELOG.md 更新
-- [ ] PR #53 マージ
+- [x] PR #53 マージ
+
+---
+
+## Issue #48: targets 未設定メッセージ改善 + テスト追加
+
+- [x] `internal/updater/go.go` の `Check()`/`Update()` 内メッセージを改善（`dsx sys discover` 誘導ヒント追加）
+- [x] `internal/updater/go_test.go` に `TestGoUpdater_Check_EmptyTargets` 追加（改善後メッセージ文言検証）
+- [x] `task check` 通過（テスト全件パス）
+- [x] CHANGELOG.md 更新
+- [ ] PR 作成・マージ
 
 ---
 

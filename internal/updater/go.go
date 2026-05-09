@@ -13,6 +13,11 @@ import (
 	"github.com/scottlz0310/dsx/internal/config"
 )
 
+// goTargetsEmptyMessage は go.targets が未設定の際に Check / Update が返すメッセージです。
+// 単一の定数で管理することで文言の不整合を防ぎます。
+const goTargetsEmptyMessage = "Go updater の targets は未設定です。\n" +
+	"$GOBIN / $GOPATH/bin に既存の Go バイナリがある場合は `dsx sys discover` で go.targets 候補を確認できます。"
+
 // GoUpdater は Go ツール (go install) の更新を管理します。
 // go install コマンドでインストールしたバイナリを最新版に更新します。
 type GoUpdater struct {
@@ -68,7 +73,7 @@ func (g *GoUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	// 設定された targets 数を「更新可能」として返す
 	if len(g.targets) == 0 {
 		return &CheckResult{
-			Message: "更新対象のGoツールが設定されていません",
+			Message: goTargetsEmptyMessage,
 		}, nil
 	}
 
@@ -94,7 +99,7 @@ func (g *GoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateResu
 	result := &UpdateResult{}
 
 	if len(g.targets) == 0 {
-		result.Message = "更新対象のGoツールが設定されていません"
+		result.Message = goTargetsEmptyMessage
 		return result, nil
 	}
 
