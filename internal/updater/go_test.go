@@ -2,6 +2,7 @@ package updater
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -290,4 +291,181 @@ func TestParseGoBinaryInfo(t *testing.T) {
 			assert.Equal(t, tt.wantVersion, got.InstalledVersion)
 		})
 	}
+}
+
+func TestDiscoverGoBinariesInDir(t *testing.T) {
+	t.Parallel()
+
+	fakeOutput := "path github.com/foo/mytool\nmod github.com/foo v1.2.3 h1:dummy\n"
+
+	tests := []struct {
+		name         string
+		setup        func(t *testing.T, dir string)
+		fakeRunCmd   func(ctx context.Context, path string) ([]byte, error)
+		wantDetected []string // BinaryName の一覧
+		wantSkipped  []string // SkippedBinary.Name の一覧
+	}{
+		{
+			name: "バックアップファイル（*.exe~）はSkippedに入る",
+			setup: func(t *testing.T, dir string) {
+				t.Helper()
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "tool.exe~"), []byte{}, 0o644))
+			},
+			fakeRunCmd: func(_ context.Context, _ string) ([]byte, error) {
+				return nil, errors.New("呼ばれてはいけない")
+			},
+			wantDetected: nil,
+			wantSkipped:  []string{"tool.exe~"},
+		},
+		{
+			name: "ディレクトリは除外される（DetectedにもSkippedにも入らない）",
+			setup: func(t *testing.T, dir string) {
+				t.Helper()
+				require.NoError(t, os.Mkdir(filepath.Join(dir, "subdir"), 0o755))
+			},
+			fakeRunCmd: func(_ context.Context, _ string) ([]byte, error) {
+				return nil, errors.New("呼ばれてはいけない")
+			},
+			wantDetected: nil,
+			wantSkipped:  nil,
+		},
+		{
+			name: "go version -m 失敗バイナリはSkippedに入る",
+			setup: func(t *testing.T, dir string) {
+				t.Helper()
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "notgobin"), []byte{}, 0o644))
+			},
+			fakeRunCmd: func(_ context.Context, _ string) ([]byte, error) {
+				return nil, errors.New("exit status 1")
+			},
+			wantDetected: nil,
+			wantSkipped:  []string{"notgobin"},
+		},
+		{
+			name: "path行なしバイナリはSkippedに入る",
+			setup: func(t *testing.T, dir string) {
+				t.Helper()
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "nopath"), []byte{}, 0o644))
+			},
+			fakeRunCmd: func(_ context.Context, _ string) ([]byte, error) {
+				return []byte("mod github.com/foo v1.0.0 h1:dummy\n"), nil
+			},
+			wantDetected: nil,
+			wantSkipped:  []string{"nopath"},
+		},
+		{
+			name: "正常バイナリはDetectedに入る",
+			setup: func(t *testing.T, dir string) {
+				t.Helper()
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "mytool"), []byte{}, 0o644))
+			},
+			fakeRunCmd: func(_ context.Context, _ string) ([]byte, error) {
+				return []byte(fakeOutput), nil
+			},
+			wantDetected: []string{"mytool"},
+			wantSkipped:  nil,
+		},
+		{
+			name: "バックアップ・失敗・正常が混在する場合",
+			setup: func(t *testing.T, dir string) {
+				t.Helper()
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "backup~"), []byte{}, 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "broken"), []byte{}, 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "good"), []byte{}, 0o644))
+				require.NoError(t, os.Mkdir(filepath.Join(dir, "dir"), 0o755))
+			},
+			fakeRunCmd: func(_ context.Context, path string) ([]byte, error) {
+				if filepath.Base(path) == "broken" {
+					return nil, errors.New("not a go binary")
+				}
+				return []byte("path github.com/foo/" + filepath.Base(path) + "\nmod github.com/foo v1.0.0 h1:dummy\n"), nil
+			},
+			wantDetected: []string{"good"},
+			wantSkipped:  []string{"backup~", "broken"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			tt.setup(t, dir)
+
+			result, err := discoverInDir(context.Background(), dir, tt.fakeRunCmd)
+			require.NoError(t, err)
+			require.NotNil(t, result)
+
+			// Detected の BinaryName 一覧を検証
+			if tt.wantDetected == nil {
+				assert.Empty(t, result.Detected)
+			} else {
+				require.Len(t, result.Detected, len(tt.wantDetected))
+
+				names := make([]string, len(result.Detected))
+				for i, d := range result.Detected {
+					names[i] = d.BinaryName
+				}
+
+				assert.ElementsMatch(t, tt.wantDetected, names)
+			}
+
+			// Skipped の Name 一覧を検証
+			if tt.wantSkipped == nil {
+				assert.Empty(t, result.Skipped)
+			} else {
+				require.Len(t, result.Skipped, len(tt.wantSkipped))
+
+				names := make([]string, len(result.Skipped))
+				for i, s := range result.Skipped {
+					names[i] = s.Name
+				}
+
+				assert.ElementsMatch(t, tt.wantSkipped, names)
+			}
+		})
+	}
+}
+
+func TestDiscoverGoBinariesInDir_MissingDir(t *testing.T) {
+	t.Parallel()
+
+	_, err := DiscoverGoBinariesInDir(context.Background(), filepath.Join(t.TempDir(), "missing"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "読み取りに失敗")
+}
+
+func TestDiscoverGoBinaries_UsesGOBIN(t *testing.T) {
+	// t.Setenv は t.Parallel() と併用不可
+	dir := t.TempDir()
+	// *~ ファイルはバックアップファイルとして go version -m を起動せずに Skipped 処理されるため、
+	// 外部プロセスを発生させずに GOBIN 優先を検証できる
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "tool~"), []byte{}, 0o644))
+	t.Setenv("GOBIN", dir)
+	t.Setenv("GOPATH", "")
+
+	result, err := DiscoverGoBinaries(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Len(t, result.Skipped, 1)
+	assert.Equal(t, "tool~", result.Skipped[0].Name)
+	assert.Equal(t, "バックアップファイル", result.Skipped[0].Reason)
+}
+
+func TestDiscoverInDir_ContextCanceled(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "tool"), []byte{}, 0o644))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // 即座にキャンセル
+
+	fakeRunCmd := func(c context.Context, _ string) ([]byte, error) {
+		return nil, c.Err()
+	}
+
+	_, err := discoverInDir(ctx, dir, fakeRunCmd)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
 }

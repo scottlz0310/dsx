@@ -3,6 +3,7 @@ package updater
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -232,6 +233,129 @@ func (i *GoBinaryInfo) UpdateTarget() string {
 	}
 
 	return i.PackagePath + "@latest"
+}
+
+// DiscoverResult は DiscoverGoBinaries / DiscoverGoBinariesInDir の結果を保持します。
+type DiscoverResult struct {
+	Detected []GoBinaryInfo
+	Skipped  []SkippedBinary
+}
+
+// SkippedBinary はスキャン中にスキップされたバイナリの情報を保持します。
+type SkippedBinary struct {
+	Name   string
+	Reason string // "Go モジュール情報なし" / "バックアップファイル"
+}
+
+// runGoVersionM は "go version -m <binaryPath>" を実行して出力を返します。
+func runGoVersionM(ctx context.Context, binaryPath string) ([]byte, error) {
+	return runCommandOutputWithLocaleC(ctx, "go", []string{"version", "-m", binaryPath}, "go version -m の実行に失敗: %w")
+}
+
+// discoverInDir は binDir 内のバイナリをスキャンし、DiscoverResult を返します。
+// runCmd はテスト時に fakeRunCmd を注入できる関数パラメータです。
+func discoverInDir(ctx context.Context, binDir string,
+	runCmd func(context.Context, string) ([]byte, error)) (*DiscoverResult, error) {
+	entries, err := os.ReadDir(binDir)
+	if err != nil {
+		return nil, fmt.Errorf("%s の読み取りに失敗: %w", binDir, err)
+	}
+
+	result := &DiscoverResult{}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		name := entry.Name()
+
+		// *~ / *.exe~ パターン（バックアップファイル）を除外
+		if strings.HasSuffix(name, "~") {
+			result.Skipped = append(result.Skipped, SkippedBinary{
+				Name:   name,
+				Reason: "バックアップファイル",
+			})
+
+			continue
+		}
+
+		fullPath := filepath.Join(binDir, name)
+
+		output, err := runCmd(ctx, fullPath)
+		if err != nil {
+			// コンテキストキャンセル・期限切れの場合はスキャンを中断する
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return nil, err
+			}
+
+			result.Skipped = append(result.Skipped, SkippedBinary{
+				Name:   name,
+				Reason: "Go モジュール情報なし",
+			})
+
+			continue
+		}
+
+		info, err := ParseGoBinaryInfo(fullPath, string(output))
+		if err != nil {
+			result.Skipped = append(result.Skipped, SkippedBinary{
+				Name:   name,
+				Reason: "Go モジュール情報なし",
+			})
+
+			continue
+		}
+
+		result.Detected = append(result.Detected, *info)
+	}
+
+	return result, nil
+}
+
+// DiscoverGoBinariesInDir は指定ディレクトリ内の Go バイナリ情報を収集します。
+func DiscoverGoBinariesInDir(ctx context.Context, binDir string) (*DiscoverResult, error) {
+	return discoverInDir(ctx, binDir, runGoVersionM)
+}
+
+// DiscoverGoBinaries は $GOBIN → $GOPATH/bin → ~/go/bin の順でパスを解決し、
+// Go バイナリ情報を収集します。
+func DiscoverGoBinaries(ctx context.Context) (*DiscoverResult, error) {
+	binDir := os.Getenv("GOBIN")
+	if binDir == "" {
+		gopath := os.Getenv("GOPATH")
+		if gopath == "" {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return nil, fmt.Errorf("ホームディレクトリの取得に失敗: %w", err)
+			}
+
+			gopath = filepath.Join(home, "go")
+		}
+
+		// GOPATH は OS によってはパスリスト（Unix では ":" 区切り、Windows では ";" 区切り）に
+		// なり得るため、filepath.SplitList で先頭エントリを取得してから "bin" を連結する。
+		// 先頭エントリが空の場合（区切り文字のみの GOPATH 等）は ~/go にフォールバックする。
+		gopathEntries := filepath.SplitList(gopath)
+		firstEntry := ""
+
+		if len(gopathEntries) > 0 {
+			firstEntry = gopathEntries[0]
+		}
+
+		if firstEntry == "" {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return nil, fmt.Errorf("ホームディレクトリの取得に失敗: %w", err)
+			}
+
+			firstEntry = filepath.Join(home, "go")
+		}
+
+		binDir = filepath.Join(firstEntry, "bin")
+	}
+
+	return DiscoverGoBinariesInDir(ctx, binDir)
 }
 
 // ParseGoBinaryInfo は "go version -m <binary>" の出力を解析し、GoBinaryInfo を返します。
