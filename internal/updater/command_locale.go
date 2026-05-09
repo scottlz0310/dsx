@@ -11,7 +11,7 @@ import (
 
 // runCommandOutputWithLocaleC は LANG/LC_ALL を C に固定してコマンド出力を取得します。
 func runCommandOutputWithLocaleC(ctx context.Context, command string, args []string, errFormat string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, command, args...)
+	cmd := exec.CommandContext(ctx, command, args...) //nolint:gosec // G702: command と args はすべて内部の固定値から呼ばれており外部入力ではない
 
 	cmd.Env = append(os.Environ(), "LANG=C", "LC_ALL=C")
 
