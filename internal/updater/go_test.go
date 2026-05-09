@@ -108,7 +108,7 @@ func TestGoUpdater_Check(t *testing.T) {
 		require.NotNil(t, got)
 
 		assert.Equal(t, 0, got.AvailableUpdates)
-		assert.Contains(t, got.Message, "設定されていません")
+		assert.Contains(t, got.Message, "targets は未設定")
 		assert.Empty(t, got.Packages)
 	})
 
@@ -143,7 +143,7 @@ func TestGoUpdater_Update_DryRun(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, got)
 
-		assert.Contains(t, got.Message, "設定されていません")
+		assert.Contains(t, got.Message, "targets は未設定")
 		assert.Empty(t, got.Packages)
 		assert.Equal(t, 0, got.UpdatedCount)
 	})
@@ -468,4 +468,52 @@ func TestDiscoverInDir_ContextCanceled(t *testing.T) {
 	_, err := discoverInDir(ctx, dir, fakeRunCmd)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, context.Canceled)
+}
+
+// TestGoUpdater_Check_EmptyTargets は targets 未設定時に dsx sys discover へのヒントを含む
+// メッセージが返ることを検証します。
+func TestGoUpdater_Check_EmptyTargets(t *testing.T) {
+	tests := []struct {
+		name         string
+		targets      []string
+		wantMsgParts []string
+		wantUpdates  int
+	}{
+		{
+			name:    "targets未設定でdiscover案内メッセージを返す",
+			targets: nil,
+			wantMsgParts: []string{
+				"targets は未設定",
+				"dsx sys discover",
+				"go.targets",
+			},
+			wantUpdates: 0,
+		},
+		{
+			name:    "空スライスでもdiscover案内メッセージを返す",
+			targets: []string{},
+			wantMsgParts: []string{
+				"targets は未設定",
+				"dsx sys discover",
+			},
+			wantUpdates: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := &GoUpdater{targets: tt.targets}
+
+			got, err := g.Check(context.Background())
+			require.NoError(t, err)
+			require.NotNil(t, got)
+
+			assert.Equal(t, tt.wantUpdates, got.AvailableUpdates)
+			assert.Empty(t, got.Packages)
+
+			for _, part := range tt.wantMsgParts {
+				assert.Contains(t, got.Message, part, "メッセージに %q が含まれていない", part)
+			}
+		})
+	}
 }

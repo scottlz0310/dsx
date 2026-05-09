@@ -68,7 +68,8 @@ func (g *GoUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	// 設定された targets 数を「更新可能」として返す
 	if len(g.targets) == 0 {
 		return &CheckResult{
-			Message: "更新対象のGoツールが設定されていません",
+			Message: "Go updater の targets は未設定です。\n" +
+				"$GOBIN / $GOPATH/bin に既存の Go バイナリがある場合は `dsx sys discover` で go.targets 候補を確認できます。",
 		}, nil
 	}
 
@@ -94,7 +95,8 @@ func (g *GoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateResu
 	result := &UpdateResult{}
 
 	if len(g.targets) == 0 {
-		result.Message = "更新対象のGoツールが設定されていません"
+		result.Message = "Go updater の targets は未設定です。\n" +
+			"$GOBIN / $GOPATH/bin に既存の Go バイナリがある場合は `dsx sys discover` で go.targets 候補を確認できます。"
 		return result, nil
 	}
 
