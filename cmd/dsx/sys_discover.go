@@ -167,7 +167,7 @@ func printGoDiscoverResult(result *updater.DiscoverResult) {
 func applyGoTargets(result *updater.DiscoverResult, dryRun bool) error {
 	cfg, err := config.Load()
 	if err != nil {
-		return fmt.Errorf("設定ファイルの読み込みに失敗: %w", err)
+		return fmt.Errorf("go.targets 反映のための設定読み込みに失敗: %w", err)
 	}
 
 	existingTargets := extractGoTargets(cfg)
@@ -266,7 +266,7 @@ func packagePathFrom(target string) string {
 func printGoApplyDryRun(toAdd []string, skippedCount int, configPath string, fileExists bool) {
 	fmt.Println("[dry-run] go.targets への変更プレビュー（書き込みは行いません）:")
 
-	if !fileExists {
+	if !fileExists && len(toAdd) > 0 {
 		fmt.Printf("  ⚠️  config.yaml が存在しないため、新規作成されます: %s\n", configPath)
 	}
 

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -68,7 +69,10 @@ func SaveAtomic(cfg *Config, path string) (string, error) {
 
 	// 既存ファイルのバックアップ（マーシャル成功後に実施）
 	var backupPath string
-	if info, statErr := os.Stat(path); statErr == nil {
+
+	info, statErr := os.Stat(path)
+	switch {
+	case statErr == nil:
 		if info.IsDir() {
 			return "", fmt.Errorf("設定ファイルのパスがディレクトリです: %s", path)
 		}
@@ -79,6 +83,11 @@ func SaveAtomic(cfg *Config, path string) (string, error) {
 		if backupErr != nil {
 			return "", fmt.Errorf("バックアップの作成に失敗: %w", backupErr)
 		}
+	case errors.Is(statErr, os.ErrNotExist):
+		// ファイルが存在しない場合は新規作成（バックアップ不要）
+	default:
+		// 権限エラー等、状態確認自体に失敗した場合はエラーを返す
+		return "", fmt.Errorf("設定ファイルの状態確認に失敗: %w", statErr)
 	}
 
 	// アトミック書き込み

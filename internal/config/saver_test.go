@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/scottlz0310/dsx/internal/testutil"
@@ -219,8 +221,10 @@ func TestSaveAtomic(t *testing.T) {
 
 		assert.Contains(t, backupPath, ".bak.", "バックアップパスに .bak. が含まれていない")
 
-		// ナノ秒精度のタイムスタンプが含まれることを確認（衝突回避）
-		assert.Contains(t, backupPath, ".", "バックアップパスにナノ秒区切りの . が含まれていない")
+		// ナノ秒精度のタイムスタンプ（YYYYMMDD-HHMMSS.NNNNNNNNN）が含まれることを確認
+		suffix := backupPath[strings.LastIndex(backupPath, ".bak.")+len(".bak."):]
+		nanoPattern := regexp.MustCompile(`^\d{8}-\d{6}\.\d{9}$`)
+		assert.True(t, nanoPattern.MatchString(suffix), "バックアップ名のタイムスタンプが期待形式（YYYYMMDD-HHMMSS.NNNNNNNNN）でない: %s", suffix)
 	})
 
 	t.Run("正常系: 同一秒内の2回呼び出しでバックアップ名が衝突しない", func(t *testing.T) {
