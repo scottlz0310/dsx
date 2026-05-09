@@ -449,3 +449,21 @@ func TestDiscoverGoBinaries_UsesGOBIN(t *testing.T) {
 	// Detected + Skipped の合計が 1 (ファイル "tool" 1件のみ)
 	assert.Equal(t, 1, len(result.Detected)+len(result.Skipped))
 }
+
+func TestDiscoverInDir_ContextCanceled(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "tool"), []byte{}, 0o644))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // 即座にキャンセル
+
+	fakeRunCmd := func(c context.Context, _ string) ([]byte, error) {
+		return nil, c.Err()
+	}
+
+	_, err := discoverInDir(ctx, dir, fakeRunCmd)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+}

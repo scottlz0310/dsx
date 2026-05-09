@@ -3,6 +3,7 @@ package updater
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -283,6 +284,11 @@ func discoverInDir(ctx context.Context, binDir string,
 
 		output, err := runCmd(ctx, fullPath)
 		if err != nil {
+			// コンテキストキャンセル・期限切れの場合はスキャンを中断する
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return nil, err
+			}
+
 			result.Skipped = append(result.Skipped, SkippedBinary{
 				Name:   name,
 				Reason: "Go モジュール情報なし",
@@ -329,8 +335,24 @@ func DiscoverGoBinaries(ctx context.Context) (*DiscoverResult, error) {
 
 		// GOPATH は OS によってはパスリスト（Unix では ":" 区切り、Windows では ";" 区切り）に
 		// なり得るため、filepath.SplitList で先頭エントリを取得してから "bin" を連結する。
+		// 先頭エントリが空の場合（区切り文字のみの GOPATH 等）は ~/go にフォールバックする。
 		gopathEntries := filepath.SplitList(gopath)
-		binDir = filepath.Join(gopathEntries[0], "bin")
+		firstEntry := ""
+
+		if len(gopathEntries) > 0 {
+			firstEntry = gopathEntries[0]
+		}
+
+		if firstEntry == "" {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return nil, fmt.Errorf("ホームディレクトリの取得に失敗: %w", err)
+			}
+
+			firstEntry = filepath.Join(home, "go")
+		}
+
+		binDir = filepath.Join(firstEntry, "bin")
 	}
 
 	return DiscoverGoBinariesInDir(ctx, binDir)
