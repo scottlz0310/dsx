@@ -6,9 +6,16 @@
 
 ## [Unreleased]
 
+## [v0.4.1] - 2026-05-10
+
 ### Fixed
 
 - pnpm v11 で `pnpm outdated -g --format json` の stdout に `[WARN]` 診断行が混入し JSON パースが失敗する問題を修正（`parseOutdatedJSON` でブラケットタグ行を除外してから JSON を抽出するよう変更）
+
+### Changed
+
+- Codecov アップロードに `CODECOV_TOKEN` を追加し、ブランチ保護下でのカバレッジ計測を有効化
+- `codecov.yml` を追加し、プロジェクト・パッチカバレッジの閾値（各 1% 低下まで許容）と PR コメント表示を設定
 
 ## [v0.4.0] - 2026-05-09
 
