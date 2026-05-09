@@ -257,8 +257,10 @@ func (p *PnpmUpdater) parseOutdatedJSON(output []byte) ([]PackageInfo, error) {
 		if strings.HasPrefix(t, "[WARN]") || strings.HasPrefix(t, "[ERR]") || strings.HasPrefix(t, "[ERROR]") {
 			continue
 		}
+
 		jsonLines = append(jsonLines, line)
 	}
+
 	jsonStr := strings.TrimSpace(strings.Join(jsonLines, "\n"))
 	if jsonStr == "" {
 		return nil, fmt.Errorf("JSON が見つかりません: %s", trimmed)
