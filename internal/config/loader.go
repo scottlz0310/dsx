@@ -97,7 +97,7 @@ func Default() *Config {
 		Repo: RepoConfig{
 			Root: defaultRoot,
 			GitHub: GitHubConfig{
-				Protocol: "https",
+				Protocol: repoGitHubProtocolHTTPS,
 			},
 			Sync: RepoSyncConfig{
 				AutoStash:       true,
@@ -106,7 +106,7 @@ func Default() *Config {
 			},
 			Cleanup: RepoCleanupConfig{
 				Enabled:         true,
-				Target:          []string{"merged", "squashed"},
+				Target:          []string{repoCleanupTargetMerged, repoCleanupTargetSquashed},
 				ExcludeBranches: []string{"main", "master", "develop"},
 			},
 		},
@@ -116,7 +116,7 @@ func Default() *Config {
 		},
 		Secrets: SecretsConfig{
 			Enabled:  false,
-			Provider: "bitwarden",
+			Provider: secretsProviderBitwarden,
 		},
 	}
 }
@@ -145,12 +145,12 @@ func setDefaults(v *viper.Viper) {
 
 	v.SetDefault("repo.root", defaultRoot)
 	v.SetDefault("repo.github.owner", "")
-	v.SetDefault("repo.github.protocol", "https")
+	v.SetDefault("repo.github.protocol", repoGitHubProtocolHTTPS)
 	v.SetDefault("repo.sync.auto_stash", true)
 	v.SetDefault("repo.sync.prune", true)
 	v.SetDefault("repo.sync.submodule_update", true)
 	v.SetDefault("repo.cleanup.enabled", true)
-	v.SetDefault("repo.cleanup.target", []string{"merged", "squashed"})
+	v.SetDefault("repo.cleanup.target", []string{repoCleanupTargetMerged, repoCleanupTargetSquashed})
 	v.SetDefault("repo.cleanup.exclude_branches", []string{"main", "master", "develop"})
 
 	// Sys defaults (managers are enabled per environment usually, but defaults can be empty)
@@ -159,7 +159,7 @@ func setDefaults(v *viper.Viper) {
 
 	// Secrets
 	v.SetDefault("secrets.enabled", false)
-	v.SetDefault("secrets.provider", "bitwarden")
+	v.SetDefault("secrets.provider", secretsProviderBitwarden)
 	v.SetDefault("secrets.items", []string{})
 }
 

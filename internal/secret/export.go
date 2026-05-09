@@ -132,7 +132,7 @@ func GetShellExecutable() string {
 			return "pwsh"
 		}
 
-		return "powershell"
+		return string(ShellPowerShell)
 	}
 
 	shell := os.Getenv("SHELL")

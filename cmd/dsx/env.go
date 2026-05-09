@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const envActionUnlock = "unlock"
+
 var envCmd = &cobra.Command{
 	Use:   "env",
 	Short: "環境変数の管理",
@@ -33,7 +35,7 @@ var envExportCmd = &cobra.Command{
 }
 
 var envUnlockCmd = &cobra.Command{
-	Use:   "unlock",
+	Use:   envActionUnlock,
 	Short: "Bitwarden をアンロックして BW_SESSION を設定",
 	Long: `Bitwarden をアンロックし、BW_SESSION 設定コマンドを標準出力に出力します。
 出力をシェルで評価することで、BW_SESSION が現在のシェルセッションに反映されます。

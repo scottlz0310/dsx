@@ -20,6 +20,7 @@ const (
 	selfUpdateLatestReleaseAPI = "https://api.github.com/repos/scottlz0310/dsx/releases/latest"
 	selfUpdateGoInstallPkg     = "github.com/scottlz0310/dsx/cmd/dsx"
 	selfUpdateCheckTimeout     = 2 * time.Second
+	selfUpdateDevelVersion     = "(devel)"
 )
 
 type selfUpdateInfo struct {
@@ -238,7 +239,7 @@ func applySelfUpdate(ctx context.Context, version string) error {
 
 func isDevelopmentBuildVersion(v string) bool {
 	trimmed := strings.TrimSpace(v)
-	return trimmed == "" || trimmed == "dev" || trimmed == "(devel)"
+	return trimmed == "" || trimmed == "dev" || trimmed == selfUpdateDevelVersion
 }
 
 func parseSemverCore(v string) (semverCore, bool) {

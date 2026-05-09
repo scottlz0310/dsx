@@ -56,7 +56,7 @@ func (b *BrewUpdater) Configure(cfg config.ManagerConfig) error {
 
 func (b *BrewUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	// brew update でフォーミュラ情報を更新
-	updateCmd := exec.CommandContext(ctx, "brew", "update")
+	updateCmd := exec.CommandContext(ctx, "brew", updateCommand)
 	updateCmd.Stdout = os.Stdout
 	updateCmd.Stderr = os.Stderr
 
@@ -94,7 +94,7 @@ func (b *BrewUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRe
 	}
 
 	if checkResult.AvailableUpdates == 0 {
-		result.Message = "すべてのパッケージは最新です"
+		result.Message = allPackagesUpToDateMessage
 		return result, nil
 	}
 

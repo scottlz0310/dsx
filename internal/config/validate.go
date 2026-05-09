@@ -72,7 +72,7 @@ func validateControl(result *ValidationResult, cfg *Config) {
 	timeout := strings.TrimSpace(cfg.Control.Timeout)
 	if timeout == "" {
 		result.Errors = append(result.Errors, ValidationIssue{
-			Field:   "control.timeout",
+			Field:   fieldControlTimeout,
 			Message: "空です（例: \"10m\"）",
 		})
 
@@ -82,7 +82,7 @@ func validateControl(result *ValidationResult, cfg *Config) {
 	parsed, err := time.ParseDuration(timeout)
 	if err != nil {
 		result.Errors = append(result.Errors, ValidationIssue{
-			Field:   "control.timeout",
+			Field:   fieldControlTimeout,
 			Message: fmt.Sprintf("不正な期間です: %q（例: \"10m\"）", timeout),
 		})
 
@@ -91,7 +91,7 @@ func validateControl(result *ValidationResult, cfg *Config) {
 
 	if parsed <= 0 {
 		result.Errors = append(result.Errors, ValidationIssue{
-			Field:   "control.timeout",
+			Field:   fieldControlTimeout,
 			Message: fmt.Sprintf("0より大きい値を指定してください: %q", timeout),
 		})
 	}
@@ -101,7 +101,7 @@ func validateRepo(result *ValidationResult, cfg *Config) {
 	root := strings.TrimSpace(cfg.Repo.Root)
 	if root == "" {
 		result.Errors = append(result.Errors, ValidationIssue{
-			Field:   "repo.root",
+			Field:   fieldRepoRoot,
 			Message: "空です（例: \"~/src\" ではなくフルパスで指定してください）",
 		})
 
@@ -110,7 +110,7 @@ func validateRepo(result *ValidationResult, cfg *Config) {
 
 	if strings.HasPrefix(root, "~") {
 		result.Errors = append(result.Errors, ValidationIssue{
-			Field:   "repo.root",
+			Field:   fieldRepoRoot,
 			Message: fmt.Sprintf("チルダ（~）は自動展開されません: %q（フルパスで指定してください）", root),
 		})
 
@@ -124,18 +124,18 @@ func validateRepo(result *ValidationResult, cfg *Config) {
 	case err == nil:
 		if !info.IsDir() {
 			result.Errors = append(result.Errors, ValidationIssue{
-				Field:   "repo.root",
+				Field:   fieldRepoRoot,
 				Message: fmt.Sprintf("ディレクトリではありません: %s", cleaned),
 			})
 		}
 	case os.IsNotExist(err):
 		result.Errors = append(result.Errors, ValidationIssue{
-			Field:   "repo.root",
+			Field:   fieldRepoRoot,
 			Message: fmt.Sprintf("ディレクトリが存在しません: %s（必要なら作成するか、`dsx config init` を再実行してください）", cleaned),
 		})
 	default:
 		result.Errors = append(result.Errors, ValidationIssue{
-			Field:   "repo.root",
+			Field:   fieldRepoRoot,
 			Message: fmt.Sprintf("ディレクトリの確認に失敗しました: %s: %v", cleaned, err),
 		})
 	}
@@ -157,8 +157,8 @@ func validateRepo(result *ValidationResult, cfg *Config) {
 	}
 
 	allowedTargets := map[string]struct{}{
-		"merged":   {},
-		"squashed": {},
+		repoCleanupTargetMerged:   {},
+		repoCleanupTargetSquashed: {},
 	}
 
 	for _, target := range cfg.Repo.Cleanup.Target {
@@ -186,16 +186,16 @@ func validateSecrets(result *ValidationResult, cfg *Config) {
 	provider := strings.ToLower(strings.TrimSpace(cfg.Secrets.Provider))
 	if provider == "" {
 		result.Errors = append(result.Errors, ValidationIssue{
-			Field:   "secrets.provider",
+			Field:   fieldSecretsProvider,
 			Message: "空です（例: bitwarden）",
 		})
 
 		return
 	}
 
-	if provider != "bitwarden" {
+	if provider != secretsProviderBitwarden {
 		result.Errors = append(result.Errors, ValidationIssue{
-			Field:   "secrets.provider",
+			Field:   fieldSecretsProvider,
 			Message: fmt.Sprintf("未対応のプロバイダです: %q（対応: bitwarden）", cfg.Secrets.Provider),
 		})
 	}
@@ -214,7 +214,7 @@ func validateSys(result *ValidationResult, cfg *Config, opts ValidateOptions) {
 		trimmed := strings.TrimSpace(name)
 		if trimmed == "" {
 			result.Warnings = append(result.Warnings, ValidationIssue{
-				Field:   "sys.enable",
+				Field:   fieldSysEnable,
 				Message: "空のマネージャ名が含まれています",
 			})
 
@@ -240,14 +240,14 @@ func validateSys(result *ValidationResult, cfg *Config, opts ValidateOptions) {
 
 	if len(duplicates) > 0 {
 		result.Warnings = append(result.Warnings, ValidationIssue{
-			Field:   "sys.enable",
+			Field:   fieldSysEnable,
 			Message: fmt.Sprintf("重複指定されています: %v", duplicates),
 		})
 	}
 
 	if len(unknown) > 0 {
 		result.Warnings = append(result.Warnings, ValidationIssue{
-			Field:   "sys.enable",
+			Field:   fieldSysEnable,
 			Message: fmt.Sprintf("未知のマネージャが指定されています（typoの可能性があります）: %v", unknown),
 		})
 	}

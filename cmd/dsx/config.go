@@ -26,9 +26,14 @@ import (
 
 // シェルタイプ定数
 const (
-	shellPowerShell = "powershell"
-	shellZsh        = "zsh"
-	shellBash       = "bash"
+	shellPowerShell                = "powershell"
+	shellZsh                       = "zsh"
+	shellBash                      = "bash"
+	repoProtocolHTTPS              = "https"
+	cleanupTargetMerged            = "merged"
+	cleanupTargetSquashed          = "squashed"
+	shellSourceKeyword             = "source"
+	powerShellProfileBase64Command = "[System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($PROFILE))"
 )
 
 var errConfigInitCanceled = errors.New("config init canceled")
@@ -333,7 +338,7 @@ func buildConfigFromInitAnswers(answers configInitAnswers) *config.Config {
 			Root: answers.RepoRoot,
 			GitHub: config.GitHubConfig{
 				Owner:    answers.GithubOwner,
-				Protocol: "https",
+				Protocol: repoProtocolHTTPS,
 			},
 			Sync: config.RepoSyncConfig{
 				AutoStash:       true,
@@ -342,7 +347,7 @@ func buildConfigFromInitAnswers(answers configInitAnswers) *config.Config {
 			},
 			Cleanup: config.RepoCleanupConfig{
 				Enabled:         true,
-				Target:          []string{"merged", "squashed"},
+				Target:          []string{cleanupTargetMerged, cleanupTargetSquashed},
 				ExcludeBranches: []string{"main", "master", "develop"},
 			},
 		},
@@ -772,7 +777,7 @@ func getSourceKeyword(shell string) string {
 	if shell == "sh" {
 		return "."
 	}
-	return "source"
+	return shellSourceKeyword
 }
 
 func buildReloadCommand(shell, rcFilePath string) string {
@@ -810,7 +815,7 @@ func detectShell() string {
 			return "pwsh"
 		}
 		// 従来の powershell (Windows PowerShell 5.x)
-		return "powershell"
+		return shellPowerShell
 	}
 
 	// SHELL 環境変数から検出 (Linux/macOS)
@@ -840,14 +845,14 @@ func getPowerShellProfilePath(shell string) (string, error) {
 type commandOutputFunc func(command string, args ...string) ([]byte, error)
 
 func getPowerShellProfilePathWithOutput(shell string, commandOutput commandOutputFunc) (string, error) {
-	command := "powershell"
+	command := shellPowerShell
 	if shell == "pwsh" {
 		command = "pwsh"
 	}
 
 	// PowerShell の標準出力は環境によって文字コードが変わるため、パス文字列を Base64(UTF-8) で受け取ります。
 	// これにより、日本語を含むパスでも文字化けせず安全に復元できます。
-	psCommand := "[System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($PROFILE))"
+	psCommand := powerShellProfileBase64Command
 
 	output, err := commandOutput(command, "-NoProfile", "-NonInteractive", "-Command", psCommand)
 	if err != nil {

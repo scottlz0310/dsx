@@ -29,6 +29,7 @@ var rootCmd = &cobra.Command{
 システム更新:
   dsx sys update    パッケージマネージャで一括更新
   dsx sys list      利用可能なマネージャを一覧表示
+  dsx sys discover  インストール済み Go ツールを検出し go.targets 候補を表示
 
 リポジトリ管理:
   dsx repo update   管理下のリポジトリを更新
