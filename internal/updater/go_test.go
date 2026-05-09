@@ -438,16 +438,18 @@ func TestDiscoverGoBinariesInDir_MissingDir(t *testing.T) {
 func TestDiscoverGoBinaries_UsesGOBIN(t *testing.T) {
 	// t.Setenv は t.Parallel() と併用不可
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "tool"), []byte{}, 0o644))
+	// *~ ファイルはバックアップファイルとして go version -m を起動せずに Skipped 処理されるため、
+	// 外部プロセスを発生させずに GOBIN 優先を検証できる
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "tool~"), []byte{}, 0o644))
 	t.Setenv("GOBIN", dir)
 	t.Setenv("GOPATH", "")
 
-	// go version -m は実際には呼ばれるが、テスト環境ではバイナリが Go 製でないため Skipped に入る
 	result, err := DiscoverGoBinaries(context.Background())
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	// Detected + Skipped の合計が 1 (ファイル "tool" 1件のみ)
-	assert.Equal(t, 1, len(result.Detected)+len(result.Skipped))
+	assert.Len(t, result.Skipped, 1)
+	assert.Equal(t, "tool~", result.Skipped[0].Name)
+	assert.Equal(t, "バックアップファイル", result.Skipped[0].Reason)
 }
 
 func TestDiscoverInDir_ContextCanceled(t *testing.T) {
