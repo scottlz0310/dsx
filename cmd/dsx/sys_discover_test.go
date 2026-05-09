@@ -1,10 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"io"
-	"os"
 	"strings"
 	"testing"
 
@@ -131,8 +128,8 @@ func TestPrintGoDiscoverResult_NoneDetected(t *testing.T) {
 		printGoDiscoverResult(result)
 	})
 
-	if !strings.Contains(out, "検出されませんでした") {
-		t.Fatalf("出力に「検出されませんでした」が含まれていない: %q", out)
+	if !strings.Contains(out, "ありませんでした") {
+		t.Fatalf("出力に「ありませんでした」が含まれていない: %q", out)
 	}
 }
 
@@ -156,7 +153,7 @@ func TestPrintGoDiscoverResult_WithDetected(t *testing.T) {
 		printGoDiscoverResult(result)
 	})
 
-	if !strings.Contains(out, "検出された Go ツール:") {
+	if !strings.Contains(out, "[go] 検出されたバイナリ:") {
 		t.Fatalf("ヘッダーが出力に含まれていない: %q", out)
 	}
 
@@ -232,36 +229,10 @@ func TestPrintGoDiscoverResult_SkippedSectionOmittedWhenEmpty(t *testing.T) {
 func TestResolveDiscoverManagers_ErrorMessage(t *testing.T) {
 	t.Parallel()
 
-	// stderr のメッセージに未対応マネージャ名が含まれることを確認
-	oldStderr := os.Stderr
-
-	r, w, pipeErr := os.Pipe()
-	if pipeErr != nil {
-		t.Fatalf("os.Pipe() failed: %v", pipeErr)
-	}
-
-	os.Stderr = w
-
+	// エラーメッセージに未対応マネージャ名が含まれることを確認
 	_, err := resolveDiscoverManagers("brew")
-
-	if closeErr := w.Close(); closeErr != nil {
-		t.Logf("w.Close() 失敗（無視）: %v", closeErr)
-	}
-
-	os.Stderr = oldStderr
-
-	var buf bytes.Buffer
-	if _, copyErr := io.Copy(&buf, r); copyErr != nil {
-		t.Logf("stderr 読み取り失敗（無視）: %v", copyErr)
-	}
-
 	if err == nil {
 		t.Fatal("未対応マネージャでエラーが返らなかった")
-	}
-
-	stderrMsg := buf.String()
-	if !strings.Contains(stderrMsg, "brew") {
-		t.Fatalf("stderr にマネージャ名「brew」が含まれていない: %q", stderrMsg)
 	}
 
 	if !strings.Contains(err.Error(), "brew") {

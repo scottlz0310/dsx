@@ -39,7 +39,12 @@ func runSysDiscover(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	baseCtx := cmd.Context()
+	if baseCtx == nil {
+		baseCtx = context.Background()
+	}
+
+	ctx, cancel := context.WithCancel(baseCtx)
 	defer cancel()
 
 	sigCh := make(chan os.Signal, 1)
@@ -68,7 +73,6 @@ func resolveDiscoverManagers(manager string) ([]string, error) {
 	}
 
 	if !isSupportedDiscoverManager(manager) {
-		fmt.Fprintf(os.Stderr, "❌ 未対応のマネージャ: %s\n", manager)
 		return nil, fmt.Errorf("未対応のマネージャ: %s", manager)
 	}
 
@@ -111,26 +115,26 @@ func discoverGoManager(ctx context.Context) error {
 // printGoDiscoverResult は DiscoverResult を指定フォーマットで標準出力に表示します。
 func printGoDiscoverResult(result *updater.DiscoverResult) {
 	if len(result.Detected) == 0 {
-		fmt.Println("Go ツールは検出されませんでした。")
+		fmt.Println("[go] 検出されたバイナリはありませんでした。")
 	} else {
-		fmt.Println("検出された Go ツール:")
+		fmt.Println("[go] 検出されたバイナリ:")
 
 		for _, info := range result.Detected {
 			target := info.UpdateTarget()
 			if info.InstalledVersion != "" {
-				fmt.Printf("  - %-20s %s (インストール済み: %s)\n", info.BinaryName, target, info.InstalledVersion)
+				fmt.Printf("  %-20s %s (インストール済み: %s)\n", info.BinaryName, target, info.InstalledVersion)
 			} else {
-				fmt.Printf("  - %-20s %s\n", info.BinaryName, target)
+				fmt.Printf("  %-20s %s\n", info.BinaryName, target)
 			}
 		}
 	}
 
 	if len(result.Skipped) > 0 {
 		fmt.Println()
-		fmt.Println("スキップ:")
+		fmt.Println("[go] スキップ:")
 
 		for _, s := range result.Skipped {
-			fmt.Printf("  - %-20s %s\n", s.Name, s.Reason)
+			fmt.Printf("  %-20s %s\n", s.Name, s.Reason)
 		}
 	}
 
