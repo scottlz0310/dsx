@@ -249,8 +249,8 @@ func (p *PnpmUpdater) parseOutdatedJSON(output []byte) ([]PackageInfo, error) {
 		return []PackageInfo{}, nil
 	}
 
-	// pnpm v11 では stdout に [WARN] 等の診断行が混入するため、
-	// ブラケットタグで始まる行を除外して JSON 部分のみを抽出する。
+	// pnpm v11 では stdout に [WARN] / [ERR] / [ERROR] の診断行が混入するため、
+	// これらのタグで始まる行を除外して JSON 部分のみを抽出する。
 	var jsonLines []string
 	for _, line := range strings.Split(trimmed, "\n") {
 		t := strings.TrimSpace(line)
@@ -263,7 +263,7 @@ func (p *PnpmUpdater) parseOutdatedJSON(output []byte) ([]PackageInfo, error) {
 
 	jsonStr := strings.TrimSpace(strings.Join(jsonLines, "\n"))
 	if jsonStr == "" {
-		return nil, fmt.Errorf("JSON が見つかりません: %s", trimmed)
+		return nil, fmt.Errorf("JSON が見つかりません")
 	}
 
 	packages := p.parseOutdatedArrayJSON([]byte(jsonStr))
