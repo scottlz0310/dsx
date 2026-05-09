@@ -144,6 +144,8 @@ func TestGoUpdater_Update_DryRun(t *testing.T) {
 		require.NotNil(t, got)
 
 		assert.Contains(t, got.Message, "targets は未設定")
+		assert.Contains(t, got.Message, "dsx sys discover")
+		assert.Contains(t, got.Message, "go.targets")
 		assert.Empty(t, got.Packages)
 		assert.Equal(t, 0, got.UpdatedCount)
 	})
@@ -495,6 +497,7 @@ func TestGoUpdater_Check_EmptyTargets(t *testing.T) {
 			wantMsgParts: []string{
 				"targets は未設定",
 				"dsx sys discover",
+				"go.targets",
 			},
 			wantUpdates: 0,
 		},
