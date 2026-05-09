@@ -220,7 +220,7 @@ type GoBinaryInfo struct {
 	PackagePath      string // `path` 行 → go install に使う
 	ModulePath       string // `mod` 行フィールド2（モジュールルート）
 	InstalledVersion string // `mod` 行フィールド3
-	GoVersion        string
+	GoVersion        string // ParseGoBinaryInfo では設定しない（将来タスクで対応予定）
 }
 
 // UpdateTarget は go install に渡すパスを返す（PackagePath + "@latest"）。
@@ -261,6 +261,10 @@ func ParseGoBinaryInfo(binaryPath, output string) (*GoBinaryInfo, error) {
 
 	if !foundPath {
 		return nil, fmt.Errorf("go version -m の出力に path 行が見つかりませんでした: %s", binaryPath)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("go version -m 出力のスキャン中にエラーが発生しました: %w", err)
 	}
 
 	return info, nil
