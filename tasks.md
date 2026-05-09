@@ -57,6 +57,17 @@
 
 ---
 
+## Issue #47: dsx sys discover コマンド実装（PR #53、CI確認待ち）
+
+- [x] `cmd/dsx/sys_discover.go` 実装（`dsx sys discover` コマンド）
+- [x] `cmd/dsx/sys_discover_test.go` テスト追加（table-driven・境界値・エラー系）
+- [x] `task check` 通過
+- [x] PR #53 作成・Copilot レビュー 3 サイクル対応（計 8 スレッド全件 accept）
+- [x] CHANGELOG.md 更新
+- [ ] PR #53 マージ
+
+---
+
 ## Backlog / 改善候補
 
 ### `AutoStash` オプションの修正（設定が機能していないバグ）
