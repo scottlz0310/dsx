@@ -149,7 +149,7 @@ control:
 
 		_, err = Load()
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to read config file")
+		assert.Contains(t, err.Error(), "設定ファイルの読み込みに失敗")
 	})
 
 	t.Run("環境変数による設定の上書き", func(t *testing.T) {

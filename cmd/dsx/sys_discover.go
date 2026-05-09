@@ -279,8 +279,12 @@ func printGoApplyDryRun(toAdd []string, skippedCount int, configPath string, fil
 	}
 
 	fmt.Printf("  スキップ: %d 件（既存エントリと重複）\n", skippedCount)
-	fmt.Println()
-	fmt.Println("  ⚠️  注意: 既存 config.yaml 内のコメントは書き込み時に保持されません。")
+
+	if fileExists {
+		fmt.Println()
+		fmt.Println("  ⚠️  注意: 既存 config.yaml 内のコメントは書き込み時に保持されません。")
+	}
+
 	fmt.Println()
 	fmt.Println("実際に反映するには --dry-run を外して実行してください: dsx sys discover --apply")
 }

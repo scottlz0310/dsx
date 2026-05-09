@@ -489,11 +489,23 @@ func TestPrintGoApplyDryRun_ConfigNotExist(t *testing.T) {
 }
 
 func TestPrintGoApplyDryRun_CommentLossWarning(t *testing.T) {
+	// fileExists=true のとき警告が表示される
 	out := captureStdout(t, func() {
 		printGoApplyDryRun(nil, 0, "/home/user/.config/dsx/config.yaml", true)
 	})
 
 	if !strings.Contains(out, "コメントは書き込み時に保持されません") {
 		t.Fatalf("コメント喪失警告が含まれていない: %q", out)
+	}
+}
+
+func TestPrintGoApplyDryRun_CommentLossWarningOmittedWhenNewFile(t *testing.T) {
+	// fileExists=false（新規作成）のときは警告を表示しない
+	out := captureStdout(t, func() {
+		printGoApplyDryRun(nil, 0, "/home/user/.config/dsx/config.yaml", false)
+	})
+
+	if strings.Contains(out, "コメントは書き込み時に保持されません") {
+		t.Fatalf("新規作成なのにコメント喪失警告が表示されている: %q", out)
 	}
 }

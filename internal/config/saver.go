@@ -60,21 +60,25 @@ func SaveAtomic(cfg *Config, path string) (string, error) {
 		return "", fmt.Errorf("設定ディレクトリの作成に失敗: %w", mkdirErr)
 	}
 
-	// 既存ファイルのバックアップ
+	// マーシャルを先に行い、失敗時にバックアップが作成されないようにする
+	data, marshalErr := yaml.Marshal(cfg)
+	if marshalErr != nil {
+		return "", fmt.Errorf("設定のシリアライズに失敗: %w", marshalErr)
+	}
+
+	// 既存ファイルのバックアップ（マーシャル成功後に実施）
 	var backupPath string
-	if _, statErr := os.Stat(path); statErr == nil {
+	if info, statErr := os.Stat(path); statErr == nil {
+		if info.IsDir() {
+			return "", fmt.Errorf("設定ファイルのパスがディレクトリです: %s", path)
+		}
+
 		var backupErr error
 
 		backupPath, backupErr = backupFile(path)
 		if backupErr != nil {
 			return "", fmt.Errorf("バックアップの作成に失敗: %w", backupErr)
 		}
-	}
-
-	// YAMLへのマーシャル
-	data, marshalErr := yaml.Marshal(cfg)
-	if marshalErr != nil {
-		return backupPath, fmt.Errorf("設定のシリアライズに失敗: %w", marshalErr)
 	}
 
 	// アトミック書き込み
