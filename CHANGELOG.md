@@ -6,6 +6,16 @@
 
 ## [Unreleased]
 
+### Added
+
+- `GoBinaryInfo` 構造体を `internal/updater` に追加（`BinaryPath`・`BinaryName`・`PackagePath`・`ModulePath`・`InstalledVersion`・`GoVersion` の 6 フィールド）
+- `ParseGoBinaryInfo(binaryPath, output string)` を実装し、`go version -m` 出力の `path` 行と `mod` 行を個別フィールドに分離して解析
+- `UpdateTarget()` メソッドをポインタレシーバで実装（nil ガード付き）
+
+### Changed
+
+- `ParseGoVersionOutput` を廃止。`path` 行と `mod` 行を同一フィールドに混在させるバグを根本解消
+
 ## [v0.2.5] - 2026-04-07
 
 ### Fixed

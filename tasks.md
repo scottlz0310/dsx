@@ -33,6 +33,17 @@
 
 ---
 
+## Issue #45: GoBinaryInfo構造体定義・ParseGoBinaryInfo実装（完了）
+
+- [x] `GoBinaryInfo` 構造体定義（6フィールド）
+- [x] `ParseGoBinaryInfo(binaryPath, output)` 実装（path行・mod行の分離、scanner.Err()チェック）
+- [x] `UpdateTarget()` メソッド実装（ポインタレシーバ、nilガード付き）
+- [x] `ParseGoVersionOutput` 削除
+- [x] テスト追加（table-driven、境界値・nilガード含む）
+- [x] PR #49 マージ → main
+
+---
+
 ## Backlog / 改善候補
 
 ### `AutoStash` オプションの修正（設定が機能していないバグ）
