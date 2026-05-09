@@ -78,6 +78,23 @@
 
 ---
 
+## Issue #56: dsx sys discover --apply / --dry-run 実装
+
+- [x] `--dry-run` 単独指定時のエラー処理（`--apply` 必須）
+- [x] `--apply` フラグ追加（`cmd/dsx/sys_discover.go`）
+- [x] `--apply --dry-run` フラグ追加（変更プレビュー表示）
+- [x] 重複排除マージロジック実装（`mergeGoTargets`）
+- [x] パッケージパス正規化（`packagePathFrom`、`strings.LastIndex` 使用）
+- [x] 既存 pinned バージョンは変更しない設計（PackagePath ベースで重複判定）
+- [x] `config.SaveAtomic()` 実装（バックアップ + atomic write）
+- [x] dry-run 時のコメント喪失警告・新規作成予告メッセージ
+- [x] テスト追加（`TestPackagePathFrom`・`TestMergeGoTargets`・`TestPrintGoApplyDryRun_*`・`TestSaveAtomic`）
+- [x] `task check` 通過（fmt/vet/test/lint）
+- [x] `CHANGELOG.md` 更新
+- [ ] PR 作成・マージ（close #56）
+
+---
+
 ## Backlog / 改善候補
 
 ### `AutoStash` オプションの修正（設定が機能していないバグ）

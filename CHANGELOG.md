@@ -6,6 +6,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- `dsx sys discover --apply` フラグを追加。検出した Go バイナリを `config.yaml` の `go.targets` へ自動書き込みする機能を実装
+- `dsx sys discover --apply --dry-run` フラグを追加。書き込みは行わず変更内容をプレビュー表示する機能を実装
+- `config.SaveAtomic()` を追加。既存 config.yaml のタイムスタンプ付きバックアップを作成した上でアトミックに書き込む
+- `--dry-run` 単独指定時のエラー処理を追加（`--apply` との組み合わせが必要）
+- `--apply` 時、`config.yaml` 未存在の場合は新規作成する
+
 ## [v0.3.0] - 2026-05-09
 
 ### Added

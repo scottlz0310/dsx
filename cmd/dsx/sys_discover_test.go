@@ -168,10 +168,6 @@ func TestPrintGoDiscoverResult_WithDetected(t *testing.T) {
 	if !strings.Contains(out, "@latest") {
 		t.Fatalf("@latest が出力に含まれていない: %q", out)
 	}
-
-	if !strings.Contains(out, "go.targets") {
-		t.Fatalf("ヒントメッセージが出力に含まれていない: %q", out)
-	}
 }
 
 func TestPrintGoDiscoverResult_WithSkipped(t *testing.T) {
@@ -243,7 +239,7 @@ func TestResolveDiscoverManagers_ErrorMessage(t *testing.T) {
 func TestDiscoverManager_UnsupportedManagerReturnsError(t *testing.T) {
 	t.Parallel()
 
-	err := discoverManager(context.Background(), "apt")
+	err := discoverManager(context.Background(), "apt", false, false)
 	if err == nil {
 		t.Fatal("未対応マネージャでエラーが返らなかった")
 	}
@@ -276,5 +272,218 @@ func TestPrintGoDiscoverResult_InstalledVersionEmpty(t *testing.T) {
 
 	if !strings.Contains(out, "github.com/foo/mytool@latest") {
 		t.Fatalf("UpdateTarget の出力 %q が含まれていない: %q", "github.com/foo/mytool@latest", out)
+	}
+}
+
+func TestPackagePathFrom(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "@latest あり",
+			input: "golang.org/x/tools/gopls@latest",
+			want:  "golang.org/x/tools/gopls",
+		},
+		{
+			name:  "@バージョン固定あり",
+			input: "golang.org/x/tools/gopls@v0.16.0",
+			want:  "golang.org/x/tools/gopls",
+		},
+		{
+			name:  "@ なし",
+			input: "golang.org/x/tools/gopls",
+			want:  "golang.org/x/tools/gopls",
+		},
+		{
+			name:  "空文字列",
+			input: "",
+			want:  "",
+		},
+		{
+			name:  "@ のみ",
+			input: "@latest",
+			want:  "",
+		},
+		{
+			name:  "複数 @ は最後の @ で分割",
+			input: "example.com/user@host/pkg@v1.0.0",
+			want:  "example.com/user@host/pkg",
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := packagePathFrom(tc.input)
+			if got != tc.want {
+				t.Fatalf("packagePathFrom(%q) = %q, want %q", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestMergeGoTargets(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		existing    []string
+		detected    []updater.GoBinaryInfo
+		wantToAdd   []string
+		wantSkipped int
+	}{
+		{
+			name:        "既存なし・検出なし",
+			existing:    nil,
+			detected:    nil,
+			wantToAdd:   nil,
+			wantSkipped: 0,
+		},
+		{
+			name:     "既存なし・検出あり",
+			existing: nil,
+			detected: []updater.GoBinaryInfo{
+				{PackagePath: "golang.org/x/tools/gopls"},
+				{PackagePath: "github.com/go-delve/delve/cmd/dlv"},
+			},
+			wantToAdd:   []string{"golang.org/x/tools/gopls@latest", "github.com/go-delve/delve/cmd/dlv@latest"},
+			wantSkipped: 0,
+		},
+		{
+			name:     "既存あり・重複なし",
+			existing: []string{"github.com/fatih/gomodifytags@latest"},
+			detected: []updater.GoBinaryInfo{
+				{PackagePath: "golang.org/x/tools/gopls"},
+			},
+			wantToAdd:   []string{"golang.org/x/tools/gopls@latest"},
+			wantSkipped: 0,
+		},
+		{
+			name:     "既存あり・全重複",
+			existing: []string{"golang.org/x/tools/gopls@latest"},
+			detected: []updater.GoBinaryInfo{
+				{PackagePath: "golang.org/x/tools/gopls"},
+			},
+			wantToAdd:   nil,
+			wantSkipped: 1,
+		},
+		{
+			name:     "既存が固定バージョン・検出は @latest → 重複として skip",
+			existing: []string{"golang.org/x/tools/gopls@v0.16.0"},
+			detected: []updater.GoBinaryInfo{
+				{PackagePath: "golang.org/x/tools/gopls"},
+			},
+			wantToAdd:   nil,
+			wantSkipped: 1,
+		},
+		{
+			name:     "部分重複",
+			existing: []string{"golang.org/x/tools/gopls@latest"},
+			detected: []updater.GoBinaryInfo{
+				{PackagePath: "golang.org/x/tools/gopls"},
+				{PackagePath: "github.com/go-delve/delve/cmd/dlv"},
+			},
+			wantToAdd:   []string{"github.com/go-delve/delve/cmd/dlv@latest"},
+			wantSkipped: 1,
+		},
+		{
+			name:     "PackagePath 空の検出はスキップ",
+			existing: nil,
+			detected: []updater.GoBinaryInfo{
+				{PackagePath: ""},
+			},
+			wantToAdd:   nil,
+			wantSkipped: 0,
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			gotToAdd, gotSkipped := mergeGoTargets(tc.existing, tc.detected)
+
+			if gotSkipped != tc.wantSkipped {
+				t.Fatalf("skippedCount = %d, want %d", gotSkipped, tc.wantSkipped)
+			}
+
+			if len(gotToAdd) != len(tc.wantToAdd) {
+				t.Fatalf("toAdd len = %d, want %d (got=%v, want=%v)", len(gotToAdd), len(tc.wantToAdd), gotToAdd, tc.wantToAdd)
+			}
+
+			for i := range gotToAdd {
+				if gotToAdd[i] != tc.wantToAdd[i] {
+					t.Fatalf("toAdd[%d] = %q, want %q", i, gotToAdd[i], tc.wantToAdd[i])
+				}
+			}
+		})
+	}
+}
+
+func TestPrintGoApplyDryRun_NoAdditions(t *testing.T) {
+	out := captureStdout(t, func() {
+		printGoApplyDryRun(nil, 2, "/home/user/.config/dsx/config.yaml", true)
+	})
+
+	if !strings.Contains(out, "[dry-run]") {
+		t.Fatalf("[dry-run] ラベルが含まれていない: %q", out)
+	}
+
+	if !strings.Contains(out, "追加対象なし") {
+		t.Fatalf("「追加対象なし」が含まれていない: %q", out)
+	}
+
+	if !strings.Contains(out, "スキップ: 2 件") {
+		t.Fatalf("スキップ件数が含まれていない: %q", out)
+	}
+}
+
+func TestPrintGoApplyDryRun_WithAdditions(t *testing.T) {
+	toAdd := []string{
+		"golang.org/x/tools/gopls@latest",
+		"github.com/go-delve/delve/cmd/dlv@latest",
+	}
+
+	out := captureStdout(t, func() {
+		printGoApplyDryRun(toAdd, 1, "/home/user/.config/dsx/config.yaml", true)
+	})
+
+	if !strings.Contains(out, "+ golang.org/x/tools/gopls@latest") {
+		t.Fatalf("追加エントリが含まれていない: %q", out)
+	}
+
+	if !strings.Contains(out, "+ github.com/go-delve/delve/cmd/dlv@latest") {
+		t.Fatalf("追加エントリが含まれていない: %q", out)
+	}
+
+	if !strings.Contains(out, "スキップ: 1 件") {
+		t.Fatalf("スキップ件数が含まれていない: %q", out)
+	}
+}
+
+func TestPrintGoApplyDryRun_ConfigNotExist(t *testing.T) {
+	out := captureStdout(t, func() {
+		printGoApplyDryRun([]string{"golang.org/x/tools/gopls@latest"}, 0, "/home/user/.config/dsx/config.yaml", false)
+	})
+
+	if !strings.Contains(out, "新規作成") {
+		t.Fatalf("新規作成メッセージが含まれていない: %q", out)
+	}
+}
+
+func TestPrintGoApplyDryRun_CommentLossWarning(t *testing.T) {
+	out := captureStdout(t, func() {
+		printGoApplyDryRun(nil, 0, "/home/user/.config/dsx/config.yaml", true)
+	})
+
+	if !strings.Contains(out, "コメントは書き込み時に保持されません") {
+		t.Fatalf("コメント喪失警告が含まれていない: %q", out)
 	}
 }

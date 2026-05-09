@@ -183,3 +183,79 @@ func TestSave(t *testing.T) {
 		assert.Equal(t, cfg.Secrets.Enabled, loaded.Secrets.Enabled)
 	})
 }
+
+func TestSaveAtomic(t *testing.T) {
+	t.Run("正常系: 既存ファイルなしで新規作成", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		path := filepath.Join(tmpDir, "config.yaml")
+
+		cfg := Default()
+		backupPath, err := SaveAtomic(cfg, path)
+		require.NoError(t, err)
+
+		assert.Empty(t, backupPath, "既存ファイルがない場合バックアップパスは空のはず")
+
+		_, err = os.Stat(path)
+		assert.NoError(t, err, "設定ファイルが作成されていない")
+	})
+
+	t.Run("正常系: 既存ファイルありでバックアップが作成される", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		path := filepath.Join(tmpDir, "config.yaml")
+
+		// 初回保存
+		cfg := Default()
+		_, err := SaveAtomic(cfg, path)
+		require.NoError(t, err)
+
+		// 2回目保存 → バックアップが作成される
+		backupPath, err := SaveAtomic(cfg, path)
+		require.NoError(t, err)
+
+		assert.NotEmpty(t, backupPath, "バックアップパスが返されていない")
+
+		_, err = os.Stat(backupPath)
+		assert.NoError(t, err, "バックアップファイルが存在しない")
+
+		assert.Contains(t, backupPath, ".bak.", "バックアップパスに .bak. が含まれていない")
+	})
+
+	t.Run("正常系: 保存後にデータが正しく読み込める", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		path := filepath.Join(tmpDir, "config.yaml")
+
+		cfg := &Config{
+			Version: 1,
+			Sys: SysConfig{
+				Enable: []string{"go"},
+				Managers: map[string]ManagerConfig{
+					"go": {"targets": []string{"golang.org/x/tools/gopls@latest"}},
+				},
+			},
+		}
+
+		_, err := SaveAtomic(cfg, path)
+		require.NoError(t, err)
+
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+
+		var loaded Config
+		require.NoError(t, yaml.Unmarshal(data, &loaded))
+
+		assert.Equal(t, 1, loaded.Version)
+		assert.Equal(t, []string{"go"}, loaded.Sys.Enable)
+	})
+
+	t.Run("正常系: .tmp ファイルが残っていない", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		path := filepath.Join(tmpDir, "config.yaml")
+
+		cfg := Default()
+		_, err := SaveAtomic(cfg, path)
+		require.NoError(t, err)
+
+		_, err = os.Stat(path + ".tmp")
+		assert.True(t, os.IsNotExist(err), ".tmp ファイルが残っている")
+	})
+}
