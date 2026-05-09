@@ -211,6 +211,11 @@ func TestGoBinaryInfo_UpdateTarget(t *testing.T) {
 			info:     &GoBinaryInfo{PackagePath: ""},
 			expected: "",
 		},
+		{
+			name:     "nilレシーバ",
+			info:     nil,
+			expected: "",
+		},
 	}
 
 	for _, tt := range tests {

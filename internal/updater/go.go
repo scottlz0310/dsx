@@ -225,8 +225,9 @@ type GoBinaryInfo struct {
 
 // UpdateTarget は go install に渡すパスを返す（PackagePath + "@latest"）。
 // フィールドではなくメソッドにすることで PackagePath との不整合を防ぐ。
+// レシーバが nil の場合は空文字を返す。
 func (i *GoBinaryInfo) UpdateTarget() string {
-	if i.PackagePath == "" {
+	if i == nil || i.PackagePath == "" {
 		return ""
 	}
 
