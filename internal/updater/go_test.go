@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 
 	"github.com/scottlz0310/dsx/internal/config"
@@ -196,52 +195,99 @@ func TestListInstalledGoTools(t *testing.T) {
 	})
 }
 
-func TestParseGoVersionOutput(t *testing.T) {
+func TestGoBinaryInfo_UpdateTarget(t *testing.T) {
 	tests := []struct {
-		name            string
-		output          string
-		expectedModule  string
-		expectedVersion string
+		name     string
+		info     *GoBinaryInfo
+		expected string
 	}{
 		{
-			name:           "path行のみ",
-			output:         "go version go1.25.6 windows/amd64\npath\tgithub.com/example/tool\n",
-			expectedModule: "github.com/example/tool",
+			name:     "PackagePathあり",
+			info:     &GoBinaryInfo{PackagePath: "github.com/foo/bar"},
+			expected: "github.com/foo/bar@latest",
 		},
 		{
-			name:            "mod行を優先",
-			output:          "path\tgithub.com/example/tool\nmod\tgithub.com/example/tool\tv1.2.3\th1:dummy\n",
-			expectedModule:  "github.com/example/tool",
-			expectedVersion: "v1.2.3",
+			name:     "PackagePathが空",
+			info:     &GoBinaryInfo{PackagePath: ""},
+			expected: "",
 		},
 		{
-			name:   "該当なし",
-			output: "go version go1.25.6 windows/amd64\n",
-		},
-		{
-			name:           "余分な空白を含む",
-			output:         "   path    github.com/example/tool   \n",
-			expectedModule: "github.com/example/tool",
+			name:     "nilレシーバ",
+			info:     nil,
+			expected: "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			modulePath, version := ParseGoVersionOutput(tt.output)
-			assert.Equal(t, tt.expectedModule, modulePath)
-			assert.Equal(t, tt.expectedVersion, version)
+			assert.Equal(t, tt.expected, tt.info.UpdateTarget())
 		})
 	}
+}
 
-	t.Run("複数行のmodとpathが混在してもパースできる", func(t *testing.T) {
-		output := strings.Join([]string{
-			"go version -m dummy",
-			"path github.com/example/tool",
-			"mod github.com/example/tool v9.9.9 h1:dummy",
-		}, "\n")
+func TestParseGoBinaryInfo(t *testing.T) {
+	tests := []struct {
+		name            string
+		binaryPath      string
+		output          string
+		wantPackagePath string
+		wantModulePath  string
+		wantVersion     string
+		wantBinaryName  string
+		wantErr         bool
+	}{
+		{
+			name:            "path行のみ",
+			binaryPath:      "/usr/local/bin/bar",
+			output:          "path github.com/foo/bar\n",
+			wantPackagePath: "github.com/foo/bar",
+			wantBinaryName:  "bar",
+		},
+		{
+			name:            "mod行あり",
+			binaryPath:      "/usr/local/bin/bar",
+			output:          "path github.com/foo/bar\nmod github.com/foo v1.2.3 h1:dummy\n",
+			wantPackagePath: "github.com/foo/bar",
+			wantModulePath:  "github.com/foo",
+			wantVersion:     "v1.2.3",
+			wantBinaryName:  "bar",
+		},
+		{
+			name:       "path行なし",
+			binaryPath: "/usr/local/bin/bar",
+			output:     "mod github.com/foo v1.2.3 h1:dummy\n",
+			wantErr:    true,
+		},
+		{
+			name:       "空出力",
+			binaryPath: "/usr/local/bin/bar",
+			output:     "",
+			wantErr:    true,
+		},
+		{
+			name:       "改行のみ",
+			binaryPath: "/usr/local/bin/bar",
+			output:     "\n\n",
+			wantErr:    true,
+		},
+	}
 
-		modulePath, version := ParseGoVersionOutput(output)
-		assert.Equal(t, "github.com/example/tool", modulePath)
-		assert.Equal(t, "v9.9.9", version)
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseGoBinaryInfo(tt.binaryPath, tt.output)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Nil(t, got)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, got)
+			assert.Equal(t, tt.binaryPath, got.BinaryPath)
+			assert.Equal(t, tt.wantBinaryName, got.BinaryName)
+			assert.Equal(t, tt.wantPackagePath, got.PackagePath)
+			assert.Equal(t, tt.wantModulePath, got.ModulePath)
+			assert.Equal(t, tt.wantVersion, got.InstalledVersion)
+		})
+	}
 }

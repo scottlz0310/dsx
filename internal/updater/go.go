@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/scottlz0310/dsx/internal/config"
@@ -212,26 +213,60 @@ func ListInstalledGoTools() ([]string, error) {
 	return tools, nil
 }
 
-// ParseGoVersionOutput は "go version -m <binary>" の出力からモジュールパスを取得します。
-func ParseGoVersionOutput(output string) (modulePath, version string) {
+// GoBinaryInfo は "go version -m <binary>" の出力から取得したバイナリ情報を保持します。
+type GoBinaryInfo struct {
+	BinaryPath       string // バイナリの絶対パス
+	BinaryName       string // filepath.Base(BinaryPath)、.exe を含む（trim しない）
+	PackagePath      string // `path` 行 → go install に使う
+	ModulePath       string // `mod` 行フィールド2（モジュールルート）
+	InstalledVersion string // `mod` 行フィールド3
+	GoVersion        string // ParseGoBinaryInfo では設定しない（将来タスクで対応予定）
+}
+
+// UpdateTarget は go install に渡すパスを返す（PackagePath + "@latest"）。
+// フィールドではなくメソッドにすることで PackagePath との不整合を防ぐ。
+// レシーバが nil の場合は空文字を返す。
+func (i *GoBinaryInfo) UpdateTarget() string {
+	if i == nil || i.PackagePath == "" {
+		return ""
+	}
+
+	return i.PackagePath + "@latest"
+}
+
+// ParseGoBinaryInfo は "go version -m <binary>" の出力を解析し、GoBinaryInfo を返します。
+// path 行が存在しない場合は nil と error を返します。
+func ParseGoBinaryInfo(binaryPath, output string) (*GoBinaryInfo, error) {
+	info := &GoBinaryInfo{
+		BinaryPath: binaryPath,
+		BinaryName: filepath.Base(binaryPath),
+	}
+
+	foundPath := false
 	scanner := bufio.NewScanner(strings.NewReader(output))
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, "path") {
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				modulePath = parts[1]
-			}
+		fields := strings.Fields(line)
+
+		if len(fields) >= 2 && fields[0] == "path" {
+			info.PackagePath = fields[1]
+			foundPath = true
 		}
 
-		if strings.HasPrefix(line, "mod") {
-			parts := strings.Fields(line)
-			if len(parts) >= 3 {
-				modulePath = parts[1]
-				version = parts[2]
-			}
+		if len(fields) >= 3 && fields[0] == "mod" {
+			info.ModulePath = fields[1]
+			info.InstalledVersion = fields[2]
 		}
 	}
 
-	return
+	if !foundPath {
+		return nil, fmt.Errorf("go version -m の出力に path 行が見つかりませんでした: %s", binaryPath)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("go version -m 出力のスキャン中にエラーが発生しました: %w", err)
+	}
+
+	return info, nil
 }
