@@ -401,10 +401,12 @@ func TestDiscoverGoBinariesInDir(t *testing.T) {
 				assert.Empty(t, result.Detected)
 			} else {
 				require.Len(t, result.Detected, len(tt.wantDetected))
+
 				names := make([]string, len(result.Detected))
 				for i, d := range result.Detected {
 					names[i] = d.BinaryName
 				}
+
 				assert.ElementsMatch(t, tt.wantDetected, names)
 			}
 
@@ -413,10 +415,12 @@ func TestDiscoverGoBinariesInDir(t *testing.T) {
 				assert.Empty(t, result.Skipped)
 			} else {
 				require.Len(t, result.Skipped, len(tt.wantSkipped))
+
 				names := make([]string, len(result.Skipped))
 				for i, s := range result.Skipped {
 					names[i] = s.Name
 				}
+
 				assert.ElementsMatch(t, tt.wantSkipped, names)
 			}
 		})
