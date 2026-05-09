@@ -95,6 +95,16 @@
 
 ---
 
+## pnpm v11 対応: parseOutdatedJSON が WARNING 行で失敗する問題の修正
+
+- [x] `internal/updater/pnpm.go` の `parseOutdatedJSON` で `[WARN]`/`[ERR]`/`[ERROR]` 行をフィルタリングしてから JSON 抽出するよう修正
+- [x] `internal/updater/pnpm_test.go` に `[WARN]` 混入ケースおよび JSON なし出力のテストケースを追加
+- [x] `task check` 通過（全テストパス）
+- [x] `CHANGELOG.md` 更新
+- [ ] PR 作成・マージ
+
+---
+
 ## Backlog / 改善候補
 
 ### `AutoStash` オプションの修正（設定が機能していないバグ）
@@ -128,6 +138,19 @@ pull がスキップされ `git pull --rebase --autostash` が一切実行され
 - [x] `printRepoUpdateSummary()` に「pull スキップ: N 件」行と一覧を追加
 
 対象: `cmd/dsx/repo.go`
+
+---
+
+## v0.4.0 リリース準備（完了）
+
+- [x] `task check` 通過確認（fmt/vet/test/lint）
+- [x] バージョン: v0.4.0（マイナーバージョンアップ）
+- [x] CHANGELOG.md: [Unreleased] → [v0.4.0] - 2026-05-09
+- [x] PR 作成・マージ（[#58](https://github.com/scottlz0310/dsx/pull/58)）
+- [x] `release/v0.4.0` ブランチ削除（ローカル + リモート参照プルーン）
+- [x] `v0.4.0` タグ発行・push → goreleaser が GitHub Release を自動作成
+- [x] GitHub Release ページを見やすく編集
+- [x] Issue #56 クローズ済み（PR #57 マージ時に自動クローズ）
 
 ---
 

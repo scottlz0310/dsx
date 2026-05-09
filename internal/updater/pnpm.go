@@ -249,12 +249,29 @@ func (p *PnpmUpdater) parseOutdatedJSON(output []byte) ([]PackageInfo, error) {
 		return []PackageInfo{}, nil
 	}
 
-	packages := p.parseOutdatedArrayJSON([]byte(trimmed))
+	// pnpm v11 では stdout に [WARN] / [ERR] / [ERROR] の診断行が混入するため、
+	// これらのタグで始まる行を除外して JSON 部分のみを抽出する。
+	var jsonLines []string
+	for _, line := range strings.Split(trimmed, "\n") {
+		t := strings.TrimSpace(line)
+		if strings.HasPrefix(t, "[WARN]") || strings.HasPrefix(t, "[ERR]") || strings.HasPrefix(t, "[ERROR]") {
+			continue
+		}
+
+		jsonLines = append(jsonLines, line)
+	}
+
+	jsonStr := strings.TrimSpace(strings.Join(jsonLines, "\n"))
+	if jsonStr == "" {
+		return nil, fmt.Errorf("JSON が見つかりません")
+	}
+
+	packages := p.parseOutdatedArrayJSON([]byte(jsonStr))
 	if packages != nil {
 		return packages, nil
 	}
 
-	return p.parseOutdatedMapJSON([]byte(trimmed))
+	return p.parseOutdatedMapJSON([]byte(jsonStr))
 }
 
 func (p *PnpmUpdater) parseOutdatedArrayJSON(output []byte) []PackageInfo {

@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- pnpm v11 で `pnpm outdated -g --format json` の stdout に `[WARN]` 診断行が混入し JSON パースが失敗する問題を修正（`parseOutdatedJSON` でブラケットタグ行を除外してから JSON を抽出するよう変更）
+
 ## [v0.4.0] - 2026-05-09
 
 ### Added

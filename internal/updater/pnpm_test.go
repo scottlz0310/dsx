@@ -138,6 +138,24 @@ func TestPnpmUpdater_parseOutdatedJSON(t *testing.T) {
 ]`),
 			want: map[string]PackageInfo{},
 		},
+		{
+			name: "pnpm v11 の [WARN] 行が JSON の前に混入しても解析できる",
+			output: []byte("[WARN] Using --global skips the package manager check for this project\n" +
+				`{"eslint": {"current":"8.0.0","latest":"9.0.0"}}`),
+			want: map[string]PackageInfo{
+				"eslint": {
+					Name:           "eslint",
+					CurrentVersion: "8.0.0",
+					NewVersion:     "9.0.0",
+				},
+			},
+		},
+		{
+			name:        "JSON が存在しない出力はエラー",
+			output:      []byte("[WARN] something went wrong"),
+			expectErr:   true,
+			errContains: "JSON が見つかりません",
+		},
 	}
 
 	for _, tt := range tests {
