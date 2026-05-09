@@ -29,9 +29,6 @@ const (
 	shellPowerShell                = "powershell"
 	shellZsh                       = "zsh"
 	shellBash                      = "bash"
-	repoProtocolHTTPS              = "https"
-	cleanupTargetMerged            = "merged"
-	cleanupTargetSquashed          = "squashed"
 	shellSourceKeyword             = "source"
 	powerShellProfileBase64Command = "[System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($PROFILE))"
 )
@@ -338,7 +335,7 @@ func buildConfigFromInitAnswers(answers configInitAnswers) *config.Config {
 			Root: answers.RepoRoot,
 			GitHub: config.GitHubConfig{
 				Owner:    answers.GithubOwner,
-				Protocol: repoProtocolHTTPS,
+				Protocol: config.RepoGitHubProtocolHTTPS,
 			},
 			Sync: config.RepoSyncConfig{
 				AutoStash:       true,
@@ -347,7 +344,7 @@ func buildConfigFromInitAnswers(answers configInitAnswers) *config.Config {
 			},
 			Cleanup: config.RepoCleanupConfig{
 				Enabled:         true,
-				Target:          []string{cleanupTargetMerged, cleanupTargetSquashed},
+				Target:          []string{config.RepoCleanupTargetMerged, config.RepoCleanupTargetSquashed},
 				ExcludeBranches: []string{"main", "master", "develop"},
 			},
 		},

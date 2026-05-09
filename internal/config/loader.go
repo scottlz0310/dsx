@@ -97,7 +97,7 @@ func Default() *Config {
 		Repo: RepoConfig{
 			Root: defaultRoot,
 			GitHub: GitHubConfig{
-				Protocol: repoGitHubProtocolHTTPS,
+				Protocol: RepoGitHubProtocolHTTPS,
 			},
 			Sync: RepoSyncConfig{
 				AutoStash:       true,
@@ -106,7 +106,7 @@ func Default() *Config {
 			},
 			Cleanup: RepoCleanupConfig{
 				Enabled:         true,
-				Target:          []string{repoCleanupTargetMerged, repoCleanupTargetSquashed},
+				Target:          []string{RepoCleanupTargetMerged, RepoCleanupTargetSquashed},
 				ExcludeBranches: []string{"main", "master", "develop"},
 			},
 		},
@@ -145,12 +145,12 @@ func setDefaults(v *viper.Viper) {
 
 	v.SetDefault("repo.root", defaultRoot)
 	v.SetDefault("repo.github.owner", "")
-	v.SetDefault("repo.github.protocol", repoGitHubProtocolHTTPS)
+	v.SetDefault("repo.github.protocol", RepoGitHubProtocolHTTPS)
 	v.SetDefault("repo.sync.auto_stash", true)
 	v.SetDefault("repo.sync.prune", true)
 	v.SetDefault("repo.sync.submodule_update", true)
 	v.SetDefault("repo.cleanup.enabled", true)
-	v.SetDefault("repo.cleanup.target", []string{repoCleanupTargetMerged, repoCleanupTargetSquashed})
+	v.SetDefault("repo.cleanup.target", []string{RepoCleanupTargetMerged, RepoCleanupTargetSquashed})
 	v.SetDefault("repo.cleanup.exclude_branches", []string{"main", "master", "develop"})
 
 	// Sys defaults (managers are enabled per environment usually, but defaults can be empty)

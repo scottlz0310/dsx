@@ -157,8 +157,8 @@ func validateRepo(result *ValidationResult, cfg *Config) {
 	}
 
 	allowedTargets := map[string]struct{}{
-		repoCleanupTargetMerged:   {},
-		repoCleanupTargetSquashed: {},
+		RepoCleanupTargetMerged:   {},
+		RepoCleanupTargetSquashed: {},
 	}
 
 	for _, target := range cfg.Repo.Cleanup.Target {

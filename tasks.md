@@ -121,4 +121,5 @@ pull がスキップされ `git pull --rebase --autostash` が一切実行され
 - [x] CHANGELOG.md: [Unreleased] → [v0.3.0] - 2026-05-09
 - [x] README.md: dsx sys discover 追加・バージョン更新
 - [x] root.go Long description: dsx sys discover 追記
-- [x] PR 作成・マージ
+- [x] PR 作成（[#55](https://github.com/scottlz0310/dsx/pull/55)）
+- [ ] マージ（PR #55 マージ後にチェック）
