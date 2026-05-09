@@ -109,7 +109,7 @@ func backupFile(path string) (string, error) {
 	timestamp := time.Now().Format("20060102-150405.000000000")
 	backupPath := path + ".bak." + timestamp
 
-	if err := os.WriteFile(backupPath, data, 0o644); err != nil { //nolint:gosec // G306: path + suffix で安全
+	if err := os.WriteFile(backupPath, data, 0o644); err != nil {
 		return "", fmt.Errorf("バックアップファイルの書き込みに失敗: %w", err)
 	}
 

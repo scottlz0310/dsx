@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/scottlz0310/dsx/internal/updater"
+	"github.com/spf13/cobra"
 )
 
 func TestIsSupportedDiscoverManager(t *testing.T) {
@@ -508,4 +509,47 @@ func TestPrintGoApplyDryRun_CommentLossWarningOmittedWhenNewFile(t *testing.T) {
 	if strings.Contains(out, "コメントは書き込み時に保持されません") {
 		t.Fatalf("新規作成なのにコメント喪失警告が表示されている: %q", out)
 	}
+}
+
+func TestRunSysDiscover_DryRunFlag(t *testing.T) {
+	t.Run("--dry-run 単独はエラー", func(t *testing.T) {
+		prev, prevApply := sysDiscoverDryRun, sysDiscoverApply
+		defer func() { sysDiscoverDryRun, sysDiscoverApply = prev, prevApply }()
+
+		sysDiscoverDryRun = true
+		sysDiscoverApply = false
+
+		cmd := &cobra.Command{}
+
+		err := runSysDiscover(cmd, nil)
+		if err == nil {
+			t.Fatal("--dry-run 単独でエラーが返らなかった")
+		}
+
+		if !strings.Contains(err.Error(), "--dry-run は --apply と組み合わせて使用してください") {
+			t.Fatalf("エラーメッセージが期待値と異なる: %q", err.Error())
+		}
+	})
+
+	t.Run("--apply --dry-run は dry-run 単独エラーにならない", func(t *testing.T) {
+		prev, prevApply, prevMgr := sysDiscoverDryRun, sysDiscoverApply, sysDiscoverManager
+		defer func() {
+			sysDiscoverDryRun, sysDiscoverApply, sysDiscoverManager = prev, prevApply, prevMgr
+		}()
+
+		sysDiscoverDryRun = true
+		sysDiscoverApply = true
+		sysDiscoverManager = "invalid_test_manager"
+
+		cmd := &cobra.Command{}
+
+		err := runSysDiscover(cmd, nil)
+		if err == nil {
+			t.Fatal("未対応マネージャでエラーが返らなかった")
+		}
+
+		if strings.Contains(err.Error(), "--dry-run は --apply と組み合わせて使用してください") {
+			t.Fatalf("--apply --dry-run で dry-run 単独エラーが返された: %q", err.Error())
+		}
+	})
 }
