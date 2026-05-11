@@ -198,6 +198,16 @@ type latestModuleResult struct {
 }
 
 func (g *GoUpdater) planGoTargets(ctx context.Context, currentVersion string) (*goUpdatePlan, error) {
+	targets := make([]parsedGoTarget, 0, len(g.targets))
+	for _, rawTarget := range g.targets {
+		target, err := parseGoTarget(rawTarget)
+		if err != nil {
+			return nil, err
+		}
+
+		targets = append(targets, target)
+	}
+
 	discovered, discoveryWarning, err := g.discoverInstalledGoBinaries(ctx)
 	if err != nil {
 		return nil, err
@@ -207,8 +217,8 @@ func (g *GoUpdater) planGoTargets(ctx context.Context, currentVersion string) (*
 	latestCache := make(map[string]latestModuleResult)
 	plan := &goUpdatePlan{DiscoveryWarning: discoveryWarning}
 
-	for _, rawTarget := range g.targets {
-		decision, err := g.planGoTarget(ctx, rawTarget, installedByPackage, latestCache, currentVersion)
+	for _, target := range targets {
+		decision, err := g.planGoTarget(ctx, target, installedByPackage, latestCache, currentVersion)
 		if err != nil {
 			return nil, err
 		}
@@ -219,8 +229,7 @@ func (g *GoUpdater) planGoTargets(ctx context.Context, currentVersion string) (*
 	return plan, nil
 }
 
-func (g *GoUpdater) planGoTarget(ctx context.Context, rawTarget string, installedByPackage map[string]*GoBinaryInfo, latestCache map[string]latestModuleResult, currentVersion string) (*goTargetDecision, error) {
-	target := parseGoTarget(rawTarget)
+func (g *GoUpdater) planGoTarget(ctx context.Context, target parsedGoTarget, installedByPackage map[string]*GoBinaryInfo, latestCache map[string]latestModuleResult, currentVersion string) (*goTargetDecision, error) {
 	if isDSXSelfPackage(target.PackagePath) {
 		return g.planDSXSelfTarget(ctx, target, currentVersion)
 	}
@@ -311,8 +320,12 @@ func buildGoBinaryMap(result *DiscoverResult) map[string]*GoBinaryInfo {
 	return installed
 }
 
-func parseGoTarget(raw string) parsedGoTarget {
+func parseGoTarget(raw string) (parsedGoTarget, error) {
 	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return parsedGoTarget{}, fmt.Errorf("go.targets に空の target が含まれています")
+	}
+
 	target := parsedGoTarget{
 		Raw:           trimmed,
 		PackagePath:   trimmed,
@@ -321,13 +334,17 @@ func parseGoTarget(raw string) parsedGoTarget {
 	}
 
 	if idx := strings.LastIndex(trimmed, "@"); idx >= 0 {
+		if idx == 0 || idx == len(trimmed)-1 {
+			return parsedGoTarget{}, fmt.Errorf("go.targets に不正な target が含まれています: %q", trimmed)
+		}
+
 		target.PackagePath = trimmed[:idx]
 		target.Version = trimmed[idx+1:]
 		target.InstallTarget = trimmed
 		target.CompareLatest = target.Version == "latest"
 	}
 
-	return target
+	return target, nil
 }
 
 func isDSXSelfPackage(packagePath string) bool {

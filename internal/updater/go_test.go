@@ -271,6 +271,21 @@ func TestGoUpdater_Check(t *testing.T) {
 				"スキップ: 1 件",
 			},
 		},
+		{
+			name:            "空targetは設定エラー",
+			targets:         []string{"  "},
+			wantErrContains: "go.targets に空の target",
+		},
+		{
+			name:            "package空targetは設定エラー",
+			targets:         []string{"@latest"},
+			wantErrContains: "go.targets に不正な target",
+		},
+		{
+			name:            "version空targetは設定エラー",
+			targets:         []string{"github.com/foo/bar@"},
+			wantErrContains: "go.targets に不正な target",
+		},
 	}
 
 	for _, tt := range tests {
@@ -325,6 +340,21 @@ func TestGoUpdater_Check(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGoUpdater_Check_MalformedTargetDoesNotDiscover(t *testing.T) {
+	g := &GoUpdater{
+		targets: []string{"@latest"},
+		discoverGoBinaries: func(context.Context) (*DiscoverResult, error) {
+			t.Fatal("不正な target は Go バイナリ検出前にエラーにする")
+			return nil, nil
+		},
+	}
+
+	got, err := g.Check(context.Background())
+	require.Error(t, err)
+	assert.Nil(t, got)
+	assert.Contains(t, err.Error(), "go.targets に不正な target")
 }
 
 func TestGoUpdater_Update_DryRun(t *testing.T) {
@@ -413,6 +443,28 @@ func TestGoUpdater_Update_InstallsOnlyPlannedTargets(t *testing.T) {
 	assert.Contains(t, got.Message, "スキップ: 2 件")
 }
 
+func TestGoUpdater_Update_DSXSelfTargetUpdateAvailable(t *testing.T) {
+	g := newTestGoUpdater([]string{"github.com/scottlz0310/dsx/cmd/dsx@latest"}, nil)
+	g.selfUpdateCheck = func(context.Context, string) (*selfupdate.Info, error) {
+		return &selfupdate.Info{
+			CurrentVersion: "v0.4.1",
+			LatestVersion:  "v0.4.2",
+		}, nil
+	}
+
+	installed := false
+	g.installGoTarget = func(context.Context, string) error {
+		installed = true
+		return nil
+	}
+
+	got, err := g.Update(context.Background(), UpdateOptions{CurrentVersion: "v0.4.1"})
+	require.Error(t, err)
+	assert.Nil(t, got)
+	assert.Contains(t, err.Error(), "dsx self-update")
+	assert.False(t, installed)
+}
+
 func TestGoUpdater_Update_InstallFailure(t *testing.T) {
 	g := newTestGoUpdater([]string{"github.com/foo/bar"}, nil)
 	g.installGoTarget = func(context.Context, string) error {
@@ -428,6 +480,82 @@ func TestGoUpdater_Update_InstallFailure(t *testing.T) {
 	require.Len(t, got.Errors, 1)
 	assert.Contains(t, got.Errors[0].Error(), "install failed")
 	assert.Contains(t, got.Message, "1 件失敗")
+}
+
+func TestParseGoTarget(t *testing.T) {
+	tests := []struct {
+		name          string
+		raw           string
+		want          parsedGoTarget
+		wantErrSubstr string
+	}{
+		{
+			name: "version指定なしはlatest比較target",
+			raw:  " github.com/foo/bar ",
+			want: parsedGoTarget{
+				Raw:           "github.com/foo/bar",
+				PackagePath:   "github.com/foo/bar",
+				InstallTarget: "github.com/foo/bar@latest",
+				CompareLatest: true,
+			},
+		},
+		{
+			name: "latest指定あり",
+			raw:  "github.com/foo/bar@latest",
+			want: parsedGoTarget{
+				Raw:           "github.com/foo/bar@latest",
+				PackagePath:   "github.com/foo/bar",
+				Version:       "latest",
+				InstallTarget: "github.com/foo/bar@latest",
+				CompareLatest: true,
+			},
+		},
+		{
+			name: "固定バージョン指定あり",
+			raw:  "github.com/foo/bar@v1.2.3",
+			want: parsedGoTarget{
+				Raw:           "github.com/foo/bar@v1.2.3",
+				PackagePath:   "github.com/foo/bar",
+				Version:       "v1.2.3",
+				InstallTarget: "github.com/foo/bar@v1.2.3",
+				CompareLatest: false,
+			},
+		},
+		{
+			name:          "空文字列はエラー",
+			raw:           "",
+			wantErrSubstr: "go.targets に空の target",
+		},
+		{
+			name:          "空白のみはエラー",
+			raw:           " \t ",
+			wantErrSubstr: "go.targets に空の target",
+		},
+		{
+			name:          "package空はエラー",
+			raw:           "@latest",
+			wantErrSubstr: "go.targets に不正な target",
+		},
+		{
+			name:          "version空はエラー",
+			raw:           "github.com/foo/bar@",
+			wantErrSubstr: "go.targets に不正な target",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseGoTarget(tt.raw)
+			if tt.wantErrSubstr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErrSubstr)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 func TestParseGoListModuleVersion(t *testing.T) {
