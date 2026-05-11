@@ -61,6 +61,8 @@ type UpdateOptions struct {
 	DryRun bool
 	// Verbose が true の場合、詳細なログを出力
 	Verbose bool
+	// CurrentVersion は実行中 dsx のバージョンです。dsx 本体を更新対象から除外する判定に使用します。
+	CurrentVersion string
 }
 
 // UpdateResult は更新実行の結果を保持します。

@@ -6,6 +6,18 @@
 
 ## [Unreleased]
 
+### Added
+
+- Go updater で `go version -m` と `go list -m -json <module>@latest` を使った best-effort の installed/latest 比較を追加し、最新版の Go ツールは `go install` をスキップするよう改善
+
+### Changed
+
+- `dsx self-update` の更新判定ロジックを `internal/selfupdate` に分離し、Go updater からも同じ判定基準を再利用できるよう整理
+
+### Fixed
+
+- `go.targets` に `github.com/scottlz0310/dsx/cmd/dsx` が含まれる場合でも Go updater では `dsx` 本体を `go install` しないよう修正。最新版なら非エラースキップし、更新がある場合のみ `dsx self-update` を案内するエラーに変更
+
 ## [v0.4.1] - 2026-05-10
 
 ### Fixed
