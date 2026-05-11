@@ -9,9 +9,15 @@ import (
 	"testing"
 
 	"github.com/scottlz0310/dsx/internal/config"
+	"github.com/scottlz0310/dsx/internal/selfupdate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type selfupdateInfoForTest struct {
+	CurrentVersion string
+	LatestVersion  string
+}
 
 func TestExtractToolName(t *testing.T) {
 	tests := []struct {
@@ -112,27 +118,213 @@ func TestGoUpdater_Check(t *testing.T) {
 		assert.Empty(t, got.Packages)
 	})
 
-	t.Run("更新対象あり", func(t *testing.T) {
-		g := &GoUpdater{
-			targets: []string{
-				"golang.org/x/tools/gopls@latest",
-				"github.com/fatih/gomodifytags",
+	tests := []struct {
+		name              string
+		targets           []string
+		detected          []GoBinaryInfo
+		latestVersions    map[string]string
+		latestErr         error
+		currentVersion    string
+		selfUpdateInfo    *selfupdateInfoForTest
+		selfUpdateErr     error
+		wantErrContains   string
+		wantUpdates       int
+		wantPackageNames  []string
+		wantNewVersions   []string
+		wantMessageParts  []string
+		wantLatestCallMap map[string]int
+	}{
+		{
+			name:    "installedとlatestが一致する場合はスキップ",
+			targets: []string{"github.com/foo/bar@latest"},
+			detected: []GoBinaryInfo{{
+				PackagePath:      "github.com/foo/bar",
+				ModulePath:       "github.com/foo",
+				InstalledVersion: "v1.0.0",
+			}},
+			latestVersions:   map[string]string{"github.com/foo": "v1.0.0"},
+			wantUpdates:      0,
+			wantMessageParts: []string{"更新対象はありません", "スキップ: 1 件"},
+		},
+		{
+			name:    "installedとlatestが異なる場合は更新対象",
+			targets: []string{"github.com/foo/bar@latest"},
+			detected: []GoBinaryInfo{{
+				PackagePath:      "github.com/foo/bar",
+				ModulePath:       "github.com/foo",
+				InstalledVersion: "v1.0.0",
+			}},
+			latestVersions:   map[string]string{"github.com/foo": "v1.1.0"},
+			wantUpdates:      1,
+			wantPackageNames: []string{"bar"},
+			wantNewVersions:  []string{"v1.1.0"},
+			wantMessageParts: []string{"更新予定: 1 件", "スキップ: 0 件"},
+		},
+		{
+			name:             "対応バイナリなしは判定不能として更新対象",
+			targets:          []string{"github.com/foo/missing"},
+			latestVersions:   map[string]string{},
+			wantUpdates:      1,
+			wantPackageNames: []string{"missing"},
+			wantNewVersions:  []string{"@latest"},
+			wantMessageParts: []string{"判定不能または固定バージョン: 1 件"},
+		},
+		{
+			name:    "ModulePath空は判定不能として更新対象",
+			targets: []string{"github.com/foo/bar@latest"},
+			detected: []GoBinaryInfo{{
+				PackagePath:      "github.com/foo/bar",
+				InstalledVersion: "v1.0.0",
+			}},
+			latestVersions:   map[string]string{},
+			wantUpdates:      1,
+			wantPackageNames: []string{"bar"},
+			wantNewVersions:  []string{"@latest"},
+		},
+		{
+			name:    "InstalledVersionがdevelなら判定不能として更新対象",
+			targets: []string{"github.com/foo/bar@latest"},
+			detected: []GoBinaryInfo{{
+				PackagePath:      "github.com/foo/bar",
+				ModulePath:       "github.com/foo",
+				InstalledVersion: "(devel)",
+			}},
+			latestVersions:   map[string]string{},
+			wantUpdates:      1,
+			wantPackageNames: []string{"bar"},
+			wantNewVersions:  []string{"@latest"},
+		},
+		{
+			name:    "go list失敗は判定不能として更新対象",
+			targets: []string{"github.com/foo/bar@latest"},
+			detected: []GoBinaryInfo{{
+				PackagePath:      "github.com/foo/bar",
+				ModulePath:       "github.com/foo",
+				InstalledVersion: "v1.0.0",
+			}},
+			latestErr:        errors.New("network error"),
+			wantUpdates:      1,
+			wantPackageNames: []string{"bar"},
+			wantNewVersions:  []string{"@latest"},
+		},
+		{
+			name:    "latest version空は判定不能として更新対象",
+			targets: []string{"github.com/foo/bar@latest"},
+			detected: []GoBinaryInfo{{
+				PackagePath:      "github.com/foo/bar",
+				ModulePath:       "github.com/foo",
+				InstalledVersion: "v1.0.0",
+			}},
+			latestVersions:   map[string]string{"github.com/foo": ""},
+			wantUpdates:      1,
+			wantPackageNames: []string{"bar"},
+			wantNewVersions:  []string{"@latest"},
+		},
+		{
+			name:             "固定バージョンtargetは従来通り更新対象",
+			targets:          []string{"github.com/foo/bar@v1.2.3"},
+			latestVersions:   map[string]string{},
+			wantUpdates:      1,
+			wantPackageNames: []string{"bar"},
+			wantNewVersions:  []string{"v1.2.3"},
+			wantMessageParts: []string{"判定不能または固定バージョン: 1 件"},
+		},
+		{
+			name:    "同一ModulePathはlatest取得をキャッシュする",
+			targets: []string{"github.com/foo/cmd/a@latest", "github.com/foo/cmd/b@latest"},
+			detected: []GoBinaryInfo{
+				{PackagePath: "github.com/foo/cmd/a", ModulePath: "github.com/foo", InstalledVersion: "v1.0.0"},
+				{PackagePath: "github.com/foo/cmd/b", ModulePath: "github.com/foo", InstalledVersion: "v1.0.0"},
 			},
-		}
+			latestVersions:    map[string]string{"github.com/foo": "v1.1.0"},
+			wantUpdates:       2,
+			wantPackageNames:  []string{"a", "b"},
+			wantNewVersions:   []string{"v1.1.0", "v1.1.0"},
+			wantLatestCallMap: map[string]int{"github.com/foo": 1},
+		},
+		{
+			name:           "dsx本体が最新版なら非エラースキップ",
+			targets:        []string{"github.com/scottlz0310/dsx/cmd/dsx@latest"},
+			currentVersion: "v0.4.1",
+			selfUpdateInfo: nil,
+			wantUpdates:    0,
+			wantMessageParts: []string{
+				"更新対象はありません",
+				"スキップ: 1 件",
+			},
+		},
+		{
+			name:            "dsx本体の更新ありはself-update誘導エラー",
+			targets:         []string{"github.com/scottlz0310/dsx/cmd/dsx@latest"},
+			currentVersion:  "v0.4.1",
+			selfUpdateInfo:  &selfupdateInfoForTest{CurrentVersion: "v0.4.1", LatestVersion: "v0.4.2"},
+			wantErrContains: "dsx self-update",
+		},
+		{
+			name:           "dsx本体の更新判定失敗は非エラースキップ",
+			targets:        []string{"github.com/scottlz0310/dsx/cmd/dsx@latest"},
+			currentVersion: "v0.4.1",
+			selfUpdateErr:  errors.New("api error"),
+			wantUpdates:    0,
+			wantMessageParts: []string{
+				"更新対象はありません",
+				"スキップ: 1 件",
+			},
+		},
+	}
 
-		got, err := g.Check(context.Background())
-		require.NoError(t, err)
-		require.NotNil(t, got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			latestCalls := make(map[string]int)
+			g := newTestGoUpdater(tt.targets, tt.detected)
+			g.currentVersion = tt.currentVersion
+			g.latestModuleVersion = func(_ context.Context, modulePath string) (string, error) {
+				latestCalls[modulePath]++
 
-		assert.Equal(t, 2, got.AvailableUpdates)
-		assert.Contains(t, got.Message, "2 件")
-		require.Len(t, got.Packages, 2)
+				if tt.latestErr != nil {
+					return "", tt.latestErr
+				}
 
-		assert.Equal(t, "gopls", got.Packages[0].Name)
-		assert.Equal(t, "@latest", got.Packages[0].NewVersion)
-		assert.Equal(t, "gomodifytags", got.Packages[1].Name)
-		assert.Equal(t, "@latest", got.Packages[1].NewVersion)
-	})
+				return tt.latestVersions[modulePath], nil
+			}
+
+			g.selfUpdateCheck = func(_ context.Context, currentVersion string) (*selfupdate.Info, error) {
+				if tt.selfUpdateErr != nil {
+					return nil, tt.selfUpdateErr
+				}
+
+				if tt.selfUpdateInfo == nil {
+					return nil, nil
+				}
+
+				return &selfupdate.Info{
+					CurrentVersion: tt.selfUpdateInfo.CurrentVersion,
+					LatestVersion:  tt.selfUpdateInfo.LatestVersion,
+				}, nil
+			}
+
+			got, err := g.Check(context.Background())
+			if tt.wantErrContains != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErrContains)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, got)
+			assert.Equal(t, tt.wantUpdates, got.AvailableUpdates)
+			assertPackageNames(t, got.Packages, tt.wantPackageNames)
+			assertPackageNewVersions(t, got.Packages, tt.wantNewVersions)
+
+			for _, part := range tt.wantMessageParts {
+				assert.Contains(t, got.Message, part)
+			}
+
+			for modulePath, wantCalls := range tt.wantLatestCallMap {
+				assert.Equal(t, wantCalls, latestCalls[modulePath], "modulePath=%s", modulePath)
+			}
+		})
+	}
 }
 
 func TestGoUpdater_Update_DryRun(t *testing.T) {
@@ -151,12 +343,10 @@ func TestGoUpdater_Update_DryRun(t *testing.T) {
 	})
 
 	t.Run("更新対象あり", func(t *testing.T) {
-		g := &GoUpdater{
-			targets: []string{
-				"golang.org/x/tools/gopls@latest",
-				"github.com/fatih/gomodifytags",
-			},
-		}
+		g := newTestGoUpdater([]string{
+			"golang.org/x/tools/gopls@latest",
+			"github.com/fatih/gomodifytags",
+		}, nil)
 
 		got, err := g.Update(context.Background(), UpdateOptions{DryRun: true})
 		require.NoError(t, err)
@@ -170,6 +360,122 @@ func TestGoUpdater_Update_DryRun(t *testing.T) {
 		assert.Equal(t, "gomodifytags", got.Packages[1].Name)
 		assert.Equal(t, "@latest", got.Packages[1].NewVersion)
 	})
+}
+
+func TestGoUpdater_Update_InstallsOnlyPlannedTargets(t *testing.T) {
+	g := newTestGoUpdater([]string{
+		"github.com/foo/latest@latest",
+		"github.com/foo/update@latest",
+		"github.com/foo/missing",
+		"github.com/foo/pinned@v1.2.3",
+		"github.com/scottlz0310/dsx/cmd/dsx@latest",
+	}, []GoBinaryInfo{
+		{PackagePath: "github.com/foo/latest", ModulePath: "github.com/foo/latestmod", InstalledVersion: "v1.0.0"},
+		{PackagePath: "github.com/foo/update", ModulePath: "github.com/foo/updatemod", InstalledVersion: "v1.0.0"},
+	})
+
+	g.currentVersion = "v0.4.1"
+	g.latestModuleVersion = func(_ context.Context, modulePath string) (string, error) {
+		switch modulePath {
+		case "github.com/foo/latestmod":
+			return "v1.0.0", nil
+		case "github.com/foo/updatemod":
+			return "v1.1.0", nil
+		default:
+			return "", nil
+		}
+	}
+	g.selfUpdateCheck = func(context.Context, string) (*selfupdate.Info, error) {
+		return nil, nil
+	}
+
+	var installed []string
+
+	g.installGoTarget = func(_ context.Context, target string) error {
+		installed = append(installed, target)
+		return nil
+	}
+
+	got, err := g.Update(context.Background(), UpdateOptions{})
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	assert.Equal(t, []string{
+		"github.com/foo/update@latest",
+		"github.com/foo/missing@latest",
+		"github.com/foo/pinned@v1.2.3",
+	}, installed)
+	assert.Equal(t, 3, got.UpdatedCount)
+	assert.Equal(t, 0, got.FailedCount)
+	assertPackageNames(t, got.Packages, []string{"update", "missing", "pinned"})
+	assertPackageNewVersions(t, got.Packages, []string{"v1.1.0", "@latest", "v1.2.3"})
+	assert.Contains(t, got.Message, "更新: 3 件")
+	assert.Contains(t, got.Message, "スキップ: 2 件")
+}
+
+func TestGoUpdater_Update_InstallFailure(t *testing.T) {
+	g := newTestGoUpdater([]string{"github.com/foo/bar"}, nil)
+	g.installGoTarget = func(context.Context, string) error {
+		return errors.New("install failed")
+	}
+
+	got, err := g.Update(context.Background(), UpdateOptions{})
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	assert.Equal(t, 0, got.UpdatedCount)
+	assert.Equal(t, 1, got.FailedCount)
+	require.Len(t, got.Errors, 1)
+	assert.Contains(t, got.Errors[0].Error(), "install failed")
+	assert.Contains(t, got.Message, "1 件失敗")
+}
+
+func newTestGoUpdater(targets []string, detected []GoBinaryInfo) *GoUpdater {
+	return &GoUpdater{
+		targets: targets,
+		discoverGoBinaries: func(context.Context) (*DiscoverResult, error) {
+			return &DiscoverResult{Detected: detected}, nil
+		},
+		latestModuleVersion: func(context.Context, string) (string, error) {
+			return "", nil
+		},
+		installGoTarget: func(context.Context, string) error {
+			return nil
+		},
+		selfUpdateCheck: func(context.Context, string) (*selfupdate.Info, error) {
+			return nil, nil
+		},
+	}
+}
+
+func assertPackageNames(t *testing.T, packages []PackageInfo, want []string) {
+	t.Helper()
+
+	if want == nil {
+		assert.Empty(t, packages)
+		return
+	}
+
+	require.Len(t, packages, len(want))
+
+	for i, name := range want {
+		assert.Equal(t, name, packages[i].Name)
+	}
+}
+
+func assertPackageNewVersions(t *testing.T, packages []PackageInfo, want []string) {
+	t.Helper()
+
+	if want == nil {
+		assert.Empty(t, packages)
+		return
+	}
+
+	require.Len(t, packages, len(want))
+
+	for i, version := range want {
+		assert.Equal(t, version, packages[i].NewVersion)
+	}
 }
 
 func TestListInstalledGoTools(t *testing.T) {

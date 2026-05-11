@@ -2,67 +2,30 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
-	"strconv"
-	"strings"
-	"time"
 
+	"github.com/scottlz0310/dsx/internal/selfupdate"
 	"github.com/spf13/cobra"
 )
 
-const (
-	selfUpdateLatestReleaseAPI = "https://api.github.com/repos/scottlz0310/dsx/releases/latest"
-	selfUpdateGoInstallPkg     = "github.com/scottlz0310/dsx/cmd/dsx"
-	selfUpdateCheckTimeout     = 2 * time.Second
-	selfUpdateDevelVersion     = "(devel)"
-)
-
-type selfUpdateInfo struct {
-	CurrentVersion string
-	LatestVersion  string
-	ReleaseURL     string
-}
-
-type semverCore struct {
-	Major int
-	Minor int
-	Patch int
-}
-
-type latestReleaseResponse struct {
-	TagName string `json:"tag_name"`
-	HTMLURL string `json:"html_url"`
-}
+type selfUpdateInfo = selfupdate.Info
+type semverCore = selfupdate.SemverCore
 
 var (
 	selfUpdateCheckOnly bool
 
 	selfUpdateCheckStep        = checkSelfUpdateAvailable
 	selfUpdateApplyStep        = applySelfUpdate
-	selfUpdateFetchReleaseStep = fetchLatestRelease
+	selfUpdateFetchReleaseStep = func(ctx context.Context) (string, string, error) {
+		return selfupdate.FetchLatestRelease(ctx, version)
+	}
 )
 
-func normalizeSelfUpdateVersion(version string) string {
-	normalized := strings.TrimSpace(version)
-	if normalized == "" {
-		return normalized
-	}
-
-	if !strings.HasPrefix(normalized, "v") {
-		normalized = "v" + normalized
-	}
-
-	return normalized
-}
-
 func selfUpdateInstallTarget(version string) string {
-	return selfUpdateGoInstallPkg + "@" + normalizeSelfUpdateVersion(version)
+	return selfupdate.InstallTarget(version)
 }
 
 var selfUpdateCmd = &cobra.Command{
@@ -139,76 +102,7 @@ func printSelfUpdateNoticeAtEnd() {
 }
 
 func checkSelfUpdateAvailable(ctx context.Context, currentVersion string) (*selfUpdateInfo, error) {
-	if isDevelopmentBuildVersion(currentVersion) {
-		return nil, nil
-	}
-
-	currentCore, ok := parseSemverCore(currentVersion)
-	if !ok {
-		return nil, nil
-	}
-
-	checkCtx, cancel := context.WithTimeout(ctx, selfUpdateCheckTimeout)
-	defer cancel()
-
-	latestVersion, releaseURL, err := selfUpdateFetchReleaseStep(checkCtx)
-	if err != nil {
-		return nil, err
-	}
-
-	latestCore, ok := parseSemverCore(latestVersion)
-	if !ok {
-		return nil, nil
-	}
-
-	if compareSemverCore(latestCore, currentCore) <= 0 {
-		return nil, nil
-	}
-
-	return &selfUpdateInfo{
-		CurrentVersion: strings.TrimSpace(currentVersion),
-		LatestVersion:  strings.TrimSpace(latestVersion),
-		ReleaseURL:     strings.TrimSpace(releaseURL),
-	}, nil
-}
-
-func fetchLatestRelease(ctx context.Context) (latestVersion, releaseURL string, err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, selfUpdateLatestReleaseAPI, http.NoBody)
-	if err != nil {
-		return "", "", err
-	}
-
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "dsx/"+strings.TrimSpace(version))
-
-	client := &http.Client{}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", "", err
-	}
-
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			return
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("最新リリース取得に失敗しました: status=%s", resp.Status)
-	}
-
-	var payload latestReleaseResponse
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return "", "", err
-	}
-
-	tag := strings.TrimSpace(payload.TagName)
-	if tag == "" {
-		return "", "", errors.New("最新リリースのタグが取得できませんでした")
-	}
-
-	return tag, strings.TrimSpace(payload.HTMLURL), nil
+	return selfupdate.CheckAvailable(ctx, currentVersion, selfUpdateFetchReleaseStep)
 }
 
 func applySelfUpdate(ctx context.Context, version string) error {
@@ -238,68 +132,13 @@ func applySelfUpdate(ctx context.Context, version string) error {
 }
 
 func isDevelopmentBuildVersion(v string) bool {
-	trimmed := strings.TrimSpace(v)
-	return trimmed == "" || trimmed == "dev" || trimmed == selfUpdateDevelVersion
+	return selfupdate.IsDevelopmentBuildVersion(v)
 }
 
 func parseSemverCore(v string) (semverCore, bool) {
-	trimmed := strings.TrimSpace(v)
-	trimmed = strings.TrimPrefix(trimmed, "v")
-	parts := strings.SplitN(trimmed, "-", 2)
-	coreAndBuild := strings.SplitN(parts[0], "+", 2)
-	core := strings.TrimSpace(coreAndBuild[0])
-
-	segments := strings.Split(core, ".")
-	if len(segments) != 3 {
-		return semverCore{}, false
-	}
-
-	major, err := strconv.Atoi(strings.TrimSpace(segments[0]))
-	if err != nil {
-		return semverCore{}, false
-	}
-
-	minor, err := strconv.Atoi(strings.TrimSpace(segments[1]))
-	if err != nil {
-		return semverCore{}, false
-	}
-
-	patch, err := strconv.Atoi(strings.TrimSpace(segments[2]))
-	if err != nil {
-		return semverCore{}, false
-	}
-
-	return semverCore{
-		Major: major,
-		Minor: minor,
-		Patch: patch,
-	}, true
+	return selfupdate.ParseSemverCore(v)
 }
 
 func compareSemverCore(left, right semverCore) int {
-	if left.Major != right.Major {
-		if left.Major > right.Major {
-			return 1
-		}
-
-		return -1
-	}
-
-	if left.Minor != right.Minor {
-		if left.Minor > right.Minor {
-			return 1
-		}
-
-		return -1
-	}
-
-	if left.Patch != right.Patch {
-		if left.Patch > right.Patch {
-			return 1
-		}
-
-		return -1
-	}
-
-	return 0
+	return selfupdate.CompareSemverCore(left, right)
 }

@@ -102,6 +102,8 @@ func runSysUpdate(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "⚠️  %v\n", err)
 	}
 
+	configureUpdaterRuntimeVersion(enabledUpdaters, version)
+
 	tuiReq, err := resolveTUIRequest(cfg.UI.TUI, cmd.Flags().Changed("tui"), sysTUI, cmd.Flags().Changed("no-tui"), sysNoTUI)
 	if err != nil {
 		return err
@@ -247,8 +249,9 @@ func loadSysUpdateConfig(cmd *cobra.Command) (*config.Config, updater.UpdateOpti
 	}
 
 	opts := updater.UpdateOptions{
-		DryRun:  cfg.Control.DryRun,
-		Verbose: sysVerbose,
+		DryRun:         cfg.Control.DryRun,
+		Verbose:        sysVerbose,
+		CurrentVersion: version,
 	}
 
 	return cfg, opts
@@ -455,6 +458,21 @@ func resolveSysJobs(configJobs, flagJobs int) int {
 	}
 
 	return 1
+}
+
+type runtimeVersionConfigurer interface {
+	ConfigureRuntimeVersion(string)
+}
+
+func configureUpdaterRuntimeVersion(updaters []updater.Updater, currentVersion string) {
+	for _, u := range updaters {
+		configurer, ok := u.(runtimeVersionConfigurer)
+		if !ok {
+			continue
+		}
+
+		configurer.ConfigureRuntimeVersion(currentVersion)
+	}
 }
 
 func splitUpdatersForExecution(updaters []updater.Updater) (exclusive, parallel []updater.Updater) {

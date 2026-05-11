@@ -187,6 +187,11 @@ dsx sys discover --manager go # Go バイナリのみスキャン
 `snapd unavailable` の環境では `snap` を利用不可として自動スキップします。
 `sys.enable` に未インストールのマネージャが含まれている場合は、警告を表示してスキップし、利用可能なマネージャのみ継続実行します。
 
+Go updater は `go.targets` のうち `@latest` 対象について、インストール済みバイナリの module 情報と `go list -m -json <module>@latest` を best-effort で比較します。
+すでに最新版の Go ツールは `go install` をスキップし、判定不能なツールや固定バージョン target は従来通り安全側で `go install` を実行します。
+`go.targets` に `github.com/scottlz0310/dsx/cmd/dsx` が含まれる場合、Go updater では dsx 本体を更新しません。
+dsx 本体が最新版なら非エラーでスキップし、新しい dsx バージョンがある場合は `dsx self-update` を案内します。
+
 ### リポジトリ管理 (`repo`)
 ```
 dsx repo update       # 管理下リポジトリを更新（fetch + pull --rebase）

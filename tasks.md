@@ -116,6 +116,23 @@
 
 ---
 
+## Issue #63: Go updater の installed/latest 比較と dsx 本体除外
+
+- [x] Issue #63 本文をコードベースと照合し、既実装・矛盾点・リスクを整理
+- [x] `dsx self-update` の更新判定ロジックを `internal/selfupdate` に分離
+- [x] Go updater で `go version -m` 由来の installed と `go list -m -json <module>@latest` の latest を比較
+- [x] latest 一致時は `go install` をスキップし、判定不能・固定バージョン target は従来通り `go install` 対象にする
+- [x] `github.com/scottlz0310/dsx/cmd/dsx` は Go updater で `go install` せず、更新ありの場合のみ `dsx self-update` 誘導エラーにする
+- [x] table-driven tests を追加（最新版スキップ・更新あり・判定不能・固定バージョン・dsx 本体例外・latest 取得キャッシュ）
+- [x] `CHANGELOG.md` / `README.md` を更新
+- [x] `task check` 通過
+- [x] `task test` 通過
+- [x] `go build ./...` 通過
+- [x] `dsx --help` 表示確認（`go run ./cmd/dsx --help` で現行コードを確認）
+- [x] コミット・push
+
+---
+
 ## Backlog / 改善候補
 
 ### `AutoStash` オプションの修正（設定が機能していないバグ）
