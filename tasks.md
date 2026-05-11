@@ -133,6 +133,20 @@
 
 ---
 
+## v0.5.0 リリース準備
+
+- [x] `task check` 通過確認（fmt/vet/test/lint）
+- [x] バージョン: v0.5.0（マイナーバージョンアップ）
+- [x] CHANGELOG.md: [Unreleased] → [v0.5.0] - 2026-05-11
+- [x] README.md: Go updater 最新版判定機能・バージョン表記を更新
+- [ ] PR 作成・マージ
+- [ ] `release/v0.5.0` ブランチ削除（ローカル + リモート参照プルーン）
+- [ ] `v0.5.0` タグ発行・push → goreleaser が GitHub Release を自動作成
+- [ ] GitHub Release ページを見やすく編集
+- [ ] Issue #63 クローズ確認
+
+---
+
 ## Backlog / 改善候補
 
 ### `AutoStash` オプションの修正（設定が機能していないバグ）
