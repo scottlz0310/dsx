@@ -430,6 +430,52 @@ func TestGoUpdater_Update_InstallFailure(t *testing.T) {
 	assert.Contains(t, got.Message, "1 件失敗")
 }
 
+func TestParseGoListModuleVersion(t *testing.T) {
+	tests := []struct {
+		name            string
+		output          []byte
+		wantVersion     string
+		wantErrContains []string
+	}{
+		{
+			name:        "Versionをtrimして返す",
+			output:      []byte(`{"Version":" v1.2.3 "}`),
+			wantVersion: "v1.2.3",
+		},
+		{
+			name: "解析エラーは出力内容を含める",
+			output: []byte(`{
+  "Version":`),
+			wantErrContains: []string{
+				"go list -m -json の解析に失敗",
+				`"Version":`,
+			},
+		},
+		{
+			name:   "空JSONなら空文字列",
+			output: []byte(`{}`),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseGoListModuleVersion(tt.output)
+			if len(tt.wantErrContains) > 0 {
+				require.Error(t, err)
+
+				for _, part := range tt.wantErrContains {
+					assert.Contains(t, err.Error(), part)
+				}
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantVersion, got)
+		})
+	}
+}
+
 func newTestGoUpdater(targets []string, detected []GoBinaryInfo) *GoUpdater {
 	return &GoUpdater{
 		targets: targets,

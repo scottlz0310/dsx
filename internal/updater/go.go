@@ -442,9 +442,16 @@ func (g *GoUpdater) getLatestModuleVersion(ctx context.Context, modulePath strin
 		return "", err
 	}
 
+	return parseGoListModuleVersion(output)
+}
+
+func parseGoListModuleVersion(output []byte) (string, error) {
 	var payload goListModuleJSON
 	if err := json.Unmarshal(output, &payload); err != nil {
-		return "", fmt.Errorf("go list -m -json の解析に失敗: %w", err)
+		return "", fmt.Errorf(
+			"go list -m -json の解析に失敗: %w",
+			buildCommandOutputErr(err, output),
+		)
 	}
 
 	return strings.TrimSpace(payload.Version), nil
