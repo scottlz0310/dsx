@@ -327,7 +327,9 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.5.0...HEAD
+[v0.5.0]: https://github.com/scottlz0310/dsx/compare/v0.4.1...v0.5.0
+[v0.4.1]: https://github.com/scottlz0310/dsx/compare/v0.4.0...v0.4.1
 [v0.4.0]: https://github.com/scottlz0310/dsx/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/scottlz0310/dsx/compare/v0.2.5...v0.3.0
 [v0.2.5]: https://github.com/scottlz0310/dsx/compare/v0.2.4...v0.2.5
