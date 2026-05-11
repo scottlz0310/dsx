@@ -21,6 +21,11 @@ const (
 	DevelVersion     = "(devel)"
 )
 
+var (
+	latestReleaseAPIURL     = LatestReleaseAPI
+	latestReleaseHTTPClient = http.DefaultClient
+)
+
 // Info は self-update の更新確認結果を保持します。
 type Info struct {
 	CurrentVersion string
@@ -105,7 +110,7 @@ func CheckAvailable(ctx context.Context, currentVersion string, fetch ReleaseFet
 
 // FetchLatestRelease は GitHub Releases API から最新リリースタグを取得します。
 func FetchLatestRelease(ctx context.Context, userAgentVersion string) (latestVersion, releaseURL string, err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, LatestReleaseAPI, http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, latestReleaseAPIURL, http.NoBody)
 	if err != nil {
 		return "", "", err
 	}
@@ -113,7 +118,10 @@ func FetchLatestRelease(ctx context.Context, userAgentVersion string) (latestVer
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "dsx/"+strings.TrimSpace(userAgentVersion))
 
-	client := &http.Client{}
+	client := latestReleaseHTTPClient
+	if client == nil {
+		client = http.DefaultClient
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {
