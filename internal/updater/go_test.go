@@ -357,6 +357,30 @@ func TestGoUpdater_Check_MalformedTargetDoesNotDiscover(t *testing.T) {
 	assert.Contains(t, err.Error(), "go.targets に不正な target")
 }
 
+func TestGoUpdater_Check_DiscoveryWarning(t *testing.T) {
+	g := &GoUpdater{
+		targets: []string{
+			"github.com/foo/bar@latest",
+			"github.com/scottlz0310/dsx/cmd/dsx@latest",
+		},
+		discoverGoBinaries: func(context.Context) (*DiscoverResult, error) {
+			return nil, errors.New("discover failed")
+		},
+		selfUpdateCheck: func(context.Context, string) (*selfupdate.Info, error) {
+			return nil, nil
+		},
+	}
+
+	got, err := g.Check(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	assert.Contains(t, got.Message, "dsx 本体を除く @latest target は判定不能")
+	assert.NotContains(t, got.Message, "全 target")
+	assert.Equal(t, 1, got.AvailableUpdates)
+	assertPackageNames(t, got.Packages, []string{"bar"})
+}
+
 func TestGoUpdater_Update_DryRun(t *testing.T) {
 	t.Run("更新対象なし", func(t *testing.T) {
 		g := &GoUpdater{}

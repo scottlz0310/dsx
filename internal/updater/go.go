@@ -299,7 +299,7 @@ func (g *GoUpdater) discoverInstalledGoBinaries(ctx context.Context) (*DiscoverR
 		return nil, "", err
 	}
 
-	return &DiscoverResult{}, fmt.Sprintf("Go バイナリの検出に失敗したため、全 target を判定不能として扱います: %v", err), nil
+	return &DiscoverResult{}, fmt.Sprintf("Go バイナリの検出に失敗したため、dsx 本体を除く @latest target は判定不能として扱います: %v", err), nil
 }
 
 func buildGoBinaryMap(result *DiscoverResult) map[string]*GoBinaryInfo {
