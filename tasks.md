@@ -14,8 +14,23 @@
 - [x] `internal/repo/branch_scan_test.go` テスト追加（table-driven・境界値・エラー系）
 - [x] `task check` 通過（fmt/vet/test/lint 全件パス、lint 0 issues）
 - [x] `CHANGELOG.md` 更新
-- [ ] feature ブランチ作成・コミット・push
-- [ ] Draft PR 作成（Closes #1）
+- [x] feature ブランチ作成・コミット・push
+- [x] Draft PR 作成（Closes #1）
+- [x] PR #66 マージ
+
+---
+
+## v0.6.0 リリース準備
+
+- [x] `dsx repo branch-clean --help` 実機確認
+- [x] `dsx repo branch-clean --dry-run --no-fetch` 実機確認
+- [x] README.md に `repo branch-clean` の使用方法を追加
+- [x] ルートヘルプに `repo branch-clean` を追加
+- [x] CHANGELOG.md: [Unreleased] → [v0.6.0] - 2026-05-15
+- [x] README.md: バージョン表記を v0.6.0 に更新
+- [ ] PR 作成・マージ
+- [ ] `v0.6.0` タグ発行・push → goreleaser が GitHub Release を自動作成
+- [ ] GitHub Release ページを見やすく編集
 
 ---
 
@@ -154,11 +169,11 @@
 - [x] バージョン: v0.5.0（マイナーバージョンアップ）
 - [x] CHANGELOG.md: [Unreleased] → [v0.5.0] - 2026-05-11
 - [x] README.md: Go updater 最新版判定機能・バージョン表記を更新
-- [ ] PR 作成・マージ
-- [ ] `release/v0.5.0` ブランチ削除（ローカル + リモート参照プルーン）
-- [ ] `v0.5.0` タグ発行・push → goreleaser が GitHub Release を自動作成
-- [ ] GitHub Release ページを見やすく編集
-- [ ] Issue #63 クローズ確認
+- [x] PR 作成・マージ
+- [x] `release/v0.5.0` ブランチ削除（ローカル + リモート参照プルーン）
+- [x] `v0.5.0` タグ発行・push → goreleaser が GitHub Release を自動作成
+- [x] GitHub Release ページを見やすく編集
+- [x] Issue #63 クローズ確認
 
 ---
 

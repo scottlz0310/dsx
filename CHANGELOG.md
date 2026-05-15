@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [v0.6.0] - 2026-05-15
+
 ### Added
 
 - `dsx repo branch-clean` サブコマンドを追加（Issue #1）
@@ -25,6 +27,7 @@
 - `branch-clean` の STALE_REF 削除を `git remote prune <remote>` の一括削除から `git update-ref -d refs/remotes/<remote>/<branch>` の候補単位削除に変更し、ユーザーが選択した STALE_REF だけが削除されるよう挙動を一致させた（PR #66 レビュー対応）
 - `repo branch-clean` CLI ハンドラの到達不能だった分岐（`DeleteBranchCandidates` は常に非 nil の result を返すため `cleanErr != nil` の dead code が存在）を整理し、`cleanResult == nil` 防御パスのみを残して直線化した（PR #66 レビュー対応）
 - `internal/repo` パッケージ内に共通定数 `defaultRemoteName = "origin"` を導入し、3 箇所に散在していたリテラルを置き換え（goconst 警告解消）
+- ルートヘルプと README に `dsx repo branch-clean` の使用方法を追加し、リリース表記を v0.6.0 に更新
 
 ## [v0.5.0] - 2026-05-11
 
@@ -347,7 +350,8 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.6.0...HEAD
+[v0.6.0]: https://github.com/scottlz0310/dsx/compare/v0.5.0...v0.6.0
 [v0.5.0]: https://github.com/scottlz0310/dsx/compare/v0.4.1...v0.5.0
 [v0.4.1]: https://github.com/scottlz0310/dsx/compare/v0.4.0...v0.4.1
 [v0.4.0]: https://github.com/scottlz0310/dsx/compare/v0.3.0...v0.4.0

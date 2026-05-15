@@ -35,6 +35,7 @@ var rootCmd = &cobra.Command{
   dsx repo update   管理下のリポジトリを更新
   dsx repo list     管理下のリポジトリ一覧と状態を表示
   dsx repo cleanup  マージ済みローカルブランチを整理
+  dsx repo branch-clean  不要ブランチを対話/ドライラン/自動実行で整理
 
 環境変数:
   dsx env export    Bitwardenから環境変数をシェル形式で出力
@@ -55,7 +56,9 @@ var rootCmd = &cobra.Command{
   dsx sys update --jobs 4     # 4並列で更新
   dsx repo update --jobs 4    # リポジトリを4並列で更新
   dsx repo cleanup -n         # 削除対象ブランチの計画を表示（DryRun）
-  dsx self-update --check     # 新バージョンの有無だけ確認`,
+  dsx repo branch-clean -n    # ブランチクリーンアップ候補を表示
+  dsx self-update --check     # 新バージョンの有無だけ確認
+`,
 }
 
 // Execute はコマンド実行のエントリーポイントです
