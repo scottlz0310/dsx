@@ -22,6 +22,9 @@
 - `branch-clean` の UNMERGED 判定を `git branch --no-merged` ベースから `upstream:track` ベースに変更（upstream が gone のローカルブランチのみが UNMERGED 候補となり、未 push commit を含む通常の作業ブランチは候補に含まれない）（PR #66 レビュー対応）
 - `branch-clean` のデフォルト動作を安全側に変更（`git branch -d` を使用し、未マージのコミットがあるブランチは保持として Skipped に記録）（PR #66 レビュー対応）
 - `git remote prune --dry-run` の出力解析を LANG/LC_ALL=C に固定してロケール依存を排除（PR #66 レビュー対応）
+- `branch-clean` の STALE_REF 削除を `git remote prune <remote>` の一括削除から `git update-ref -d refs/remotes/<remote>/<branch>` の候補単位削除に変更し、ユーザーが選択した STALE_REF だけが削除されるよう挙動を一致させた（PR #66 レビュー対応）
+- `repo branch-clean` CLI ハンドラの到達不能だった分岐（`DeleteBranchCandidates` は常に非 nil の result を返すため `cleanErr != nil` の dead code が存在）を整理し、`cleanResult == nil` 防御パスのみを残して直線化した（PR #66 レビュー対応）
+- `internal/repo` パッケージ内に共通定数 `defaultRemoteName = "origin"` を導入し、3 箇所に散在していたリテラルを置き換え（goconst 警告解消）
 
 ## [v0.5.0] - 2026-05-11
 

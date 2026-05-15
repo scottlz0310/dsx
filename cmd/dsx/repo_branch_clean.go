@@ -179,23 +179,25 @@ func processRepoBranchClean(ctx context.Context, repoPath, displayName string, s
 	}
 
 	cleanResult, cleanErr := repomgr.DeleteBranchCandidates(ctx, repoPath, toDelete, false, repoBranchCleanForce, result.DefaultBranch)
-	if cleanResult != nil {
-		for _, errItem := range cleanResult.Errors {
-			fmt.Fprintf(os.Stderr, "  ⚠️  %s: %v\n", displayName, errItem)
-		}
-
-		printCleanResult(displayName, cleanResult)
-
-		return len(cleanResult.Deleted), len(cleanResult.Pruned), len(cleanResult.Skipped), warnings, len(cleanResult.Errors)
-	}
-
-	if cleanErr != nil {
+	if cleanResult == nil {
+		// DeleteBranchCandidates は現契約では常に non-nil な result を返しますが、
+		// 将来の API 変更で nil が返るケースに備えて防御的に処理します。
 		fmt.Fprintf(os.Stderr, "  ❌ %s: クリーンアップ失敗 (%v)\n", displayName, cleanErr)
 
 		return 0, 0, 0, warnings, 1
 	}
 
-	return 0, 0, 0, warnings, 0
+	// cleanErr は cleanResult.Errors を errors.Join したサマリーであり、
+	// 個別エラーは下のループで全件表示するため明示的に破棄します。
+	_ = cleanErr
+
+	for _, errItem := range cleanResult.Errors {
+		fmt.Fprintf(os.Stderr, "  ⚠️  %s: %v\n", displayName, errItem)
+	}
+
+	printCleanResult(displayName, cleanResult)
+
+	return len(cleanResult.Deleted), len(cleanResult.Pruned), len(cleanResult.Skipped), warnings, len(cleanResult.Errors)
 }
 
 // printRepoCandidates は単一リポジトリのブランチ候補一覧を表示します。

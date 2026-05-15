@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -830,4 +831,118 @@ func TestScanBranches_ResultFields(t *testing.T) {
 			t.Errorf("RepoPath が空です")
 		}
 	})
+}
+
+// TestDeleteBranchCandidates_StaleRefIndividual は STALE_REF を候補単位で削除し、
+// 選択されなかった STALE_REF が残ることを検証します（PR #66 レビュー指摘対応）。
+// 以前は git remote prune <remote> でリモート単位の一括削除を行っていたため、
+// ユーザーが一部の STALE_REF だけを選択しても全件が prune される不整合がありました。
+func TestDeleteBranchCandidates_StaleRefIndividual(t *testing.T) {
+	t.Parallel()
+
+	base := t.TempDir()
+	remotePath := filepath.Join(base, "remote.git")
+	workPath := filepath.Join(base, "work")
+
+	runGit(t, "", "init", "--bare", remotePath)
+	runGit(t, "", "clone", remotePath, workPath)
+	runGit(t, workPath, "config", "user.email", "dsx-test@example.com")
+	runGit(t, workPath, "config", "user.name", "dsx-test")
+
+	writeTempFile(t, workPath, "README.md", "# repo\n")
+	runGit(t, workPath, "add", "README.md")
+	runGit(t, workPath, "commit", "-m", "initial commit")
+	runGit(t, workPath, "push", "-u", "origin", "HEAD")
+	runGit(t, workPath, "remote", "set-head", "origin", "--auto")
+
+	defaultBranch := getOriginDefaultBranchName(t, workPath)
+
+	staleA := "dsx-test-stale-a"
+	staleB := "dsx-test-stale-b"
+
+	for _, b := range []string{staleA, staleB} {
+		runGit(t, workPath, "checkout", "-b", b)
+		runGit(t, workPath, "commit", "--allow-empty", "-m", b+" commit")
+		runGit(t, workPath, "push", "origin", b)
+		runGit(t, workPath, "checkout", defaultBranch)
+	}
+
+	runGit(t, "", "--git-dir="+remotePath, "update-ref", "-d", "refs/heads/"+staleA)
+	runGit(t, "", "--git-dir="+remotePath, "update-ref", "-d", "refs/heads/"+staleB)
+
+	candidates := []BranchCandidate{
+		{Name: "origin/" + staleA, Category: BranchCategoryStaleRef, Remote: "origin"},
+	}
+
+	result, err := DeleteBranchCandidates(context.Background(), workPath, candidates, false, false, defaultBranch)
+	if err != nil {
+		t.Fatalf("DeleteBranchCandidates() error = %v", err)
+	}
+
+	if len(result.Pruned) != 1 || result.Pruned[0].Name != "origin/"+staleA {
+		t.Errorf("Pruned = %+v, want 1 item (origin/%s)", result.Pruned, staleA)
+	}
+
+	if remoteTrackingRefExists(t, workPath, "origin/"+staleA) {
+		t.Errorf("origin/%s が削除されていません", staleA)
+	}
+
+	if !remoteTrackingRefExists(t, workPath, "origin/"+staleB) {
+		t.Errorf("origin/%s が誤って削除されました（候補単位削除の挙動違反）", staleB)
+	}
+}
+
+// TestDeleteBranchCandidates_StaleRefDryRun は dryRun=true のときに
+// 実際の ref が削除されないことを検証します。
+func TestDeleteBranchCandidates_StaleRefDryRun(t *testing.T) {
+	t.Parallel()
+
+	base := t.TempDir()
+	remotePath := filepath.Join(base, "remote.git")
+	workPath := filepath.Join(base, "work")
+
+	runGit(t, "", "init", "--bare", remotePath)
+	runGit(t, "", "clone", remotePath, workPath)
+	runGit(t, workPath, "config", "user.email", "dsx-test@example.com")
+	runGit(t, workPath, "config", "user.name", "dsx-test")
+
+	writeTempFile(t, workPath, "README.md", "# repo\n")
+	runGit(t, workPath, "add", "README.md")
+	runGit(t, workPath, "commit", "-m", "initial commit")
+	runGit(t, workPath, "push", "-u", "origin", "HEAD")
+	runGit(t, workPath, "remote", "set-head", "origin", "--auto")
+
+	defaultBranch := getOriginDefaultBranchName(t, workPath)
+	stale := "dsx-test-stale-dryrun"
+	runGit(t, workPath, "checkout", "-b", stale)
+	runGit(t, workPath, "commit", "--allow-empty", "-m", "dryrun stale commit")
+	runGit(t, workPath, "push", "origin", stale)
+	runGit(t, workPath, "checkout", defaultBranch)
+	runGit(t, "", "--git-dir="+remotePath, "update-ref", "-d", "refs/heads/"+stale)
+
+	candidates := []BranchCandidate{
+		{Name: "origin/" + stale, Category: BranchCategoryStaleRef, Remote: "origin"},
+	}
+
+	result, err := DeleteBranchCandidates(context.Background(), workPath, candidates, true, false, defaultBranch)
+	if err != nil {
+		t.Fatalf("DeleteBranchCandidates() error = %v", err)
+	}
+
+	if len(result.Pruned) != 1 {
+		t.Errorf("dryRun Pruned = %+v, want 1 item", result.Pruned)
+	}
+
+	if !remoteTrackingRefExists(t, workPath, "origin/"+stale) {
+		t.Errorf("dryRun なのに origin/%s が削除されています", stale)
+	}
+}
+
+// remoteTrackingRefExists はリモートトラッキング参照 refs/remotes/<ref> の存在を返します。
+func remoteTrackingRefExists(t *testing.T, repoPath, ref string) bool {
+	t.Helper()
+
+	cmd := exec.CommandContext(context.Background(), "git", "-C", repoPath, "show-ref", "--verify", "--quiet", "refs/remotes/"+ref)
+
+	return cmd.Run() == nil
 }

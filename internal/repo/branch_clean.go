@@ -34,7 +34,7 @@ type BranchSkip struct {
 //     マージ済みであれば git branch -D で削除します。
 //   - UNMERGED:     デフォルトは安全側（git branch -d）。--force 指定時のみ git branch -D で強制削除
 //   - NO_UPSTREAM:  デフォルトは安全側（git branch -d）。--force 指定時のみ git branch -D で強制削除
-//   - STALE_REF:    git remote prune <remote>（リモートごとに1回まとめて実行）
+//   - STALE_REF:    git update-ref -d refs/remotes/<remote>/<branch>（候補単位で個別削除）
 //
 // UNMERGED/NO_UPSTREAM の -d 失敗時はエラーではなく Skipped に記録します
 // （未 push commit を含むブランチを誤って失う事故を防ぐため）。
@@ -49,8 +49,8 @@ func DeleteBranchCandidates(ctx context.Context, repoPath string, candidates []B
 		deleteLocalBranch(ctx, cleanPath, c, dryRun, force, defaultBranch, result)
 	}
 
-	for remote, refs := range staleByRemote {
-		pruneRemoteRefs(ctx, cleanPath, remote, refs, dryRun, result)
+	for _, refs := range staleByRemote {
+		pruneRemoteRefs(ctx, cleanPath, refs, dryRun, result)
 	}
 
 	if len(result.Errors) > 0 {
@@ -75,7 +75,7 @@ func separateBranchCandidates(candidates []BranchCandidate) (staleByRemote map[s
 
 		remote := c.Remote
 		if remote == "" {
-			remote = "origin"
+			remote = defaultRemoteName
 		}
 
 		staleByRemote[remote] = append(staleByRemote[remote], c)
@@ -147,21 +147,26 @@ func mergedIntoDefault(ctx context.Context, cleanPath, defaultBranch, branch str
 	return err == nil
 }
 
-// pruneRemoteRefs は指定リモートのスタレ参照をまとめて prune します。
-func pruneRemoteRefs(ctx context.Context, cleanPath, remote string, refs []BranchCandidate, dryRun bool, result *BranchCleanResult) {
-	if dryRun {
-		result.Pruned = append(result.Pruned, refs...)
+// pruneRemoteRefs は STALE_REF 候補を個別に削除します。
+// 以前は git remote prune <remote> でリモート単位の一括 prune を行っていましたが、
+// 「ユーザーが選択した候補のみ削除する」という UI 上の挙動と整合させるため、
+// 候補ごとに git update-ref -d refs/remotes/<remote>/<branch> を実行する仕様に変更しました。
+// これにより、選択を外した STALE_REF が誤って prune されることがなくなります。
+func pruneRemoteRefs(ctx context.Context, cleanPath string, refs []BranchCandidate, dryRun bool, result *BranchCleanResult) {
+	for _, ref := range refs {
+		if dryRun {
+			result.Pruned = append(result.Pruned, ref)
 
-		return
-	}
-
-	if err := runGitCommand(ctx, cleanPath, "remote", "prune", remote); err != nil {
-		for _, ref := range refs {
-			result.Errors = append(result.Errors, fmt.Errorf("%s のプルーンに失敗: %w", ref.Name, err))
+			continue
 		}
 
-		return
-	}
+		fullRef := "refs/remotes/" + ref.Name
+		if err := runGitCommand(ctx, cleanPath, "update-ref", "-d", fullRef); err != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("%s のプルーンに失敗: %w", ref.Name, err))
 
-	result.Pruned = append(result.Pruned, refs...)
+			continue
+		}
+
+		result.Pruned = append(result.Pruned, ref)
+	}
 }

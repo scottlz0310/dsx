@@ -333,7 +333,7 @@ func scanNoUpstreamBranches(ctx context.Context, repoPath string, excluded, merg
 // 出力中の "[would prune]" マーカーはロケール依存のため LANG/LC_ALL=C を強制します。
 func scanStaleRemoteRefs(ctx context.Context, repoPath, remote string) ([]BranchCandidate, error) {
 	if remote == "" {
-		remote = "origin"
+		remote = defaultRemoteName
 	}
 
 	output, err := runGitCommandOutputLocaleC(ctx, repoPath, "remote", "prune", remote, "--dry-run")
