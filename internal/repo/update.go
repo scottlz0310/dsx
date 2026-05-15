@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -479,6 +480,28 @@ func getBehindCount(ctx context.Context, repoPath string) (int, error) {
 func runGitCommandOutput(ctx context.Context, repoPath string, args ...string) ([]byte, error) {
 	commandArgs := append([]string{"-C", repoPath}, args...)
 	cmd := exec.CommandContext(ctx, "git", commandArgs...)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		message := strings.TrimSpace(string(output))
+		if message == "" {
+			return nil, err
+		}
+
+		return nil, fmt.Errorf("%w: %s", err, message)
+	}
+
+	return output, nil
+}
+
+// runGitCommandOutputLocaleC は LANG/LC_ALL=C を強制して git コマンドを実行します。
+// 出力を文字列パースする処理（ロケール依存メッセージの解析等）で使用します。
+func runGitCommandOutputLocaleC(ctx context.Context, repoPath string, args ...string) ([]byte, error) {
+	commandArgs := append([]string{"-C", repoPath}, args...)
+
+	cmd := exec.CommandContext(ctx, "git", commandArgs...)
+
+	cmd.Env = append(os.Environ(), "LANG=C", "LC_ALL=C")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {

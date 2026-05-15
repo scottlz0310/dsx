@@ -13,6 +13,9 @@ import (
 const (
 	cleanupTargetMerged   = "merged"
 	cleanupTargetSquashed = "squashed"
+
+	// defaultRemoteName は標準的なリモート名 "origin" を表す共通定数です。
+	defaultRemoteName = "origin"
 )
 
 // DefaultBranchInfo はリポジトリのデフォルトブランチ情報です。
@@ -66,8 +69,8 @@ func detectCleanupRemote(ctx context.Context, repoPath string) (string, error) {
 		}
 	}
 
-	if containsString(remotes, "origin") {
-		return "origin", nil
+	if containsString(remotes, defaultRemoteName) {
+		return defaultRemoteName, nil
 	}
 
 	if len(remotes) == 1 {

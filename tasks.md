@@ -6,7 +6,22 @@
 
 ---
 
-## Issue #29: 一括pullが成功表示にも関わらず同期されない問題
+## Issue #1: dsx repo branch-clean サブコマンド実装
+
+- [x] `internal/repo/branch_scan.go` 実装（4カテゴリ検出ロジック）
+- [x] `internal/repo/branch_clean.go` 実装（削除・prune ロジック）
+- [x] `cmd/dsx/repo_branch_clean.go` 実装（Cobra コマンド定義・インタラクティブ/dry-run/yes モード）
+- [x] `internal/repo/branch_scan_test.go` テスト追加（table-driven・境界値・エラー系）
+- [x] `task check` 通過（fmt/vet/test/lint 全件パス、lint 0 issues）
+- [x] `CHANGELOG.md` 更新
+- [ ] feature ブランチ作成・コミット・push
+- [ ] Draft PR 作成（Closes #1）
+
+---
+
+
+
+## Issue #29: dsx repo update のブランチ更新状態確認スクリプト連携
 
 ### 修正1（高優先）: `refs/remotes/origin/HEAD` 未設定時のスキップを廃止
 
