@@ -21,7 +21,7 @@
 
 - `branch-clean` の UNMERGED 判定を `git branch --no-merged` ベースから `upstream:track` ベースに変更（upstream が gone のローカルブランチのみが UNMERGED 候補となり、未 push commit を含む通常の作業ブランチは候補に含まれない）（PR #66 レビュー対応）
 - `branch-clean` のデフォルト動作を safe-by-default 化（`git branch -d` を使用し、未マージのコミットがあるブランチは KEEP として Skipped に記録）（PR #66 レビュー対応）
-- `git fetch --prune --dry-run` の出力解析を LANG/LC_ALL=C に固定してロケール依存を排除（PR #66 レビュー対応）
+- `git remote prune --dry-run` の出力解析を LANG/LC_ALL=C に固定してロケール依存を排除（PR #66 レビュー対応）
 
 ## [v0.5.0] - 2026-05-11
 

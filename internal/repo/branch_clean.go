@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 )
@@ -50,7 +51,9 @@ func DeleteBranchCandidates(ctx context.Context, repoPath string, candidates []B
 	}
 
 	if len(result.Errors) > 0 {
-		return result, fmt.Errorf("%d 件の操作に失敗しました", len(result.Errors))
+		joined := errors.Join(result.Errors...)
+
+		return result, fmt.Errorf("%d 件の操作に失敗しました: %w", len(result.Errors), joined)
 	}
 
 	return result, nil

@@ -148,7 +148,12 @@ func processRepoBranchClean(ctx context.Context, repoPath, displayName string, s
 		return 0, 0, 0, 0, 0
 	}
 
-	toDelete, warnCount := selectBranchesToClean(result, displayName)
+	toDelete, warnCount, selectErr := selectBranchesToClean(result, displayName)
+	if selectErr != nil {
+		fmt.Fprintf(os.Stderr, "  ❌ %s: インタラクティブ選択失敗 (%v)\n", displayName, selectErr)
+
+		return 0, 0, 0, warnCount, 1
+	}
 
 	warnings += warnCount
 
@@ -216,19 +221,21 @@ func printRepoCandidates(result *repomgr.BranchScanResult) {
 
 // selectBranchesToClean はモードに応じてクリーンアップ対象を選択します。
 // 返り値 warnCount は --yes モードで自動削除対象外と判断された件数です（実行失敗ではなくスキップ警告）。
-func selectBranchesToClean(result *repomgr.BranchScanResult, displayName string) (toDelete []repomgr.BranchCandidate, warnCount int) {
+// インタラクティブ選択でエラー（TTY なし・入力エラー等）が発生した場合は呼び出し元に伝播し、
+// 呼び出し元で error カウントに反映できるようにします。
+func selectBranchesToClean(result *repomgr.BranchScanResult, displayName string) (toDelete []repomgr.BranchCandidate, warnCount int, err error) {
 	if repoBranchCleanYes {
-		return collectAutoTargets(result.Candidates, displayName)
+		auto, warns := collectAutoTargets(result.Candidates, displayName)
+
+		return auto, warns, nil
 	}
 
 	selected, interactiveErr := askBranchSelection(result)
 	if interactiveErr != nil {
-		fmt.Fprintf(os.Stderr, "  ⚠️  %s: インタラクティブ選択失敗 (%v)\n", displayName, interactiveErr)
-
-		return nil, 0
+		return nil, 0, fmt.Errorf("%s: インタラクティブ選択失敗: %w", displayName, interactiveErr)
 	}
 
-	return selected, 0
+	return selected, 0, nil
 }
 
 // confirmBranchDeletion はインタラクティブモードで削除実行前の最終確認 [y/N] を行います。

@@ -13,11 +13,11 @@ type BranchCategory string
 const (
 	// BranchCategoryMerged はデフォルトブランチにマージ済みのローカルブランチです。安全に削除できます。
 	BranchCategoryMerged BranchCategory = "merged"
-	// BranchCategoryUnmerged はデフォルトブランチに未マージのローカルブランチです。強制削除が必要です。
+	// BranchCategoryUnmerged はデフォルトブランチに未マージのローカルブランチです（upstream が gone のもののみ候補化）。デフォルトでは git branch -d で安全削除を試み、失敗時は Skipped 扱いとし、`--force` 指定時のみ -D で強制削除します。
 	BranchCategoryUnmerged BranchCategory = "unmerged"
 	// BranchCategoryStaleRef はリモートに存在しないリモートトラッキング参照です。prune で除去できます。
 	BranchCategoryStaleRef BranchCategory = "stale_ref"
-	// BranchCategoryNoUpstream はアップストリームが設定されていないローカルブランチです。強制削除が必要です。
+	// BranchCategoryNoUpstream はアップストリームが設定されていないローカルブランチです。デフォルトでは git branch -d で安全削除を試み、失敗時は Skipped 扱いとし、`--force` 指定時のみ -D で強制削除します。
 	BranchCategoryNoUpstream BranchCategory = "no_upstream"
 )
 
