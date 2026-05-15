@@ -188,7 +188,7 @@ func TestScanBranches_NoUpstream(t *testing.T) {
 		wantFound    bool
 	}{
 		{
-			name: "アップストリーム未設定の未マージブランチが NO_UPSTREAM に含まれる",
+			name: "アップストリーム未設定の未マージブランチは UNMERGED に分類され NO_UPSTREAM には含まれない",
 			setupRepo: func(t *testing.T) (string, string) {
 				t.Helper()
 
@@ -203,7 +203,7 @@ func TestScanBranches_NoUpstream(t *testing.T) {
 				return repoPath, branch
 			},
 			wantCategory: BranchCategoryNoUpstream,
-			wantFound:    true,
+			wantFound:    false,
 		},
 		{
 			name: "アップストリーム設定済みのブランチは NO_UPSTREAM に含まれない",
@@ -270,6 +270,40 @@ func TestScanBranches_NoUpstream(t *testing.T) {
 					tt.wantCategory, branch, found, tt.wantFound, result.Candidates)
 			}
 		})
+	}
+}
+
+// TestScanBranches_NoCategoryDuplication は、同じブランチが複数のカテゴリに
+// 重複して分類されないことを検証します。重複があると DeleteBranchCandidates が
+// 同じブランチを2回削除しようとして失敗するため、回帰テストとして固定します。
+func TestScanBranches_NoCategoryDuplication(t *testing.T) {
+	t.Parallel()
+
+	repoPath := createRepoWithUpstream(t)
+	defaultBranch := getOriginDefaultBranchName(t, repoPath)
+
+	// アップストリーム未設定かつ未マージのブランチを作成
+	branch := "dsx-test-bs-dup"
+	runGit(t, repoPath, "checkout", "-b", branch)
+	runGit(t, repoPath, "commit", "--allow-empty", "-m", "no upstream and unmerged")
+	runGit(t, repoPath, "checkout", defaultBranch)
+
+	result, err := ScanBranches(context.Background(), repoPath, BranchScanOptions{Fetch: false})
+	if err != nil {
+		t.Fatalf("ScanBranches() error = %v", err)
+	}
+
+	count := 0
+
+	for _, c := range result.Candidates {
+		if c.Name == branch {
+			count++
+		}
+	}
+
+	if count != 1 {
+		t.Errorf("ブランチ %q が %d 回出現しました (期待値: 1, candidates: %+v)",
+			branch, count, result.Candidates)
 	}
 }
 

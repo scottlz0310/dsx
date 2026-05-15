@@ -109,7 +109,12 @@ func ScanBranches(ctx context.Context, repoPath string, opts BranchScanOptions) 
 
 	result.Candidates = append(result.Candidates, unmerged...)
 
-	noUpstream, err := scanNoUpstreamBranches(ctx, cleanPath, excluded, mergedSet)
+	unmergedSet := make(map[string]struct{}, len(unmerged))
+	for _, c := range unmerged {
+		unmergedSet[c.Name] = struct{}{}
+	}
+
+	noUpstream, err := scanNoUpstreamBranches(ctx, cleanPath, excluded, mergedSet, unmergedSet)
 	if err != nil {
 		return result, fmt.Errorf("アップストリーム未設定ブランチの取得に失敗: %w", err)
 	}
@@ -198,8 +203,8 @@ func scanUnmergedBranches(ctx context.Context, repoPath, defaultRef string, excl
 }
 
 // scanNoUpstreamBranches はアップストリームが未設定のローカルブランチを収集します。
-// 既に MERGED に分類されたブランチは除外して重複を防ぎます。
-func scanNoUpstreamBranches(ctx context.Context, repoPath string, excluded, mergedSet map[string]struct{}) ([]BranchCandidate, error) {
+// 既に MERGED または UNMERGED に分類されたブランチは除外して重複を防ぎます。
+func scanNoUpstreamBranches(ctx context.Context, repoPath string, excluded, mergedSet, unmergedSet map[string]struct{}) ([]BranchCandidate, error) {
 	output, err := runGitCommandOutput(ctx, repoPath,
 		"for-each-ref",
 		"--format=%(refname:short)%00%(upstream:short)",
@@ -234,6 +239,10 @@ func scanNoUpstreamBranches(ctx context.Context, repoPath string, excluded, merg
 		}
 
 		if _, isMerged := mergedSet[branch]; isMerged {
+			continue
+		}
+
+		if _, isUnmerged := unmergedSet[branch]; isUnmerged {
 			continue
 		}
 
