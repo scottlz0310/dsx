@@ -38,7 +38,8 @@ var repoBranchCleanCmd = &cobra.Command{
 
 安全性:
   デフォルトでは git branch -d（安全削除）を使い、未マージのコミットがあるブランチは削除されずに保持されます。
-  リスクを許容して強制削除する場合は --force を指定してください（UNMERGED/NO-UPSTREAM が git branch -D で削除されます）。`,
+  リスクを許容して強制削除する場合は --force を指定してください（UNMERGED/NO-UPSTREAM が git branch -D で削除されます）。
+`,
 	RunE: runRepoBranchClean,
 }
 
