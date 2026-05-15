@@ -15,6 +15,7 @@ import (
 var (
 	repoBranchCleanDryRun  bool
 	repoBranchCleanYes     bool
+	repoBranchCleanForce   bool
 	repoBranchCleanNoFetch bool
 	repoBranchCleanExclude []string
 )
@@ -26,14 +27,18 @@ var repoBranchCleanCmd = &cobra.Command{
 
 カテゴリ:
   [MERGED]      デフォルトブランチにマージ済みのローカルブランチ（安全削除）
-  [UNMERGED]    未マージのローカルブランチ（最終コミット日時付き）
+  [UNMERGED]    upstream が gone（リモート側で削除済み）のローカルブランチ
   [STALE-REF]   リモートに存在しないリモートトラッキング参照（prune で除去）
   [NO-UPSTREAM] アップストリームが未設定のローカルブランチ
 
 実行モード:
-  デフォルト  インタラクティブに削除するブランチを選択します
+  デフォルト  インタラクティブに削除するブランチを選択します（最終確認 [y/N] あり）
   --dry-run   候補を表示するのみで実際の操作は行いません
-  --yes       MERGED と STALE-REF を自動削除します（UNMERGED・NO-UPSTREAM は表示のみ）`,
+  --yes       MERGED と STALE-REF を自動削除します（UNMERGED・NO-UPSTREAM は表示のみ）
+
+安全性:
+  デフォルトでは git branch -d（安全削除）を使い、未マージのコミットがあるブランチは KEEP されます。
+  リスクを許容して強制削除する場合は --force を指定してください（UNMERGED/NO-UPSTREAM が git branch -D で削除されます）。`,
 	RunE: runRepoBranchClean,
 }
 
@@ -43,6 +48,7 @@ func init() {
 	repoBranchCleanCmd.Flags().StringVar(&repoRootOverride, "root", "", "対象のルートディレクトリ（指定時は設定を上書き）")
 	repoBranchCleanCmd.Flags().BoolVarP(&repoBranchCleanDryRun, "dry-run", "n", false, "候補を表示するのみ（実際の操作は行わない）")
 	repoBranchCleanCmd.Flags().BoolVarP(&repoBranchCleanYes, "yes", "y", false, "安全なブランチ（MERGED・STALE-REF）を自動削除")
+	repoBranchCleanCmd.Flags().BoolVar(&repoBranchCleanForce, "force", false, "UNMERGED/NO-UPSTREAM を git branch -D で強制削除（未push commit を失う可能性あり）")
 	repoBranchCleanCmd.Flags().BoolVar(&repoBranchCleanNoFetch, "no-fetch", false, "スキャン前の git fetch をスキップ")
 	repoBranchCleanCmd.Flags().StringArrayVar(&repoBranchCleanExclude, "exclude", nil, "除外するブランチ名（複数指定可）")
 }
@@ -95,55 +101,79 @@ func runRepoBranchClean(cmd *cobra.Command, _ []string) error {
 
 	totalDeleted := 0
 	totalPruned := 0
+	totalSkipped := 0
+	totalWarnings := 0
 	totalErrors := 0
 
 	for _, repoPath := range repoPaths {
-		displayName := buildRepoJobDisplayName(repoPath, root)
-		deleted, pruned, errors := processRepoBranchClean(ctx, repoPath, displayName, scanOpts)
+		displayName := buildRepoJobDisplayName(root, repoPath)
+		deleted, pruned, skipped, warnings, errors := processRepoBranchClean(ctx, repoPath, displayName, scanOpts)
 
 		totalDeleted += deleted
 		totalPruned += pruned
+		totalSkipped += skipped
+		totalWarnings += warnings
 		totalErrors += errors
 	}
 
-	printSummary(totalDeleted, totalPruned, totalErrors, repoBranchCleanDryRun)
+	printSummary(totalDeleted, totalPruned, totalSkipped, totalWarnings, totalErrors, repoBranchCleanDryRun)
+
+	if !repoBranchCleanDryRun && totalErrors > 0 {
+		return fmt.Errorf("ブランチクリーンアップで %d 件のエラーが発生しました", totalErrors)
+	}
 
 	return nil
 }
 
-// processRepoBranchClean は単一リポジトリのブランチクリーンアップを実行し、削除・プルーン・エラーの件数を返します。
-func processRepoBranchClean(ctx context.Context, repoPath, displayName string, scanOpts repomgr.BranchScanOptions) (deleted, pruned, errors int) {
+// processRepoBranchClean は単一リポジトリのブランチクリーンアップを実行し、削除・プルーン・スキップ・警告・エラーの件数を返します。
+// skipped は -d 失敗等で安全のため KEEP したブランチ件数（情報レベル）、warnings は --yes モードの対象外スキップ件数（注意レベル）。
+func processRepoBranchClean(ctx context.Context, repoPath, displayName string, scanOpts repomgr.BranchScanOptions) (deleted, pruned, skipped, warnings, errors int) {
 	result, scanErr := repomgr.ScanBranches(ctx, repoPath, scanOpts)
 	if scanErr != nil {
 		fmt.Fprintf(os.Stderr, "  ⚠️  %s: スキャン失敗 (%v)\n", displayName, scanErr)
 
-		return 0, 0, 1
+		return 0, 0, 0, 0, 1
 	}
 
 	if len(result.Candidates) == 0 {
 		fmt.Printf("  ✅ %s: クリーンアップ不要\n", displayName)
 
-		return 0, 0, 0
+		return 0, 0, 0, 0, 0
 	}
 
 	fmt.Printf("  📁 %s (ブランチ: %s)\n", displayName, result.DefaultBranch)
 	printRepoCandidates(result)
 
 	if repoBranchCleanDryRun {
-		return 0, 0, 0
+		return 0, 0, 0, 0, 0
 	}
 
 	toDelete, warnCount := selectBranchesToClean(result, displayName)
 
-	errors += warnCount
+	warnings += warnCount
 
 	if len(toDelete) == 0 {
 		fmt.Printf("  ⏭️  %s: 選択なし（スキップ）\n\n", displayName)
 
-		return 0, 0, errors
+		return 0, 0, 0, warnings, 0
 	}
 
-	cleanResult, cleanErr := repomgr.DeleteBranchCandidates(ctx, repoPath, toDelete, false)
+	if !repoBranchCleanYes {
+		confirmed, confirmErr := confirmBranchDeletion(displayName, toDelete)
+		if confirmErr != nil {
+			fmt.Fprintf(os.Stderr, "  ⚠️  %s: 確認プロンプト失敗 (%v)\n", displayName, confirmErr)
+
+			return 0, 0, 0, warnings, 1
+		}
+
+		if !confirmed {
+			fmt.Printf("  ⏭️  %s: 確認がキャンセルされました（スキップ）\n\n", displayName)
+
+			return 0, 0, 0, warnings, 0
+		}
+	}
+
+	cleanResult, cleanErr := repomgr.DeleteBranchCandidates(ctx, repoPath, toDelete, false, repoBranchCleanForce)
 	if cleanResult != nil {
 		for _, errItem := range cleanResult.Errors {
 			fmt.Fprintf(os.Stderr, "  ⚠️  %s: %v\n", displayName, errItem)
@@ -151,16 +181,16 @@ func processRepoBranchClean(ctx context.Context, repoPath, displayName string, s
 
 		printCleanResult(displayName, cleanResult)
 
-		return len(cleanResult.Deleted), len(cleanResult.Pruned), errors + len(cleanResult.Errors)
+		return len(cleanResult.Deleted), len(cleanResult.Pruned), len(cleanResult.Skipped), warnings, len(cleanResult.Errors)
 	}
 
 	if cleanErr != nil {
 		fmt.Fprintf(os.Stderr, "  ❌ %s: クリーンアップ失敗 (%v)\n", displayName, cleanErr)
 
-		return 0, 0, errors + 1
+		return 0, 0, 0, warnings, 1
 	}
 
-	return 0, 0, errors
+	return 0, 0, 0, warnings, 0
 }
 
 // printRepoCandidates は単一リポジトリのブランチ候補一覧を表示します。
@@ -195,10 +225,33 @@ func selectBranchesToClean(result *repomgr.BranchScanResult, displayName string)
 	if interactiveErr != nil {
 		fmt.Fprintf(os.Stderr, "  ⚠️  %s: インタラクティブ選択失敗 (%v)\n", displayName, interactiveErr)
 
-		return nil, 1
+		return nil, 0
 	}
 
 	return selected, 0
+}
+
+// confirmBranchDeletion はインタラクティブモードで削除実行前の最終確認 [y/N] を行います。
+// Issue #1 の受け入れ条件「Proceed? [y/N] で y|Y のみ実行」を満たします。
+func confirmBranchDeletion(displayName string, toDelete []repomgr.BranchCandidate) (bool, error) {
+	names := make([]string, len(toDelete))
+	for i, c := range toDelete {
+		names[i] = c.Name
+	}
+
+	fmt.Printf("  ❓ %s: 以下 %d 件を削除します: %s\n", displayName, len(toDelete), strings.Join(names, ", "))
+
+	confirm := false
+	prompt := &survey.Confirm{
+		Message: "実行しますか?",
+		Default: false,
+	}
+
+	if err := survey.AskOne(prompt, &confirm); err != nil {
+		return false, err
+	}
+
+	return confirm, nil
 }
 
 // collectAutoTargets は --yes モードで自動削除対象を収集し、安全でない候補については警告します。
@@ -315,11 +368,15 @@ func printCleanResult(displayName string, result *repomgr.BranchCleanResult) {
 		fmt.Printf("  ✂️  %s: プルーン完了: %s\n", displayName, strings.Join(names, ", "))
 	}
 
+	for _, skip := range result.Skipped {
+		fmt.Printf("  ⏭️  %s: %s をスキップしました（%s）\n", displayName, skip.Candidate.Name, skip.Reason)
+	}
+
 	fmt.Println()
 }
 
 // printSummary は全リポジトリ処理後のサマリーを表示します。
-func printSummary(deleted, pruned, errors int, dryRun bool) {
+func printSummary(deleted, pruned, skipped, warnings, errors int, dryRun bool) {
 	fmt.Println("─────────────────────────────────────────")
 
 	if dryRun {
@@ -329,6 +386,14 @@ func printSummary(deleted, pruned, errors int, dryRun bool) {
 	}
 
 	fmt.Printf("✅ クリーンアップ完了: ブランチ削除 %d件, プルーン %d件", deleted, pruned)
+
+	if skipped > 0 {
+		fmt.Printf(", スキップ %d件", skipped)
+	}
+
+	if warnings > 0 {
+		fmt.Printf(", 警告 %d件", warnings)
+	}
 
 	if errors > 0 {
 		fmt.Printf(", エラー %d件", errors)

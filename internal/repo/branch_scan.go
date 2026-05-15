@@ -152,13 +152,17 @@ func IsSafeToAutoDelete(c BranchCategory) bool {
 	return c == BranchCategoryMerged || c == BranchCategoryStaleRef
 }
 
-// scanUnmergedBranches はデフォルトブランチに未マージのローカルブランチを収集します。
-// フォーマット文字列に %00（NUL バイト）を使い、相対日時のスペースを安全に扱います。
+// scanUnmergedBranches は upstream が gone（リモート側で削除済み）のローカルブランチを収集します。
+//
+// Issue #1 の Must 要件「未 push commit があるブランチは絶対 KEEP」「upstream gone のみ削除対象」を満たすため、
+// 通常の作業ブランチ（upstream 生存）や未 push commit を含むブランチ（ahead）は候補に含めません。
+// upstream:track の出力解析はロケール依存のため LANG/LC_ALL=C を強制します。
 func scanUnmergedBranches(ctx context.Context, repoPath, defaultRef string, excluded, mergedSet map[string]struct{}) ([]BranchCandidate, error) {
-	output, err := runGitCommandOutput(ctx, repoPath,
+	_ = defaultRef // 互換のため引数は保持（カテゴリ判定は upstream:track に切り替え）
+
+	output, err := runGitCommandOutputLocaleC(ctx, repoPath,
 		"for-each-ref",
-		"--format=%(refname:short)%00%(committerdate:relative)",
-		"--no-merged="+defaultRef,
+		"--format=%(refname:short)%00%(upstream:short)%00%(upstream:track)%00%(committerdate:relative)",
 		"refs/heads",
 	)
 	if err != nil {
@@ -168,38 +172,70 @@ func scanUnmergedBranches(ctx context.Context, repoPath, defaultRef string, excl
 	var candidates []BranchCandidate
 
 	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
-		if strings.TrimSpace(line) == "" {
+		c, ok := parseUnmergedBranchLine(line, excluded, mergedSet)
+		if !ok {
 			continue
 		}
 
-		parts := strings.SplitN(line, "\x00", 2)
-
-		branch := strings.TrimSpace(parts[0])
-		if branch == "" {
-			continue
-		}
-
-		age := ""
-		if len(parts) == 2 {
-			age = strings.TrimSpace(parts[1])
-		}
-
-		if isExcludedBranch(excluded, branch) {
-			continue
-		}
-
-		if _, isMerged := mergedSet[branch]; isMerged {
-			continue
-		}
-
-		candidates = append(candidates, BranchCandidate{
-			Name:     branch,
-			Category: BranchCategoryUnmerged,
-			Age:      age,
-		})
+		candidates = append(candidates, c)
 	}
 
 	return candidates, nil
+}
+
+// parseUnmergedBranchLine は for-each-ref の1行を解析し、UNMERGED 候補に該当するか判定します。
+// 該当しない（ヘッダ空行・除外・既にMERGED・upstream未設定・ahead・gone以外）場合は ok=false を返します。
+func parseUnmergedBranchLine(line string, excluded, mergedSet map[string]struct{}) (BranchCandidate, bool) {
+	if strings.TrimSpace(line) == "" {
+		return BranchCandidate{}, false
+	}
+
+	parts := strings.SplitN(line, "\x00", 4)
+
+	branch := strings.TrimSpace(parts[0])
+	if branch == "" {
+		return BranchCandidate{}, false
+	}
+
+	if isExcludedBranch(excluded, branch) {
+		return BranchCandidate{}, false
+	}
+
+	if _, isMerged := mergedSet[branch]; isMerged {
+		return BranchCandidate{}, false
+	}
+
+	upstream := ""
+	if len(parts) >= 2 {
+		upstream = strings.TrimSpace(parts[1])
+	}
+
+	// upstream 未設定は NO_UPSTREAM 側で扱う
+	if upstream == "" {
+		return BranchCandidate{}, false
+	}
+
+	track := ""
+	if len(parts) >= 3 {
+		track = strings.TrimSpace(parts[2])
+	}
+
+	// 未 push commit を含むブランチ（ahead）は絶対に候補に入れない（Issue #1 Must）
+	// upstream gone のみ削除候補に入れる
+	if strings.Contains(track, "ahead") || !strings.Contains(track, "gone") {
+		return BranchCandidate{}, false
+	}
+
+	age := ""
+	if len(parts) >= 4 {
+		age = strings.TrimSpace(parts[3])
+	}
+
+	return BranchCandidate{
+		Name:     branch,
+		Category: BranchCategoryUnmerged,
+		Age:      age,
+	}, true
 }
 
 // scanNoUpstreamBranches はアップストリームが未設定のローカルブランチを収集します。
@@ -256,12 +292,13 @@ func scanNoUpstreamBranches(ctx context.Context, repoPath string, excluded, merg
 }
 
 // scanStaleRemoteRefs は git remote prune --dry-run で除去対象となるリモートトラッキング参照を収集します。
+// 出力中の "[would prune]" マーカーはロケール依存のため LANG/LC_ALL=C を強制します。
 func scanStaleRemoteRefs(ctx context.Context, repoPath, remote string) ([]BranchCandidate, error) {
 	if remote == "" {
 		remote = "origin"
 	}
 
-	output, err := runGitCommandOutput(ctx, repoPath, "remote", "prune", remote, "--dry-run")
+	output, err := runGitCommandOutputLocaleC(ctx, repoPath, "remote", "prune", remote, "--dry-run")
 	if err != nil {
 		return nil, err
 	}

@@ -13,6 +13,15 @@
   - インタラクティブ（デフォルト）/ `--dry-run` / `--yes` の3モード対応
   - `survey/v2` による MultiSelect UI（MERGED・STALE-REF をデフォルト選択）
   - `--exclude` で除外ブランチを指定可能、`--no-fetch` で事前 fetch をスキップ可能
+  - `--force` フラグを追加（指定時のみ UNMERGED/NO-UPSTREAM を `git branch -D` で強制削除）
+  - インタラクティブモードで MultiSelect 確定後に `[y/N]` 最終確認プロンプトを表示（PR #66 レビュー対応）
+  - 削除エラー時に終了コード非ゼロ（PR #66 レビュー対応）
+
+### Changed
+
+- `branch-clean` の UNMERGED 判定を `git branch --no-merged` ベースから `upstream:track` ベースに変更（upstream が gone のローカルブランチのみが UNMERGED 候補となり、未 push commit を含む通常の作業ブランチは候補に含まれない）（PR #66 レビュー対応）
+- `branch-clean` のデフォルト動作を safe-by-default 化（`git branch -d` を使用し、未マージのコミットがあるブランチは KEEP として Skipped に記録）（PR #66 レビュー対応）
+- `git fetch --prune --dry-run` の出力解析を LANG/LC_ALL=C に固定してロケール依存を排除（PR #66 レビュー対応）
 
 ## [v0.5.0] - 2026-05-11
 

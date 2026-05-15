@@ -98,6 +98,10 @@ func TestScanBranches_Unmerged(t *testing.T) {
 	writeTempFile(t, repoPath, "wip.txt", "wip\n")
 	runGit(t, repoPath, "add", "wip.txt")
 	runGit(t, repoPath, "commit", "-m", "wip commit")
+	// upstream を設定して push → リモート側を削除して gone 状態を作る（新仕様の UNMERGED 条件）
+	runGit(t, repoPath, "push", "-u", "origin", branch)
+	runGit(t, repoPath, "push", "origin", "--delete", branch)
+	runGit(t, repoPath, "fetch", "--prune")
 	runGit(t, repoPath, "checkout", defaultBranch)
 
 	result, err := ScanBranches(context.Background(), repoPath, BranchScanOptions{Fetch: false})
@@ -124,7 +128,7 @@ func TestScanBranches_Unmerged(t *testing.T) {
 	}
 }
 
-// TestScanBranches_MergeTransition は UNMERGED ブランチがマージ後に MERGED に移動することを確認します。
+// TestScanBranches_MergeTransition は UNMERGED（upstream gone）ブランチがマージ後に MERGED に移動することを確認します。
 func TestScanBranches_MergeTransition(t *testing.T) {
 	t.Parallel()
 
@@ -133,6 +137,10 @@ func TestScanBranches_MergeTransition(t *testing.T) {
 	defaultBranch := getOriginDefaultBranchName(t, repoPath)
 	runGit(t, repoPath, "checkout", "-b", branch)
 	runGit(t, repoPath, "commit", "--allow-empty", "-m", "empty commit")
+	// upstream を gone 状態にしてマージ前は UNMERGED に分類されることを確認
+	runGit(t, repoPath, "push", "-u", "origin", branch)
+	runGit(t, repoPath, "push", "origin", "--delete", branch)
+	runGit(t, repoPath, "fetch", "--prune")
 	runGit(t, repoPath, "checkout", defaultBranch)
 
 	// マージ前: UNMERGED にあるはず
@@ -188,7 +196,7 @@ func TestScanBranches_NoUpstream(t *testing.T) {
 		wantFound    bool
 	}{
 		{
-			name: "アップストリーム未設定の未マージブランチは UNMERGED に分類され NO_UPSTREAM には含まれない",
+			name: "アップストリーム未設定の未マージブランチは NO_UPSTREAM に分類される",
 			setupRepo: func(t *testing.T) (string, string) {
 				t.Helper()
 
@@ -203,7 +211,7 @@ func TestScanBranches_NoUpstream(t *testing.T) {
 				return repoPath, branch
 			},
 			wantCategory: BranchCategoryNoUpstream,
-			wantFound:    false,
+			wantFound:    true,
 		},
 		{
 			name: "アップストリーム設定済みのブランチは NO_UPSTREAM に含まれない",
@@ -545,7 +553,7 @@ func TestDeleteBranchCandidates_DryRun(t *testing.T) {
 			{Name: featureBranch, Category: BranchCategoryMerged},
 		}
 
-		result, err := DeleteBranchCandidates(context.Background(), repoPath, candidates, true)
+		result, err := DeleteBranchCandidates(context.Background(), repoPath, candidates, true, false)
 		if err != nil {
 			t.Fatalf("DeleteBranchCandidates() error = %v", err)
 		}
@@ -621,7 +629,7 @@ func TestDeleteBranchCandidates_Delete(t *testing.T) {
 			repoPath, branch := tt.setupRepo(t)
 			candidates := []BranchCandidate{{Name: branch, Category: tt.category}}
 
-			result, err := DeleteBranchCandidates(context.Background(), repoPath, candidates, false)
+			result, err := DeleteBranchCandidates(context.Background(), repoPath, candidates, false, true)
 			if err != nil {
 				t.Fatalf("DeleteBranchCandidates() error = %v", err)
 			}

@@ -13,27 +13,36 @@ type BranchCleanResult struct {
 	Deleted []BranchCandidate
 	// Pruned は prune が完了したリモートトラッキング参照（dryRun 時は prune 予定の参照）
 	Pruned []BranchCandidate
+	// Skipped は未 push commit 等のため安全に削除できず KEEP したブランチ（警告レベル、エラーではない）
+	Skipped []BranchSkip
 	// Errors は各操作で発生したエラーのリスト
 	Errors []error
+}
+
+// BranchSkip は削除をスキップしたブランチと理由を表します。
+type BranchSkip struct {
+	Candidate BranchCandidate
+	Reason    string
 }
 
 // DeleteBranchCandidates は選択されたブランチ候補を削除・プルーンします。
 //
 // 削除フラグ:
 //   - MERGED:       git branch -d（安全削除）
-//   - UNMERGED:     git branch -D（強制削除）
-//   - NO_UPSTREAM:  git branch -D（強制削除）
+//   - UNMERGED:     git branch -d（safe by default; force=true の場合は -D で強制削除）
+//   - NO_UPSTREAM:  git branch -d（safe by default; force=true の場合は -D で強制削除）
 //   - STALE_REF:    git remote prune <remote>（リモートごとに1回まとめて実行）
 //
+// -d 失敗時はエラーではなく Skipped に記録します（未 push commit を含むブランチを誤って失う事故を防ぐため）。
 // dryRun が true の場合は実際の操作は行わず、結果に候補を記録するのみです。
-func DeleteBranchCandidates(ctx context.Context, repoPath string, candidates []BranchCandidate, dryRun bool) (*BranchCleanResult, error) {
+func DeleteBranchCandidates(ctx context.Context, repoPath string, candidates []BranchCandidate, dryRun, force bool) (*BranchCleanResult, error) {
 	cleanPath := filepath.Clean(repoPath)
 	result := &BranchCleanResult{RepoPath: cleanPath}
 
 	staleByRemote, localBranches := separateBranchCandidates(candidates)
 
 	for _, c := range localBranches {
-		deleteLocalBranch(ctx, cleanPath, c, dryRun, result)
+		deleteLocalBranch(ctx, cleanPath, c, dryRun, force, result)
 	}
 
 	for remote, refs := range staleByRemote {
@@ -70,9 +79,12 @@ func separateBranchCandidates(candidates []BranchCandidate) (staleByRemote map[s
 }
 
 // deleteLocalBranch は1つのローカルブランチを削除します。
-func deleteLocalBranch(ctx context.Context, cleanPath string, c BranchCandidate, dryRun bool, result *BranchCleanResult) {
+// safe by default: UNMERGED/NO_UPSTREAM でも force=false のときは `-d`（安全削除）を使い、
+// 失敗時は Skipped に記録します（未 push commit を含むブランチを誤って失う事故を防ぐため）。
+// force=true のときのみ `-D`（強制削除）を使います。
+func deleteLocalBranch(ctx context.Context, cleanPath string, c BranchCandidate, dryRun, force bool, result *BranchCleanResult) {
 	flag := "-d"
-	if c.Category == BranchCategoryUnmerged || c.Category == BranchCategoryNoUpstream {
+	if force && (c.Category == BranchCategoryUnmerged || c.Category == BranchCategoryNoUpstream) {
 		flag = "-D"
 	}
 
@@ -83,6 +95,16 @@ func deleteLocalBranch(ctx context.Context, cleanPath string, c BranchCandidate,
 	}
 
 	if err := runGitCommand(ctx, cleanPath, "branch", flag, c.Name); err != nil {
+		// safe by default モードでは -d が失敗しても通常想定（例: --force で再実行を促す）
+		if flag == "-d" && (c.Category == BranchCategoryUnmerged || c.Category == BranchCategoryNoUpstream) {
+			result.Skipped = append(result.Skipped, BranchSkip{
+				Candidate: c,
+				Reason:    "未 push commit がある可能性があるため安全削除に失敗しました（強制削除するには --force を指定）",
+			})
+
+			return
+		}
+
 		result.Errors = append(result.Errors, fmt.Errorf("%s の削除に失敗: %w", c.Name, err))
 
 		return

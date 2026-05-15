@@ -21,6 +21,8 @@
 
 
 
+## Issue #29: dsx repo update のブランチ更新状態確認スクリプト連携
+
 ### 修正1（高優先）: `refs/remotes/origin/HEAD` 未設定時のスキップを廃止
 
 対象: `internal/repo/update.go`
