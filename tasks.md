@@ -28,7 +28,8 @@
 - [x] ルートヘルプに `repo branch-clean` を追加
 - [x] CHANGELOG.md: [Unreleased] → [v0.6.0] - 2026-05-15
 - [x] README.md: バージョン表記を v0.6.0 に更新
-- [ ] PR 作成・マージ
+- [x] PR 作成
+- [ ] PR マージ
 - [ ] `v0.6.0` タグ発行・push → goreleaser が GitHub Release を自動作成
 - [ ] GitHub Release ページを見やすく編集
 
