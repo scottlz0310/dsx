@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // BranchCategory はブランチクリーンアップ候補のカテゴリです。
@@ -154,7 +156,7 @@ func IsSafeToAutoDelete(c BranchCategory) bool {
 
 // scanUnmergedBranches は upstream が gone（リモート側で削除済み）のローカルブランチを収集します。
 //
-// Issue #1 の Must 要件「未 push commit があるブランチは絶対 KEEP」「upstream gone のみ削除対象」を満たすため、
+// Issue #1 の Must 要件「未 push commit があるブランチは絶対に保持」「upstream gone のみ削除対象」を満たすため、
 // 通常の作業ブランチ（upstream 生存）や未 push commit を含むブランチ（ahead）は候補に含めません。
 // upstream:track の出力解析はロケール依存のため LANG/LC_ALL=C を強制します。
 func scanUnmergedBranches(ctx context.Context, repoPath, defaultRef string, excluded, mergedSet map[string]struct{}) ([]BranchCandidate, error) {
@@ -162,7 +164,7 @@ func scanUnmergedBranches(ctx context.Context, repoPath, defaultRef string, excl
 
 	output, err := runGitCommandOutputLocaleC(ctx, repoPath,
 		"for-each-ref",
-		"--format=%(refname:short)%00%(upstream:short)%00%(upstream:track)%00%(committerdate:relative)",
+		"--format=%(refname:short)%00%(upstream:short)%00%(upstream:track)%00%(committerdate:unix)",
 		"refs/heads",
 	)
 	if err != nil {
@@ -228,7 +230,7 @@ func parseUnmergedBranchLine(line string, excluded, mergedSet map[string]struct{
 
 	age := ""
 	if len(parts) >= 4 {
-		age = strings.TrimSpace(parts[3])
+		age = formatRelativeAgeJP(strings.TrimSpace(parts[3]), time.Now())
 	}
 
 	return BranchCandidate{
@@ -236,6 +238,42 @@ func parseUnmergedBranchLine(line string, excluded, mergedSet map[string]struct{
 		Category: BranchCategoryUnmerged,
 		Age:      age,
 	}, true
+}
+
+// formatRelativeAgeJP は committerdate:unix 形式の文字列を日本語の相対表現に整形します。
+// ロケール非依存にするため git の relative 文字列ではなく Go 側で算出します。
+// 解析失敗時は空文字列を返します。
+func formatRelativeAgeJP(unixStr string, now time.Time) string {
+	if unixStr == "" {
+		return ""
+	}
+
+	sec, err := strconv.ParseInt(unixStr, 10, 64)
+	if err != nil {
+		return ""
+	}
+
+	diff := now.Sub(time.Unix(sec, 0))
+	if diff < 0 {
+		diff = 0
+	}
+
+	switch {
+	case diff < time.Minute:
+		return "たった今"
+	case diff < time.Hour:
+		return fmt.Sprintf("%d分前", int(diff/time.Minute))
+	case diff < 24*time.Hour:
+		return fmt.Sprintf("%d時間前", int(diff/time.Hour))
+	case diff < 7*24*time.Hour:
+		return fmt.Sprintf("%d日前", int(diff/(24*time.Hour)))
+	case diff < 30*24*time.Hour:
+		return fmt.Sprintf("%d週間前", int(diff/(7*24*time.Hour)))
+	case diff < 365*24*time.Hour:
+		return fmt.Sprintf("%dヶ月前", int(diff/(30*24*time.Hour)))
+	default:
+		return fmt.Sprintf("%d年前", int(diff/(365*24*time.Hour)))
+	}
 }
 
 // scanNoUpstreamBranches はアップストリームが未設定のローカルブランチを収集します。

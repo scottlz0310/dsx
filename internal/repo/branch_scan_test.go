@@ -2,11 +2,46 @@ package repo
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestFormatRelativeAgeJP(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 5, 15, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name    string
+		unixStr string
+		want    string
+	}{
+		{"空文字列", "", ""},
+		{"パース失敗", "not-a-number", ""},
+		{"未来日付（負の差）はたった今", fmt.Sprintf("%d", now.Add(10*time.Hour).Unix()), "たった今"},
+		{"30秒前はたった今", fmt.Sprintf("%d", now.Add(-30*time.Second).Unix()), "たった今"},
+		{"5分前", fmt.Sprintf("%d", now.Add(-5*time.Minute).Unix()), "5分前"},
+		{"2時間前", fmt.Sprintf("%d", now.Add(-2*time.Hour).Unix()), "2時間前"},
+		{"3日前", fmt.Sprintf("%d", now.Add(-3*24*time.Hour).Unix()), "3日前"},
+		{"2週間前", fmt.Sprintf("%d", now.Add(-14*24*time.Hour).Unix()), "2週間前"},
+		{"3ヶ月前", fmt.Sprintf("%d", now.Add(-90*24*time.Hour).Unix()), "3ヶ月前"},
+		{"2年前", fmt.Sprintf("%d", now.Add(-2*365*24*time.Hour).Unix()), "2年前"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := formatRelativeAgeJP(tt.unixStr, now)
+			if got != tt.want {
+				t.Errorf("formatRelativeAgeJP(%q, now) = %q, want %q", tt.unixStr, got, tt.want)
+			}
+		})
+	}
+}
 
 func TestScanBranches_Merged(t *testing.T) {
 	t.Parallel()
@@ -553,7 +588,7 @@ func TestDeleteBranchCandidates_DryRun(t *testing.T) {
 			{Name: featureBranch, Category: BranchCategoryMerged},
 		}
 
-		result, err := DeleteBranchCandidates(context.Background(), repoPath, candidates, true, false)
+		result, err := DeleteBranchCandidates(context.Background(), repoPath, candidates, true, false, "")
 		if err != nil {
 			t.Fatalf("DeleteBranchCandidates() error = %v", err)
 		}
@@ -629,7 +664,7 @@ func TestDeleteBranchCandidates_Delete(t *testing.T) {
 			repoPath, branch := tt.setupRepo(t)
 			candidates := []BranchCandidate{{Name: branch, Category: tt.category}}
 
-			result, err := DeleteBranchCandidates(context.Background(), repoPath, candidates, false, true)
+			result, err := DeleteBranchCandidates(context.Background(), repoPath, candidates, false, true, "")
 			if err != nil {
 				t.Fatalf("DeleteBranchCandidates() error = %v", err)
 			}
@@ -663,6 +698,88 @@ func setupRepoWithMergedBranch(t *testing.T) (repoPath, branch string) {
 	runGit(t, repoPath, "merge", "--no-ff", branch)
 
 	return repoPath, branch
+}
+
+// setupRepoWithMergedBranchOnOtherCheckout はデフォルトブランチへマージ済みの
+// フィーチャーブランチを作成した上で、マージコミットを含まない別の作業ブランチを
+// checkout した状態にします（リリース後に別作業ブランチで作業中のケース）。
+// この状態では `git branch -d <feature>` は HEAD から到達できないため失敗します。
+func setupRepoWithMergedBranchOnOtherCheckout(t *testing.T) (repoPath, branch, defaultBranch string) {
+	t.Helper()
+
+	repoPath = createRepoWithUpstream(t)
+	defaultBranch = getOriginDefaultBranchName(t, repoPath)
+	preMergeSHA := strings.TrimSpace(string(runGitCommandOutputOrFail(t, repoPath, "rev-parse", "HEAD")))
+	branch = "dsx-test-bc-merged-other"
+	runGit(t, repoPath, "checkout", "-b", branch)
+	runGit(t, repoPath, "commit", "--allow-empty", "-m", "merged commit")
+	runGit(t, repoPath, "checkout", defaultBranch)
+	runGit(t, repoPath, "merge", "--no-ff", branch)
+	// マージコミットを含まない位置（マージ前 SHA）から別の作業ブランチを切る
+	runGit(t, repoPath, "checkout", "-b", "dsx-test-bc-other-work", preMergeSHA)
+
+	return repoPath, branch, defaultBranch
+}
+
+// TestDeleteBranchCandidates_MergedOnOtherCheckout は、ユーザーがデフォルトブランチ以外を
+// checkout している状態でも MERGED ブランチが正しく削除されることを検証します
+// （内部で merge-base --is-ancestor によりデフォルトブランチへのマージを再確認し -D で削除）。
+func TestDeleteBranchCandidates_MergedOnOtherCheckout(t *testing.T) {
+	t.Parallel()
+
+	t.Run("デフォルト以外を checkout 中でも MERGED は defaultBranch 指定で削除される", func(t *testing.T) {
+		t.Parallel()
+
+		repoPath, mergedBranch, defaultBranch := setupRepoWithMergedBranchOnOtherCheckout(t)
+		candidates := []BranchCandidate{{Name: mergedBranch, Category: BranchCategoryMerged}}
+
+		result, err := DeleteBranchCandidates(context.Background(), repoPath, candidates, false, false, defaultBranch)
+		if err != nil {
+			t.Fatalf("DeleteBranchCandidates() error = %v, result = %+v", err, result)
+		}
+
+		if len(result.Deleted) != 1 || result.Deleted[0].Name != mergedBranch {
+			t.Errorf("Deleted = %+v, want 1 item (%s)", result.Deleted, mergedBranch)
+		}
+
+		exists, existsErr := localBranchExists(context.Background(), repoPath, mergedBranch)
+		if existsErr != nil {
+			t.Fatalf("localBranchExists() error = %v", existsErr)
+		}
+
+		if exists {
+			t.Errorf("MERGED ブランチ %q が削除されていません（defaultBranch 救済が機能していない）", mergedBranch)
+		}
+	})
+
+	t.Run("defaultBranch が空のときは救済されず Errors に入る", func(t *testing.T) {
+		t.Parallel()
+
+		repoPath, mergedBranch, _ := setupRepoWithMergedBranchOnOtherCheckout(t)
+		candidates := []BranchCandidate{{Name: mergedBranch, Category: BranchCategoryMerged}}
+
+		result, err := DeleteBranchCandidates(context.Background(), repoPath, candidates, false, false, "")
+		if err != nil {
+			t.Logf("DeleteBranchCandidates() error = %v（このケースでは Errors に入る想定なので nil でも可）", err)
+		}
+
+		if result == nil {
+			t.Fatalf("result が nil")
+		}
+
+		if len(result.Errors) == 0 {
+			t.Errorf("defaultBranch='' のときは -d 失敗で Errors に入るべき: result = %+v", result)
+		}
+
+		exists, existsErr := localBranchExists(context.Background(), repoPath, mergedBranch)
+		if existsErr != nil {
+			t.Fatalf("localBranchExists() error = %v", existsErr)
+		}
+
+		if !exists {
+			t.Errorf("defaultBranch='' で救済されないはずなのにブランチが削除されました")
+		}
+	})
 }
 
 func TestScanBranches_EmptyRepo(t *testing.T) {

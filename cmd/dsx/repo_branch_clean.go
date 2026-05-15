@@ -37,7 +37,7 @@ var repoBranchCleanCmd = &cobra.Command{
   --yes       MERGED と STALE-REF を自動削除します（UNMERGED・NO-UPSTREAM は表示のみ）
 
 安全性:
-  デフォルトでは git branch -d（安全削除）を使い、未マージのコミットがあるブランチは KEEP されます。
+  デフォルトでは git branch -d（安全削除）を使い、未マージのコミットがあるブランチは削除されずに保持されます。
   リスクを許容して強制削除する場合は --force を指定してください（UNMERGED/NO-UPSTREAM が git branch -D で削除されます）。`,
 	RunE: runRepoBranchClean,
 }
@@ -126,7 +126,7 @@ func runRepoBranchClean(cmd *cobra.Command, _ []string) error {
 }
 
 // processRepoBranchClean は単一リポジトリのブランチクリーンアップを実行し、削除・プルーン・スキップ・警告・エラーの件数を返します。
-// skipped は -d 失敗等で安全のため KEEP したブランチ件数（情報レベル）、warnings は --yes モードの対象外スキップ件数（注意レベル）。
+// skipped は -d 失敗等で安全のため保持したブランチ件数（情報レベル）、warnings は --yes モードの対象外スキップ件数（注意レベル）。
 func processRepoBranchClean(ctx context.Context, repoPath, displayName string, scanOpts repomgr.BranchScanOptions) (deleted, pruned, skipped, warnings, errors int) {
 	result, scanErr := repomgr.ScanBranches(ctx, repoPath, scanOpts)
 	if scanErr != nil {
@@ -178,7 +178,7 @@ func processRepoBranchClean(ctx context.Context, repoPath, displayName string, s
 		}
 	}
 
-	cleanResult, cleanErr := repomgr.DeleteBranchCandidates(ctx, repoPath, toDelete, false, repoBranchCleanForce)
+	cleanResult, cleanErr := repomgr.DeleteBranchCandidates(ctx, repoPath, toDelete, false, repoBranchCleanForce, result.DefaultBranch)
 	if cleanResult != nil {
 		for _, errItem := range cleanResult.Errors {
 			fmt.Fprintf(os.Stderr, "  ⚠️  %s: %v\n", displayName, errItem)
