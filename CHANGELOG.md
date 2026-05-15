@@ -6,6 +6,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- `dsx repo branch-clean` サブコマンドを追加（Issue #1）
+  - 4カテゴリ（MERGED / UNMERGED / STALE-REF / NO-UPSTREAM）のブランチを検出
+  - インタラクティブ（デフォルト）/ `--dry-run` / `--yes` の3モード対応
+  - `survey/v2` による MultiSelect UI（MERGED・STALE-REF をデフォルト選択）
+  - `--exclude` で除外ブランチを指定可能、`--no-fetch` で事前 fetch をスキップ可能
+
 ## [v0.5.0] - 2026-05-11
 
 ### Added
