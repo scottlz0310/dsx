@@ -478,9 +478,10 @@ func TestGeneratedShellScripts(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		name            string
-		buildScript     func(exePath string) string
-		requiredPhrases []string
+		name             string
+		buildScript      func(exePath string) string
+		requiredPhrases  []string
+		forbiddenPhrases []string
 	}{
 		{
 			name:        "bashスクリプトはアンロック・env読込・sys/repo/run呼び出しを含む",
@@ -489,7 +490,7 @@ func TestGeneratedShellScripts(t *testing.T) {
 				`command -v dsx`,
 				`bw login --check`,
 				`token="$(bw unlock --raw)"`,
-				`status_json="$(bw status 2>/dev/null)"`,
+				`"$DSX_PATH" env status --quiet >/dev/null 2>&1`,
 				`needs_unlock=1`,
 				`env_output="$("$DSX_PATH" env export)"`,
 				`if [ $? -ne 0 ]; then`,
@@ -498,6 +499,7 @@ func TestGeneratedShellScripts(t *testing.T) {
 				`"$DSX_PATH" repo update "$@"`,
 				`"$DSX_PATH" run "$@"`,
 			},
+			forbiddenPhrases: []string{`bw status`},
 		},
 		{
 			name:        "zshスクリプトはアンロック・env読込・sys/repo/run呼び出しを含む",
@@ -506,7 +508,7 @@ func TestGeneratedShellScripts(t *testing.T) {
 				`command -v dsx`,
 				`bw login --check`,
 				`token="$(bw unlock --raw)"`,
-				`status_json="$(bw status 2>/dev/null)"`,
+				`"$DSX_PATH" env status --quiet >/dev/null 2>&1`,
 				`needs_unlock=1`,
 				`env_output="$("$DSX_PATH" env export)"`,
 				`if [[ $? -ne 0 ]]; then`,
@@ -515,6 +517,7 @@ func TestGeneratedShellScripts(t *testing.T) {
 				`"$DSX_PATH" repo update "$@"`,
 				`"$DSX_PATH" run "$@"`,
 			},
+			forbiddenPhrases: []string{`bw status`},
 		},
 		{
 			name:        "PowerShellスクリプトはアンロック・env読込・sys/repo/run呼び出しを含む",
@@ -524,7 +527,8 @@ func TestGeneratedShellScripts(t *testing.T) {
 				`bw login --check`,
 				`$token = & bw unlock --raw`,
 				`$needsUnlock = -not $env:BW_SESSION`,
-				`$statusJson = & bw status 2>$null`,
+				`$null = & $DSX_PATH env status --quiet 2>$null`,
+				`if ($LASTEXITCODE -ne 0) {`,
 				`$envExports = & $DSX_PATH env export`,
 				`$commandText = @($envExports) -join [Environment]::NewLine`,
 				`if ([string]::IsNullOrWhiteSpace($commandText)) {`,
@@ -535,6 +539,7 @@ func TestGeneratedShellScripts(t *testing.T) {
 				`& $DSX_PATH repo update @args`,
 				`& $DSX_PATH run @args`,
 			},
+			forbiddenPhrases: []string{`bw status`, `-notmatch`},
 		},
 	}
 
@@ -547,6 +552,12 @@ func TestGeneratedShellScripts(t *testing.T) {
 			for _, phrase := range tc.requiredPhrases {
 				if !strings.Contains(script, phrase) {
 					t.Fatalf("generated script does not contain required phrase %q", phrase)
+				}
+			}
+
+			for _, phrase := range tc.forbiddenPhrases {
+				if strings.Contains(script, phrase) {
+					t.Fatalf("generated script contains forbidden phrase %q", phrase)
 				}
 			}
 		})

@@ -243,6 +243,7 @@ CLI では `--submodule` / `--no-submodule` で明示的に上書きできます
 ```
 dsx env unlock              # Bitwardenをアンロックして BW_SESSION をシェルに設定
 dsx env unlock --sync       # アンロック後にBitwardenサーバーと強制同期（トークンロール後など）
+dsx env status              # Bitwarden セッション状態を確認
 dsx env export              # Bitwardenから環境変数をシェル形式でエクスポート
 dsx env run <cmd>           # 環境変数を注入してコマンドを実行（bw sync なし・高速）
 dsx env run --sync <cmd>    # Bitwardenと強制同期してからコマンドを実行
@@ -419,6 +420,8 @@ echo $GPAT
 `dsx env export` を評価すると、新しい `BW_SESSION` も現在のシェルに反映されます。
 手動で先にアンロックする場合は、PowerShell では `dsx env unlock | Invoke-Expression` を使用してください。
 `dsx env unlock ; dsx env export` のように `;` で並べても、`unlock` の出力は親シェルに反映されません。
+`dsx env export` の出力にはシークレットと `BW_SESSION` が含まれるため、ファイル保存用途には使用しないでください。
+非対話環境では自動アンロックを行わないため、事前に `BW_SESSION` を設定してください。
 
 PowerShell 用の `dsx-env` シェル連携を利用している環境で `Cannot convert 'System.Object[]' to the type 'System.String'` が出る場合は、
 旧版のシェル連携スクリプトが残っている可能性があるため、`dsx config init` を再実行して `init.ps1` を再生成してください。
@@ -432,6 +435,8 @@ PowerShell 用の `dsx-env` シェル連携を利用している環境で `Canno
 dsx env run npm run build
 dsx env run go test ./...
 ```
+
+同じシェルセッション内で `dsx env run` を繰り返し使う場合は、先に `dsx env unlock | Invoke-Expression`（PowerShell）または `eval "$(dsx env unlock)"`（bash/zsh）を実行しておくと、毎回のマスターパスワード入力を避けられます。
 
 この方法は以下の利点があります：
 - `eval` のリスクを回避

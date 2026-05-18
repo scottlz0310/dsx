@@ -986,9 +986,7 @@ dsx-unlock() {
   fi
 
   if [[ -n "${BW_SESSION-}" ]]; then
-    local status_json
-    status_json="$(bw status 2>/dev/null)"
-    if [[ "$status_json" == *'"status":"unlocked"'* ]]; then
+    if "$DSX_PATH" env status --quiet >/dev/null 2>&1; then
       echo "このシェルでは既に BW_SESSION が設定されています。"
       return 0
     fi
@@ -1018,9 +1016,7 @@ dsx-env() {
   if [[ -z "${BW_SESSION-}" ]]; then
     needs_unlock=1
   else
-    local status_json
-    status_json="$(bw status 2>/dev/null)"
-    if [[ "$status_json" != *'"status":"unlocked"'* ]]; then
+    if ! "$DSX_PATH" env status --quiet >/dev/null 2>&1; then
       needs_unlock=1
     fi
   fi
@@ -1083,14 +1079,10 @@ dsx-unlock() {
   fi
 
   if [ -n "${BW_SESSION-}" ]; then
-    local status_json
-    status_json="$(bw status 2>/dev/null)"
-    case "$status_json" in
-      *'"status":"unlocked"'*)
-        echo "このシェルでは既に BW_SESSION が設定されています。"
-        return 0
-        ;;
-    esac
+    if "$DSX_PATH" env status --quiet >/dev/null 2>&1; then
+      echo "このシェルでは既に BW_SESSION が設定されています。"
+      return 0
+    fi
     unset BW_SESSION
   fi
 
@@ -1117,12 +1109,9 @@ dsx-env() {
   if [ -z "${BW_SESSION-}" ]; then
     needs_unlock=1
   else
-    local status_json
-    status_json="$(bw status 2>/dev/null)"
-    case "$status_json" in
-      *'"status":"unlocked"'*) ;;
-      *) needs_unlock=1 ;;
-    esac
+    if ! "$DSX_PATH" env status --quiet >/dev/null 2>&1; then
+      needs_unlock=1
+    fi
   fi
 
   if [ "$needs_unlock" -eq 1 ]; then
@@ -1189,8 +1178,8 @@ function dsx-unlock {
   }
 
   if ($env:BW_SESSION) {
-    $statusJson = & bw status 2>$null
-    if ($statusJson -match '"status":"unlocked"') {
+    $null = & $DSX_PATH env status --quiet 2>$null
+    if ($LASTEXITCODE -eq 0) {
       Write-Host "このシェルでは既に BW_SESSION が設定されています。"
       return $true
     }
@@ -1218,8 +1207,8 @@ function dsx-unlock {
 function dsx-env {
   $needsUnlock = -not $env:BW_SESSION
   if (-not $needsUnlock) {
-    $statusJson = & bw status 2>$null
-    if ($statusJson -notmatch '"status":"unlocked"') {
+    $null = & $DSX_PATH env status --quiet 2>$null
+    if ($LASTEXITCODE -ne 0) {
       $needsUnlock = $true
     }
   }

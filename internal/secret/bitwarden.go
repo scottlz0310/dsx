@@ -37,6 +37,16 @@ var statusFunc = getBitwardenStatus
 // listEnvItemsFunc はテストで差し替え可能な env: 項目取得の関数変数です。
 var listEnvItemsFunc = listBitwardenEnvItems
 
+// stdinIsTerminalFunc はテストで差し替え可能な標準入力TTY判定です。
+var stdinIsTerminalFunc = func() bool {
+	info, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+
+	return info.Mode()&os.ModeCharDevice != 0
+}
+
 // runBWLoginCheck は bw login --check を実行してログイン状態を確認します。
 func runBWLoginCheck() error {
 	cmd := exec.CommandContext(context.Background(), "bw", "login", "--check")
@@ -424,7 +434,31 @@ func GetEnvVarsWithSync() (map[string]string, error) {
 // BW_SESSION が未設定またはロック済みの場合は対話的に再アンロックし、
 // 現在のプロセス環境へ新しい BW_SESSION を設定します。
 func EnsureBitwardenSession() (string, error) {
-	token, err := UnlockGetToken()
+	if err := bwLookPathFunc(); err != nil {
+		return "", fmt.Errorf("bw コマンドが見つかりません。Bitwarden CLI をインストールしてください")
+	}
+
+	existing := os.Getenv("BW_SESSION")
+	if existing != "" {
+		status, err := statusFunc()
+		if err == nil && status == statusUnlocked {
+			debugLog("既にアンロック済み → 既存トークンを返す")
+
+			return existing, nil
+		}
+
+		fmt.Fprintln(os.Stderr, "BW_SESSION が設定されていますがロックされています。再アンロックします...")
+	}
+
+	if !stdinIsTerminalFunc() {
+		if existing == "" {
+			return "", fmt.Errorf("BW_SESSION が設定されていません。非対話環境では事前に Bitwarden をアンロックし、BW_SESSION を設定してください")
+		}
+
+		return "", fmt.Errorf("BW_SESSION がロックされています。非対話環境では対話的に再アンロックできません。事前に BW_SESSION を更新してください")
+	}
+
+	token, err := unlockBitwardenToken()
 	if err != nil {
 		return "", err
 	}
@@ -534,6 +568,24 @@ func getBitwardenStatus() (string, error) {
 	return status.Status, nil
 }
 
+// GetBitwardenSessionStatus は現在の Bitwarden セッション状態を返します。
+func GetBitwardenSessionStatus() (string, error) {
+	if err := bwLookPathFunc(); err != nil {
+		return "", fmt.Errorf("bw コマンドが見つかりません")
+	}
+
+	if os.Getenv("BW_SESSION") == "" {
+		return "missing", nil
+	}
+
+	status, err := statusFunc()
+	if err != nil {
+		return "", fmt.Errorf("bitwarden のステータス確認に失敗しました: %w", err)
+	}
+
+	return status, nil
+}
+
 // UnlockGetToken はBitwardenをアンロックしてセッショントークンを返します。
 // 既にアンロック済みの場合は既存の BW_SESSION トークンをそのまま返します。
 // 呼び出し元でトークンをシェルに設定する責務を持ちます（BW_SESSION の伝播）。
@@ -558,6 +610,10 @@ func UnlockGetToken() (string, error) {
 		fmt.Fprintln(os.Stderr, "BW_SESSION が設定されていますがロックされています。再アンロックします...")
 	}
 
+	return unlockBitwardenToken()
+}
+
+func unlockBitwardenToken() (string, error) {
 	// ログイン状態の確認
 	done := debugTimerStart("bw login --check")
 
@@ -581,10 +637,13 @@ func UnlockGetToken() (string, error) {
 		return "", fmt.Errorf("bw unlock --raw の出力が空です")
 	}
 
-	// トークン形式の検証
-	if !regexp.MustCompile(`^[A-Za-z0-9+/=._-]+$`).MatchString(token) {
+	if !isValidSessionToken(token) {
 		return "", fmt.Errorf("bw unlock --raw の出力形式が認識できません")
 	}
 
 	return token, nil
+}
+
+func isValidSessionToken(token string) bool {
+	return regexp.MustCompile(`^[A-Za-z0-9+/=._-]+$`).MatchString(token)
 }

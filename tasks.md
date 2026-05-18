@@ -42,6 +42,7 @@
 - [x] `dsx config init` 生成シェル関数の `dsx-env` でロック済み `BW_SESSION` を検知して再アンロックするよう修正
 - [x] table-driven tests で未設定・ロック済み・アンロック済み・`--sync` 経路を固定
 - [x] `CHANGELOG.md` / `README.md` 更新
+- [x] PR レビューコメント対応: `dsx env status --quiet` 追加、シェル連携の状態判定を Go 側へ集約、非対話環境のエラーを明確化
 
 ---
 
