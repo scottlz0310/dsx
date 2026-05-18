@@ -1014,7 +1014,18 @@ dsx-unlock() {
 
 # 環境変数を注入する（必要に応じて自動でアンロック）
 dsx-env() {
+  local needs_unlock=0
   if [[ -z "${BW_SESSION-}" ]]; then
+    needs_unlock=1
+  else
+    local status_json
+    status_json="$(bw status 2>/dev/null)"
+    if [[ "$status_json" != *'"status":"unlocked"'* ]]; then
+      needs_unlock=1
+    fi
+  fi
+
+  if [[ "$needs_unlock" -eq 1 ]]; then
     echo "🔐 Bitwarden をアンロック中..."
     dsx-unlock || return 1
   fi
@@ -1102,7 +1113,19 @@ dsx-unlock() {
 
 # 環境変数を注入する（必要に応じて自動でアンロック）
 dsx-env() {
+  local needs_unlock=0
   if [ -z "${BW_SESSION-}" ]; then
+    needs_unlock=1
+  else
+    local status_json
+    status_json="$(bw status 2>/dev/null)"
+    case "$status_json" in
+      *'"status":"unlocked"'*) ;;
+      *) needs_unlock=1 ;;
+    esac
+  fi
+
+  if [ "$needs_unlock" -eq 1 ]; then
     echo "🔐 Bitwarden をアンロック中..."
     dsx-unlock || return 1
   fi
@@ -1193,7 +1216,15 @@ function dsx-unlock {
 
 # 環境変数を注入する（必要に応じて自動でアンロック）
 function dsx-env {
-  if (-not $env:BW_SESSION) {
+  $needsUnlock = -not $env:BW_SESSION
+  if (-not $needsUnlock) {
+    $statusJson = & bw status 2>$null
+    if ($statusJson -notmatch '"status":"unlocked"') {
+      $needsUnlock = $true
+    }
+  }
+
+  if ($needsUnlock) {
     Write-Host "🔐 Bitwarden をアンロック中..." -ForegroundColor Cyan
     if (-not (dsx-unlock)) { return $false }
   }

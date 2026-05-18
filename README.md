@@ -415,6 +415,11 @@ echo $GPAT
 & dsx env export | Invoke-Expression
 ```
 
+`BW_SESSION` が未設定またはロック済みの場合、`dsx env export` / `dsx env run` は必要に応じて Bitwarden を再アンロックします。
+`dsx env export` を評価すると、新しい `BW_SESSION` も現在のシェルに反映されます。
+手動で先にアンロックする場合は、PowerShell では `dsx env unlock | Invoke-Expression` を使用してください。
+`dsx env unlock ; dsx env export` のように `;` で並べても、`unlock` の出力は親シェルに反映されません。
+
 PowerShell 用の `dsx-env` シェル連携を利用している環境で `Cannot convert 'System.Object[]' to the type 'System.String'` が出る場合は、
 旧版のシェル連携スクリプトが残っている可能性があるため、`dsx config init` を再実行して `init.ps1` を再生成してください。
 

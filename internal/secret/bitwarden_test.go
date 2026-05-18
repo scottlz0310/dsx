@@ -615,6 +615,135 @@ func setupUnlockMocks(t *testing.T, unlock func() (string, error), login func() 
 // alwaysLoggedIn は常にログイン済みを返すモック loginCheckFunc です。
 func alwaysLoggedIn() error { return nil }
 
+func setupGetEnvVarsMocks(
+	t *testing.T,
+	status func() (string, error),
+	unlock func() (string, error),
+	listItems func() ([]BitwardenItem, error),
+	sync func() error,
+) {
+	t.Helper()
+
+	origStatus := statusFunc
+	origUnlock := unlockRawFunc
+	origLogin := loginCheckFunc
+	origLookPath := bwLookPathFunc
+	origListItems := listEnvItemsFunc
+	origSync := syncFunc
+
+	statusFunc = status
+	unlockRawFunc = unlock
+	loginCheckFunc = alwaysLoggedIn
+	bwLookPathFunc = func() error { return nil }
+	listEnvItemsFunc = listItems
+	syncFunc = sync
+
+	t.Cleanup(func() {
+		statusFunc = origStatus
+		unlockRawFunc = origUnlock
+		loginCheckFunc = origLogin
+		bwLookPathFunc = origLookPath
+		listEnvItemsFunc = origListItems
+		syncFunc = origSync
+	})
+}
+
+func TestGetEnvVarsEnsuresBitwardenSession(t *testing.T) {
+	tests := []struct {
+		name            string
+		initialSession  string
+		status          string
+		unlockToken     string
+		withSync        bool
+		wantSession     string
+		wantUnlockCalls int
+		wantSyncCalls   int
+	}{
+		{
+			name:            "BW_SESSION未設定なら自動アンロックして取得する",
+			unlockToken:     "newSessionToken",
+			wantSession:     "newSessionToken",
+			wantUnlockCalls: 1,
+		},
+		{
+			name:            "ロック済みBW_SESSIONなら再アンロックして新しいトークンで取得する",
+			initialSession:  "oldSessionToken",
+			status:          "locked",
+			unlockToken:     "newSessionToken",
+			wantSession:     "newSessionToken",
+			wantUnlockCalls: 1,
+		},
+		{
+			name:            "アンロック済みBW_SESSIONなら既存トークンを使う",
+			initialSession:  "currentSessionToken",
+			status:          statusUnlocked,
+			unlockToken:     "unusedToken",
+			wantSession:     "currentSessionToken",
+			wantUnlockCalls: 0,
+		},
+		{
+			name:            "sync指定時は再アンロック後のトークンで同期してから取得する",
+			initialSession:  "oldSessionToken",
+			status:          "locked",
+			unlockToken:     "syncSessionToken",
+			withSync:        true,
+			wantSession:     "syncSessionToken",
+			wantUnlockCalls: 1,
+			wantSyncCalls:   1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("BW_SESSION", tt.initialSession)
+
+			unlockCalls := 0
+			syncCalls := 0
+
+			setupGetEnvVarsMocks(
+				t,
+				func() (string, error) {
+					return tt.status, nil
+				},
+				func() (string, error) {
+					unlockCalls++
+					return tt.unlockToken, nil
+				},
+				func() ([]BitwardenItem, error) {
+					assert.Equal(t, tt.wantSession, os.Getenv("BW_SESSION"))
+
+					return []BitwardenItem{
+						{Name: "env:TEST_VAR", Fields: []BitwardenCustomField{{Name: "value", Value: "secret-value"}}},
+					}, nil
+				},
+				func() error {
+					syncCalls++
+
+					assert.Equal(t, tt.wantSession, os.Getenv("BW_SESSION"))
+
+					return nil
+				},
+			)
+
+			var (
+				got map[string]string
+				err error
+			)
+			if tt.withSync {
+				got, err = GetEnvVarsWithSync()
+			} else {
+				got, err = GetEnvVars()
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, map[string]string{"TEST_VAR": "secret-value"}, got)
+			assert.Equal(t, tt.wantSession, os.Getenv("BW_SESSION"))
+			assert.Equal(t, tt.wantUnlockCalls, unlockCalls)
+			assert.Equal(t, tt.wantSyncCalls, syncCalls)
+		})
+	}
+}
+
 func TestUnlockGetToken(t *testing.T) {
 	tests := []struct {
 		name        string

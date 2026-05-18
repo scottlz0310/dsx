@@ -96,6 +96,18 @@ func runEnvExport(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("エクスポート形式の生成に失敗しました: %w", err)
 	}
 
+	if sessionToken := os.Getenv("BW_SESSION"); sessionToken != "" {
+		sessionOutput, formatErr := secret.FormatForShell(
+			map[string]string{"BW_SESSION": sessionToken},
+			secret.DetectShell(),
+		)
+		if formatErr != nil {
+			return fmt.Errorf("BW_SESSION のエクスポート形式の生成に失敗しました: %w", formatErr)
+		}
+
+		output = sessionOutput + "\n" + output
+	}
+
 	// 標準出力に出力（evalで使用される）
 	fmt.Println(output)
 
