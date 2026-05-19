@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [v0.6.1] - 2026-05-19
+
 ### Fixed
 
 - `dsx env export` / `dsx env run` が、未設定またはロック済みの `BW_SESSION` を検知した場合に Bitwarden を再アンロックして処理を継続するよう修正

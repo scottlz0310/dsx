@@ -29,9 +29,9 @@
 - [x] CHANGELOG.md: [Unreleased] → [v0.6.0] - 2026-05-15
 - [x] README.md: バージョン表記を v0.6.0 に更新
 - [x] PR 作成
-- [ ] PR マージ
-- [ ] `v0.6.0` タグ発行・push → goreleaser が GitHub Release を自動作成
-- [ ] GitHub Release ページを見やすく編集
+- [x] PR マージ
+- [x] `v0.6.0` タグ発行・push → goreleaser が GitHub Release を自動作成
+- [x] GitHub Release ページを見やすく編集
 
 ---
 
@@ -43,6 +43,20 @@
 - [x] table-driven tests で未設定・ロック済み・アンロック済み・`--sync` 経路を固定
 - [x] `CHANGELOG.md` / `README.md` 更新
 - [x] PR レビューコメント対応: `dsx env status --quiet` 追加、シェル連携の状態判定を Go 側へ集約、非対話環境のエラーを明確化
+- [x] PR #68 マージ
+
+---
+
+## v0.6.1 リリース準備
+
+- [x] `.gitignore` に `.claude/`（Claude Code 個人作業領域）を追加
+- [x] CHANGELOG.md: [Unreleased] → [v0.6.1] - 2026-05-19
+- [x] README.md: バージョン表記を v0.6.1 に更新
+- [x] `task check` 実機確認（fmt/vet/test/lint）
+- [x] PR 作成（PR #69）
+- [ ] PR マージ
+- [ ] `v0.6.1` タグ発行・push → goreleaser が GitHub Release を自動作成
+- [ ] GitHub Release ページを見やすく編集
 
 ---
 
