@@ -6,6 +6,15 @@
 
 ## [Unreleased]
 
+## [v0.6.2] - 2026-05-19
+
+### Fixed
+
+- `dsx env export` が `EnsureBitwardenSession()` を二重呼び出しし、パスワード入力を2回要求してしまう問題を修正（`getEnvVarsFunc()` が内部で `EnsureBitwardenSession()` を呼び出すため、`runEnvExport` からの直接呼び出しを排除）
+- PowerShell `dsx-unlock` が `bw unlock --raw` のマルチライン出力（アップデート通知等）を正しく処理できず `$env:BW_SESSION` に無効な値が設定される問題を修正（最後の非空行のみをセッショントークンとして使用するよう変更）
+- `dsx config init` が生成する `init.ps1` の `dsx-unlock` に同上の修正を適用
+- インストール済み `~/.config/dsx/init.ps1` を即時修正（再実行不要）
+
 ## [v0.6.1] - 2026-05-19
 
 ### Fixed

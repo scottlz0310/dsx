@@ -525,7 +525,8 @@ func TestGeneratedShellScripts(t *testing.T) {
 			requiredPhrases: []string{
 				`Get-Command dsx`,
 				`bw login --check`,
-				`$token = & bw unlock --raw`,
+				`$rawOutput = @(& bw unlock --raw)`,
+				`$token = ($rawOutput | Where-Object`,
 				`$needsUnlock = -not $env:BW_SESSION`,
 				`$null = & $DSX_PATH env status --quiet 2>$null`,
 				`if ($LASTEXITCODE -ne 0) {`,

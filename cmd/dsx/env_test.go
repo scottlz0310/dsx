@@ -14,7 +14,6 @@ import (
 func setupEnvCommandMocks(t *testing.T) {
 	t.Helper()
 
-	origEnsure := ensureBitwardenSessionFunc
 	origGetEnvVars := getEnvVarsFunc
 	origGetStatus := getBitwardenSessionStatusFunc
 	origExportFormat := exportFormatFunc
@@ -23,7 +22,6 @@ func setupEnvCommandMocks(t *testing.T) {
 	origStatusQuiet := envStatusQuiet
 
 	t.Cleanup(func() {
-		ensureBitwardenSessionFunc = origEnsure
 		getEnvVarsFunc = origGetEnvVars
 		getBitwardenSessionStatusFunc = origGetStatus
 		exportFormatFunc = origExportFormat
@@ -36,7 +34,7 @@ func setupEnvCommandMocks(t *testing.T) {
 func TestRunEnvExport(t *testing.T) {
 	tests := []struct {
 		name           string
-		ensureErr      error
+		bwSession      string
 		getEnvErr      error
 		exportErr      error
 		sessionErr     error
@@ -46,12 +44,13 @@ func TestRunEnvExport(t *testing.T) {
 	}{
 		{
 			name:           "BW_SESSIONを先頭に含めて環境変数を出力する",
+			bwSession:      "session-token",
 			wantOutput:     []string{"SESSION_EXPORT", "ENV_EXPORT"},
 			wantSessionMap: map[string]string{"BW_SESSION": "session-token"},
 		},
 		{
 			name:      "セッション確保失敗は環境変数取得エラーとして返す",
-			ensureErr: errors.New("unlock failed"),
+			getEnvErr: errors.New("unlock failed"),
 			wantErr:   "環境変数の取得に失敗しました",
 		},
 		{
@@ -75,9 +74,10 @@ func TestRunEnvExport(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setupEnvCommandMocks(t)
 
-			ensureBitwardenSessionFunc = func() (string, error) {
-				return "session-token", tt.ensureErr
+			if tt.bwSession != "" {
+				t.Setenv("BW_SESSION", tt.bwSession)
 			}
+
 			getEnvVarsFunc = func() (map[string]string, error) {
 				return map[string]string{"TEST_VAR": "secret-value"}, tt.getEnvErr
 			}
