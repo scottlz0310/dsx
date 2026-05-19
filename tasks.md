@@ -35,6 +35,17 @@
 
 ---
 
+## dsx env: ロック済み BW_SESSION の再アンロック対応
+
+- [x] `dsx env unlock ; dsx env export` 失敗時の挙動を調査
+- [x] `dsx env export` / `dsx env run` がロック済み `BW_SESSION` を自動再アンロックするよう修正
+- [x] `dsx config init` 生成シェル関数の `dsx-env` でロック済み `BW_SESSION` を検知して再アンロックするよう修正
+- [x] table-driven tests で未設定・ロック済み・アンロック済み・`--sync` 経路を固定
+- [x] `CHANGELOG.md` / `README.md` 更新
+- [x] PR レビューコメント対応: `dsx env status --quiet` 追加、シェル連携の状態判定を Go 側へ集約、非対話環境のエラーを明確化
+
+---
+
 
 
 ## Issue #29: dsx repo update のブランチ更新状態確認スクリプト連携

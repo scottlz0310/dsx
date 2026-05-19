@@ -39,6 +39,7 @@ var rootCmd = &cobra.Command{
 
 環境変数:
   dsx env export    Bitwardenから環境変数をシェル形式で出力
+  dsx env status    Bitwarden セッション状態を確認
   dsx env run       環境変数を注入してコマンドを実行
 
 設定管理:

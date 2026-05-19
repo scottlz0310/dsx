@@ -6,6 +6,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `dsx env export` / `dsx env run` が、未設定またはロック済みの `BW_SESSION` を検知した場合に Bitwarden を再アンロックして処理を継続するよう修正
+- `dsx env export` が再アンロック後の `BW_SESSION` もシェル向け出力に含め、`Invoke-Expression` / `eval` 後の親シェルへ反映されるよう修正
+- `dsx env status --quiet` を追加し、`dsx config init` が生成する `dsx-env` / `dsx-unlock` シェル関数の Bitwarden 状態判定を Go 側の JSON パースに集約
+- 非対話環境では `dsx env export` / `dsx env run` が対話的な再アンロックを試みず、事前の `BW_SESSION` 設定を促すエラーを返すよう修正
+
 ## [v0.6.0] - 2026-05-15
 
 ### Added

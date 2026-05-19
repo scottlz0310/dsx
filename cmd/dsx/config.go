@@ -986,9 +986,7 @@ dsx-unlock() {
   fi
 
   if [[ -n "${BW_SESSION-}" ]]; then
-    local status_json
-    status_json="$(bw status 2>/dev/null)"
-    if [[ "$status_json" == *'"status":"unlocked"'* ]]; then
+    if "$DSX_PATH" env status --quiet >/dev/null 2>&1; then
       echo "このシェルでは既に BW_SESSION が設定されています。"
       return 0
     fi
@@ -1014,7 +1012,16 @@ dsx-unlock() {
 
 # 環境変数を注入する（必要に応じて自動でアンロック）
 dsx-env() {
+  local needs_unlock=0
   if [[ -z "${BW_SESSION-}" ]]; then
+    needs_unlock=1
+  else
+    if ! "$DSX_PATH" env status --quiet >/dev/null 2>&1; then
+      needs_unlock=1
+    fi
+  fi
+
+  if [[ "$needs_unlock" -eq 1 ]]; then
     echo "🔐 Bitwarden をアンロック中..."
     dsx-unlock || return 1
   fi
@@ -1072,14 +1079,10 @@ dsx-unlock() {
   fi
 
   if [ -n "${BW_SESSION-}" ]; then
-    local status_json
-    status_json="$(bw status 2>/dev/null)"
-    case "$status_json" in
-      *'"status":"unlocked"'*)
-        echo "このシェルでは既に BW_SESSION が設定されています。"
-        return 0
-        ;;
-    esac
+    if "$DSX_PATH" env status --quiet >/dev/null 2>&1; then
+      echo "このシェルでは既に BW_SESSION が設定されています。"
+      return 0
+    fi
     unset BW_SESSION
   fi
 
@@ -1102,7 +1105,16 @@ dsx-unlock() {
 
 # 環境変数を注入する（必要に応じて自動でアンロック）
 dsx-env() {
+  local needs_unlock=0
   if [ -z "${BW_SESSION-}" ]; then
+    needs_unlock=1
+  else
+    if ! "$DSX_PATH" env status --quiet >/dev/null 2>&1; then
+      needs_unlock=1
+    fi
+  fi
+
+  if [ "$needs_unlock" -eq 1 ]; then
     echo "🔐 Bitwarden をアンロック中..."
     dsx-unlock || return 1
   fi
@@ -1166,8 +1178,8 @@ function dsx-unlock {
   }
 
   if ($env:BW_SESSION) {
-    $statusJson = & bw status 2>$null
-    if ($statusJson -match '"status":"unlocked"') {
+    $null = & $DSX_PATH env status --quiet 2>$null
+    if ($LASTEXITCODE -eq 0) {
       Write-Host "このシェルでは既に BW_SESSION が設定されています。"
       return $true
     }
@@ -1193,7 +1205,15 @@ function dsx-unlock {
 
 # 環境変数を注入する（必要に応じて自動でアンロック）
 function dsx-env {
-  if (-not $env:BW_SESSION) {
+  $needsUnlock = -not $env:BW_SESSION
+  if (-not $needsUnlock) {
+    $null = & $DSX_PATH env status --quiet 2>$null
+    if ($LASTEXITCODE -ne 0) {
+      $needsUnlock = $true
+    }
+  }
+
+  if ($needsUnlock) {
     Write-Host "🔐 Bitwarden をアンロック中..." -ForegroundColor Cyan
     if (-not (dsx-unlock)) { return $false }
   }

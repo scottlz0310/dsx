@@ -49,6 +49,16 @@ var envUnlockCmd = &cobra.Command{
 	RunE: runEnvUnlock,
 }
 
+var envStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Bitwarden セッション状態を確認",
+	Long: `Bitwarden CLI の現在のセッション状態を確認します。
+
+--quiet を指定すると、アンロック済みの場合だけ終了コード 0 を返し、
+それ以外は非ゼロで終了します。シェル連携スクリプトからの判定に使用します。`,
+	RunE: runEnvStatus,
+}
+
 var envRunCmd = &cobra.Command{
 	Use:   "run [--sync] [--detach] [--] <command> [args...]",
 	Short: "環境変数を注入してコマンドを実行",
@@ -73,34 +83,93 @@ eval を使わずに環境変数を利用する安全な方法です。
 
 // envUnlockSync は --sync フラグの値を保持します。
 var envUnlockSync bool
+var envStatusQuiet bool
+
+var (
+	ensureBitwardenSessionFunc    = secret.EnsureBitwardenSession
+	getEnvVarsFunc                = secret.GetEnvVars
+	getBitwardenSessionStatusFunc = secret.GetBitwardenSessionStatus
+	exportFormatFunc              = secret.ExportFormat
+	formatForShellFunc            = secret.FormatForShell
+	detectShellFunc               = secret.DetectShell
+)
 
 func init() {
 	rootCmd.AddCommand(envCmd)
 	envCmd.AddCommand(envExportCmd)
 	envCmd.AddCommand(envUnlockCmd)
+	envCmd.AddCommand(envStatusCmd)
 	envCmd.AddCommand(envRunCmd)
 
 	envUnlockCmd.Flags().BoolVar(&envUnlockSync, "sync", false, "アンロック後に Bitwarden サーバーと強制同期する")
+	envStatusCmd.Flags().BoolVar(&envStatusQuiet, "quiet", false, "アンロック済みかを終了コードのみで返す")
 }
 
 func runEnvExport(cmd *cobra.Command, args []string) error {
+	sessionToken, err := ensureBitwardenSessionFunc()
+	if err != nil {
+		return fmt.Errorf("環境変数の取得に失敗しました: %w", err)
+	}
+
 	// Bitwardenから環境変数を取得
-	envVars, err := secret.GetEnvVars()
+	envVars, err := getEnvVarsFunc()
 	if err != nil {
 		return fmt.Errorf("環境変数の取得に失敗しました: %w", err)
 	}
 
 	// シェル用の形式でフォーマット
-	output, err := secret.ExportFormat(envVars)
+	output, err := exportFormatFunc(envVars)
 	if err != nil {
 		return fmt.Errorf("エクスポート形式の生成に失敗しました: %w", err)
 	}
+
+	sessionOutput, formatErr := formatForShellFunc(
+		map[string]string{"BW_SESSION": sessionToken},
+		detectShellFunc(),
+	)
+	if formatErr != nil {
+		return fmt.Errorf("BW_SESSION のエクスポート形式の生成に失敗しました: %w", formatErr)
+	}
+
+	output = sessionOutput + "\n" + output
 
 	// 標準出力に出力（evalで使用される）
 	fmt.Println(output)
 
 	// 統計情報を stderr に出力（stdout は eval/Invoke-Expression 用なので汚さない）
 	fmt.Fprintf(os.Stderr, "✅ %d 個の環境変数を読み込みました。\n", len(envVars))
+
+	return nil
+}
+
+func runEnvStatus(cmd *cobra.Command, args []string) error {
+	status, err := getBitwardenSessionStatusFunc()
+	if err != nil {
+		if envStatusQuiet {
+			return err
+		}
+
+		return fmt.Errorf("bitwarden セッション状態の確認に失敗しました: %w", err)
+	}
+
+	if envStatusQuiet {
+		if status == "unlocked" {
+			return nil
+		}
+
+		return fmt.Errorf("bitwarden はアンロックされていません")
+	}
+
+	switch status {
+	case "unlocked":
+		fmt.Println("Bitwarden はアンロック済みです。")
+	case "missing":
+		fmt.Println("BW_SESSION が設定されていません。")
+	case "locked":
+		fmt.Println("Bitwarden はロックされています。")
+	default:
+		fmt.Printf("Bitwarden の状態: %s\n", status)
+	}
 
 	return nil
 }
