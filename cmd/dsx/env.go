@@ -85,6 +85,15 @@ eval を使わずに環境変数を利用する安全な方法です。
 var envUnlockSync bool
 var envStatusQuiet bool
 
+var (
+	ensureBitwardenSessionFunc    = secret.EnsureBitwardenSession
+	getEnvVarsFunc                = secret.GetEnvVars
+	getBitwardenSessionStatusFunc = secret.GetBitwardenSessionStatus
+	exportFormatFunc              = secret.ExportFormat
+	formatForShellFunc            = secret.FormatForShell
+	detectShellFunc               = secret.DetectShell
+)
+
 func init() {
 	rootCmd.AddCommand(envCmd)
 	envCmd.AddCommand(envExportCmd)
@@ -97,26 +106,26 @@ func init() {
 }
 
 func runEnvExport(cmd *cobra.Command, args []string) error {
-	sessionToken, err := secret.EnsureBitwardenSession()
+	sessionToken, err := ensureBitwardenSessionFunc()
 	if err != nil {
 		return fmt.Errorf("環境変数の取得に失敗しました: %w", err)
 	}
 
 	// Bitwardenから環境変数を取得
-	envVars, err := secret.GetEnvVars()
+	envVars, err := getEnvVarsFunc()
 	if err != nil {
 		return fmt.Errorf("環境変数の取得に失敗しました: %w", err)
 	}
 
 	// シェル用の形式でフォーマット
-	output, err := secret.ExportFormat(envVars)
+	output, err := exportFormatFunc(envVars)
 	if err != nil {
 		return fmt.Errorf("エクスポート形式の生成に失敗しました: %w", err)
 	}
 
-	sessionOutput, formatErr := secret.FormatForShell(
+	sessionOutput, formatErr := formatForShellFunc(
 		map[string]string{"BW_SESSION": sessionToken},
-		secret.DetectShell(),
+		detectShellFunc(),
 	)
 	if formatErr != nil {
 		return fmt.Errorf("BW_SESSION のエクスポート形式の生成に失敗しました: %w", formatErr)
@@ -134,7 +143,7 @@ func runEnvExport(cmd *cobra.Command, args []string) error {
 }
 
 func runEnvStatus(cmd *cobra.Command, args []string) error {
-	status, err := secret.GetBitwardenSessionStatus()
+	status, err := getBitwardenSessionStatusFunc()
 	if err != nil {
 		if envStatusQuiet {
 			return err
