@@ -86,7 +86,6 @@ var envUnlockSync bool
 var envStatusQuiet bool
 
 var (
-	ensureBitwardenSessionFunc    = secret.EnsureBitwardenSession
 	getEnvVarsFunc                = secret.GetEnvVars
 	getBitwardenSessionStatusFunc = secret.GetBitwardenSessionStatus
 	exportFormatFunc              = secret.ExportFormat
@@ -106,16 +105,15 @@ func init() {
 }
 
 func runEnvExport(cmd *cobra.Command, args []string) error {
-	sessionToken, err := ensureBitwardenSessionFunc()
-	if err != nil {
-		return fmt.Errorf("環境変数の取得に失敗しました: %w", err)
-	}
-
-	// Bitwardenから環境変数を取得
+	// GetEnvVars が内部で EnsureBitwardenSession を呼び出し、
+	// 必要に応じて対話的アンロックを行い BW_SESSION を更新する
 	envVars, err := getEnvVarsFunc()
 	if err != nil {
 		return fmt.Errorf("環境変数の取得に失敗しました: %w", err)
 	}
+
+	// EnsureBitwardenSession による BW_SESSION 更新後の最新値を取得
+	sessionToken := os.Getenv("BW_SESSION")
 
 	// シェル用の形式でフォーマット
 	output, err := exportFormatFunc(envVars)

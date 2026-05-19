@@ -1192,8 +1192,12 @@ function dsx-unlock {
     return $false
   }
 
-  $token = & bw unlock --raw
-  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($token)) {
+  # bw unlock --raw はアップデート通知等が stdout に混入する場合があるため、
+  # 最後の非空行のみをセッショントークンとして使用する
+  $rawOutput = @(& bw unlock --raw)
+  $bwExitCode = $LASTEXITCODE
+  $token = ($rawOutput | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Last 1)
+  if ($bwExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($token)) {
     Write-Error "Bitwarden のアンロックに失敗しました。"
     return $false
   }
