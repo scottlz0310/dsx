@@ -203,6 +203,17 @@
 
 ---
 
+## v0.6.3 リリース準備
+
+- [x] PR #71 マージ（bw stdout 混入対応・JSON パース堅牢化）
+- [x] CHANGELOG.md: v0.6.3 セクション確認（2026-05-20）
+- [x] README.md: バージョン表記を v0.6.3 に更新
+- [ ] PR 作成・マージ
+- [ ] `v0.6.3` タグ発行・push → goreleaser が GitHub Release を自動作成
+- [ ] GitHub Release ページを見やすく編集
+
+---
+
 ## Backlog / 改善候補
 
 ### `AutoStash` オプションの修正（設定が機能していないバグ）
