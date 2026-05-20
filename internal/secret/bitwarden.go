@@ -1,6 +1,7 @@
 package secret
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -66,7 +67,16 @@ func runBWUnlockRaw() (string, error) {
 		return "", fmt.Errorf("bw unlock が失敗しました: %w", err)
 	}
 
-	return strings.TrimSpace(string(output)), nil
+	// アップデート通知等が stdout に混入する場合があるため、
+	// 最後の非空行のみをセッショントークンとして使用する（PowerShell 側と同様）
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if line := strings.TrimSpace(lines[i]); line != "" {
+			return line, nil
+		}
+	}
+
+	return "", nil
 }
 
 // debugLog はデバッグログを出力します。DSX_DEBUG=1 で有効化されます。
@@ -323,6 +333,12 @@ func listBitwardenEnvItems() ([]BitwardenItem, error) {
 		return nil, fmt.Errorf("bw list items が失敗しました: %w", err)
 	}
 
+	// アップデート通知等が stdout に混入する場合を考慮して、
+	// '[' 以降の JSON 配列部分のみを解析する
+	if idx := bytes.IndexByte(output, '['); idx > 0 {
+		output = output[idx:]
+	}
+
 	var items []BitwardenItem
 	if err := json.Unmarshal(output, &items); err != nil {
 		return nil, fmt.Errorf("JSON のパースに失敗しました: %w", err)
@@ -558,6 +574,12 @@ func getBitwardenStatus() (string, error) {
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
+	}
+
+	// アップデート通知等が stdout に混入する場合を考慮して、
+	// '{' 以降の JSON オブジェクト部分のみを解析する
+	if idx := bytes.IndexByte(output, '{'); idx > 0 {
+		output = output[idx:]
 	}
 
 	var status BitwardenStatus

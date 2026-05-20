@@ -6,6 +6,14 @@
 
 ## [Unreleased]
 
+## [v0.6.3] - 2026-05-20
+
+### Fixed
+
+- `runBWUnlockRaw` (Go 側) が `bw unlock --raw` のマルチライン出力（アップデート通知等が stdout に混入する場合）を正しく処理できず、無効な `BW_SESSION` が設定される問題を修正（最後の非空行のみをセッショントークンとして使用するよう変更。PowerShell `dsx-unlock` の PR #70 修正と同様のパターンを Go 側にも適用）
+- `getBitwardenStatus` が `bw status` の stdout にアップデート通知が混入した場合に JSON パースに失敗し、有効な `BW_SESSION` があるにもかかわらず「ロック済み」と誤判断して再アンロックを引き起こす問題を修正（`{` 以降の JSON 部分のみを解析）
+- `listBitwardenEnvItems` が `bw list items` の stdout にアップデート通知が混入した場合に JSON パースに失敗する問題を修正（`[` 以降の JSON 部分のみを解析）
+
 ## [v0.6.2] - 2026-05-19
 
 ### Fixed

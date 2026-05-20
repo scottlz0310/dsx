@@ -54,9 +54,9 @@
 - [x] README.md: バージョン表記を v0.6.1 に更新
 - [x] `task check` 実機確認（fmt/vet/test/lint）
 - [x] PR 作成（PR #69）
-- [ ] PR マージ
-- [ ] `v0.6.1` タグ発行・push → goreleaser が GitHub Release を自動作成
-- [ ] GitHub Release ページを見やすく編集
+- [x] PR マージ
+- [x] `v0.6.1` タグ発行・push → goreleaser が GitHub Release を自動作成
+- [x] GitHub Release ページを見やすく編集
 
 ---
 
