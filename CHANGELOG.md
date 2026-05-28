@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [v0.6.4] - 2026-05-28
+
 ### Performance
 
 - `dsx sys update` の cargo 更新処理で `cargo install-update -a` の出力をパースして実際に更新されたパッケージ数を `UpdatedCount` に反映。「更新成功: N 件」の集計が正確になった（#74）
@@ -387,7 +389,11 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.6.4...HEAD
+[v0.6.4]: https://github.com/scottlz0310/dsx/compare/v0.6.3...v0.6.4
+[v0.6.3]: https://github.com/scottlz0310/dsx/compare/v0.6.2...v0.6.3
+[v0.6.2]: https://github.com/scottlz0310/dsx/compare/v0.6.1...v0.6.2
+[v0.6.1]: https://github.com/scottlz0310/dsx/compare/v0.6.0...v0.6.1
 [v0.6.0]: https://github.com/scottlz0310/dsx/compare/v0.5.0...v0.6.0
 [v0.5.0]: https://github.com/scottlz0310/dsx/compare/v0.4.1...v0.5.0
 [v0.4.1]: https://github.com/scottlz0310/dsx/compare/v0.4.0...v0.4.1
