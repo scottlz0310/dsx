@@ -157,7 +157,7 @@ func cargoInstallUpdateBinPath() (string, error) {
 
 	// 実行可能ファイルの候補（Windows では .exe/.cmd/.bat も確認）
 	candidates := []string{"cargo-install-update"}
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windowsOS {
 		candidates = []string{
 			"cargo-install-update.exe",
 			"cargo-install-update.cmd",
