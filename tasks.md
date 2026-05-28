@@ -238,6 +238,18 @@
 
 ---
 
+## v0.6.4 リリース準備
+
+- [x] cargo 更新処理の最適化・修正 PR #75〜#79 が main にマージ済みであることを確認
+- [x] PR #79 マージ後の実機テストを実施（cargo-update v20.0.0 / `dsx sys update` cargo 経路）
+- [x] `task check` 通過（fmt/vet/test/lint）
+- [x] `go build ./...` 通過
+- [x] `dsx --help` 表示確認（`dist/dsx.exe --help`）
+- [x] CHANGELOG.md: [Unreleased] → [v0.6.4] - 2026-05-28
+- [x] README.md: バージョン表記を v0.6.4 に更新
+
+---
+
 ## Backlog / 改善候補
 
 ### `AutoStash` オプションの修正（設定が機能していないバグ）
