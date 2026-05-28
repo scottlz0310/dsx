@@ -14,6 +14,7 @@
 
 ### Fixed
 
+- `dsx sys update` の cargo 更新処理で `cargo-update v20+` の API 変更（`cargo-install-update -a` → `cargo-install-update install-update -a`）に対応。出力サマリ形式の変更（`Updated N...` → `Overall updated N...`）にも追従し、v19 との後方互換を維持
 - `dsx sys update` の cargo 更新処理で `cargo-update` が未インストールの場合に全パッケージを `cargo install --force` で強制再ビルドしていた問題を修正。`cargo-update` がなければ自動インストールし、`cargo install-update -a`（更新必要分のみ再ビルド）を使用するよう変更（#74）
 
 ## [v0.6.3] - 2026-05-20

@@ -91,9 +91,10 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 	}
 
 	// フルパスで直接実行（PATH に ~/.cargo/bin がない環境でも動作）
+	// v20 以降はサブコマンド形式: cargo-install-update install-update -a
 	var buf bytes.Buffer
 
-	cmd := exec.CommandContext(ctx, updateBin, "-a")
+	cmd := exec.CommandContext(ctx, updateBin, "install-update", "-a")
 	cmd.Stdout = io.MultiWriter(os.Stdout, &buf)
 	cmd.Stderr = os.Stderr
 
@@ -184,21 +185,30 @@ func cargoInstallUpdateBinPath() (string, error) {
 }
 
 // parseUpdateCount は "cargo install-update -a" の出力から実際に更新されたパッケージ数を返します。
-// 末尾のサマリ行 "Updated N package(s)." を解析します。
+// v20+: "Overall updated N package(s)." / v19-: "Updated N package(s)." のサマリ行を解析します。
 func (c *CargoUpdater) parseUpdateCount(output string) int {
 	output = strings.ReplaceAll(output, "\r\n", "\n")
 
 	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)
 
-		if !strings.HasPrefix(line, "Updated ") {
-			continue
+		// v20+: "Overall updated N package(s)."
+		if strings.HasPrefix(line, "Overall updated ") {
+			parts := strings.Fields(line)
+			if len(parts) >= 3 {
+				if n, err := strconv.Atoi(parts[2]); err == nil {
+					return n
+				}
+			}
 		}
 
-		parts := strings.Fields(line)
-		if len(parts) >= 2 {
-			if n, err := strconv.Atoi(parts[1]); err == nil {
-				return n
+		// v19-: "Updated N package(s)."
+		if strings.HasPrefix(line, "Updated ") {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				if n, err := strconv.Atoi(parts[1]); err == nil {
+					return n
+				}
 			}
 		}
 	}
