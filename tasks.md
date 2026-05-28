@@ -216,16 +216,16 @@
 
 ## Issue #74: cargo 更新パフォーマンス最適化
 
-### Phase 1: cargo-update 自動インストール（対応中）
+### Phase 1: cargo-update 自動インストール（完了）
 
 - [x] `internal/updater/cargo.go`: cargo-update 未インストール時に `cargo install cargo-update` で自動インストールし `cargo install-update -a` 経路に統一
 - [x] `internal/updater/cargo_test.go`: 自動インストール成功・失敗テストケース追加
 - [x] `CHANGELOG.md` 更新
-- [ ] PR 作成・マージ
+- [x] PR #75 作成・マージ（359bdc2）
 
-### Phase 2: Check() 事前実行のスキップ
+### Phase 2: Check() 事前実行のスキップ（完了）
 
-- [ ] cargo-update 経路では `cargo install --list` を省略
+- [x] cargo-update 経路では `cargo install --list` を省略
 
 ### Phase 3: UpdatedCount 表示バグ修正
 

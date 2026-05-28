@@ -64,18 +64,17 @@ func (c *CargoUpdater) Check(ctx context.Context) (*CheckResult, error) {
 func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateResult, error) {
 	result := &UpdateResult{}
 
-	// まず更新確認
-	checkResult, err := c.Check(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(checkResult.Packages) == 0 {
-		result.Message = "cargo でインストールされたパッケージがありません"
-		return result, nil
-	}
-
 	if opts.DryRun {
+		checkResult, err := c.Check(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(checkResult.Packages) == 0 {
+			result.Message = "cargo でインストールされたパッケージがありません"
+			return result, nil
+		}
+
 		result.Message = fmt.Sprintf("%d 件のインストール済みパッケージについて更新を確認します（DryRunモード）", len(checkResult.Packages))
 		result.Packages = checkResult.Packages
 
@@ -99,8 +98,7 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 		return result, fmt.Errorf("cargo install-update -a に失敗: %w", err)
 	}
 
-	result.Packages = checkResult.Packages
-	result.Message = fmt.Sprintf("%d 件のパッケージを確認・更新しました", len(checkResult.Packages))
+	result.Message = "cargo パッケージを確認・更新しました"
 
 	return result, nil
 }

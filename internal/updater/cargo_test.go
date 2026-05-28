@@ -160,9 +160,9 @@ func TestCargoUpdater_Update(t *testing.T) {
 			msgContains: "DryRunモード",
 		},
 		{
-			name:        "対象なし",
+			name:        "対象なし（DryRun）",
 			mode:        "none",
-			opts:        UpdateOptions{},
+			opts:        UpdateOptions{DryRun: true},
 			wantErr:     false,
 			msgContains: "パッケージがありません",
 		},
