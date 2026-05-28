@@ -83,6 +83,29 @@ pkg 1.2.3:
 	}
 }
 
+func TestCargoUpdater_parseUpdateCount(t *testing.T) {
+	tests := []struct {
+		name     string
+		output   string
+		expected int
+	}{
+		{name: "空の出力", output: "", expected: 0},
+		{name: "更新なし（サマリなし）", output: "ripgrep - already at newest version\n", expected: 0},
+		{name: "1件更新", output: "Updated 1 package.\n", expected: 1},
+		{name: "2件更新", output: "Updated 2 packages.\n", expected: 2},
+		{name: "大きい数字", output: "Updated 10 packages.\n", expected: 10},
+		{name: "CRLF改行", output: "Updated 2 packages.\r\n", expected: 2},
+		{name: "テーブル付き出力", output: "  ripgrep  14.0.0  14.1.0  Yes\n  bat      0.24.0  0.24.0  No\nUpdated 1 package.\n", expected: 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &CargoUpdater{}
+			assert.Equal(t, tt.expected, c.parseUpdateCount(tt.output))
+		})
+	}
+}
+
 func TestCargoUpdater_Check(t *testing.T) {
 	testCases := []struct {
 		name        string
@@ -151,6 +174,7 @@ func TestCargoUpdater_Update(t *testing.T) {
 		wantErr     bool
 		errContains string
 		msgContains string
+		wantUpdated int
 	}{
 		{
 			name:        "DryRunは更新せず計画表示",
@@ -171,7 +195,8 @@ func TestCargoUpdater_Update(t *testing.T) {
 			mode:        "updates",
 			opts:        UpdateOptions{},
 			wantErr:     false,
-			msgContains: "確認・更新しました",
+			msgContains: "件のパッケージを更新しました",
+			wantUpdated: 2,
 		},
 		{
 			name:        "更新失敗",
@@ -186,7 +211,8 @@ func TestCargoUpdater_Update(t *testing.T) {
 			noUpdate:    true,
 			opts:        UpdateOptions{},
 			wantErr:     false,
-			msgContains: "確認・更新しました",
+			msgContains: "件のパッケージを更新しました",
+			wantUpdated: 2,
 		},
 		{
 			name:        "cargo-update 未インストール → 自動インストール失敗",
@@ -249,6 +275,10 @@ func TestCargoUpdater_Update(t *testing.T) {
 
 			if tc.msgContains != "" {
 				assert.Contains(t, got.Message, tc.msgContains)
+			}
+
+			if !tc.opts.DryRun {
+				assert.Equal(t, tc.wantUpdated, got.UpdatedCount)
 			}
 		})
 	}
@@ -319,7 +349,7 @@ exit /b 0
 			return
 		}
 
-		updateContent := "@echo off\r\nset mode=%DSX_TEST_CARGO_MODE%\r\nif \"%1\"==\"-a\" goto doupdate\r\necho invalid args 1>&2\r\nexit /b 1\r\n:doupdate\r\nif \"%mode%\"==\"update_error\" (\r\n  echo cargo install-update failed 1>&2\r\n  exit /b 1\r\n)\r\nexit /b 0\r\n"
+		updateContent := "@echo off\r\nset mode=%DSX_TEST_CARGO_MODE%\r\nif \"%1\"==\"-a\" goto doupdate\r\necho invalid args 1>&2\r\nexit /b 1\r\n:doupdate\r\nif \"%mode%\"==\"update_error\" (\r\n  echo cargo install-update failed 1>&2\r\n  exit /b 1\r\n)\r\nif \"%mode%\"==\"updates\" (\r\n  echo Updated 2 packages.\r\n)\r\nexit /b 0\r\n"
 
 		updatePath := filepath.Join(dir, "cargo-install-update.cmd")
 		if err := os.WriteFile(updatePath, []byte(updateContent), 0o755); err != nil {
@@ -396,7 +426,7 @@ esac
 			return
 		}
 
-		updateContent := "#!/bin/sh\nmode=\"${DSX_TEST_CARGO_MODE}\"\ncase \"$1\" in\n  -a)\n    if [ \"${mode}\" = \"update_error\" ]; then\n      echo \"cargo install-update failed\" 1>&2\n      exit 1\n    fi\n    exit 0\n    ;;\n  *)\n    echo \"invalid args\" 1>&2\n    exit 1\n    ;;\nesac\n"
+		updateContent := "#!/bin/sh\nmode=\"${DSX_TEST_CARGO_MODE}\"\ncase \"$1\" in\n  -a)\n    if [ \"${mode}\" = \"update_error\" ]; then\n      echo \"cargo install-update failed\" 1>&2\n      exit 1\n    fi\n    if [ \"${mode}\" = \"updates\" ]; then\n      echo \"Updated 2 packages.\"\n    fi\n    exit 0\n    ;;\n  *)\n    echo \"invalid args\" 1>&2\n    exit 1\n    ;;\nesac\n"
 
 		updatePath := filepath.Join(dir, "cargo-install-update")
 		if err := os.WriteFile(updatePath, []byte(updateContent), 0o755); err != nil {
@@ -419,14 +449,14 @@ func writeFakeCIUBinary(t *testing.T, dir string) {
 	}
 
 	if runtime.GOOS == "windows" {
-		content := "@echo off\r\nexit /b 0\r\n"
+		content := "@echo off\r\nset mode=%DSX_TEST_CARGO_MODE%\r\nif \"%1\"==\"-a\" goto doupdate\r\nexit /b 1\r\n:doupdate\r\nif \"%mode%\"==\"updates\" (\r\n  echo Updated 2 packages.\r\n)\r\nexit /b 0\r\n"
 		path := filepath.Join(dir, "cargo-install-update.cmd")
 
 		if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
 			t.Fatalf("fake cargo-install-update.cmd write failed: %v", err)
 		}
 	} else {
-		content := "#!/bin/sh\nexit 0\n"
+		content := "#!/bin/sh\nmode=\"${DSX_TEST_CARGO_MODE}\"\ncase \"$1\" in\n  -a)\n    if [ \"${mode}\" = \"updates\" ]; then\n      echo \"Updated 2 packages.\"\n    fi\n    exit 0\n    ;;\n  *)\n    exit 1\n    ;;\nesac\n"
 		path := filepath.Join(dir, "cargo-install-update")
 
 		if err := os.WriteFile(path, []byte(content), 0o755); err != nil {

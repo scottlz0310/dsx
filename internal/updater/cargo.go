@@ -1,12 +1,15 @@
 package updater
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/scottlz0310/dsx/internal/config"
@@ -88,8 +91,10 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 	}
 
 	// フルパスで直接実行（PATH に ~/.cargo/bin がない環境でも動作）
+	var buf bytes.Buffer
+
 	cmd := exec.CommandContext(ctx, updateBin, "-a")
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = io.MultiWriter(os.Stdout, &buf)
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
@@ -98,7 +103,13 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 		return result, fmt.Errorf("cargo install-update -a に失敗: %w", err)
 	}
 
-	result.Message = "cargo パッケージを確認・更新しました"
+	result.UpdatedCount = c.parseUpdateCount(buf.String())
+
+	if result.UpdatedCount > 0 {
+		result.Message = fmt.Sprintf("%d 件のパッケージを更新しました", result.UpdatedCount)
+	} else {
+		result.Message = "cargo パッケージを確認しました（更新なし）"
+	}
 
 	return result, nil
 }
@@ -171,6 +182,29 @@ func cargoInstallUpdateBinPath() (string, error) {
 	}
 
 	return "", fmt.Errorf("%s に cargo-install-update が見つかりません", binDir)
+}
+
+// parseUpdateCount は "cargo install-update -a" の出力から実際に更新されたパッケージ数を返します。
+// 末尾のサマリ行 "Updated N package(s)." を解析します。
+func (c *CargoUpdater) parseUpdateCount(output string) int {
+	output = strings.ReplaceAll(output, "\r\n", "\n")
+
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+
+		if !strings.HasPrefix(line, "Updated ") {
+			continue
+		}
+
+		parts := strings.Fields(line)
+		if len(parts) >= 2 {
+			if n, err := strconv.Atoi(parts[1]); err == nil {
+				return n
+			}
+		}
+	}
+
+	return 0
 }
 
 // parseInstallList は "cargo install --list" の出力をパースします
