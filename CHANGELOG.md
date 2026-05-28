@@ -8,6 +8,7 @@
 
 ### Performance
 
+- `dsx sys update` の cargo 更新処理で `cargo install-update -a` の出力をパースして実際に更新されたパッケージ数を `UpdatedCount` に反映。「更新成功: N 件」の集計が正確になった（#74）
 - `dsx sys update` の cargo 更新処理で `cargo install --list` の事前実行を省略。非 DryRun 時は `cargo install-update -a` を直接実行するよう変更し、起動時の余分な CLI 呼び出しを削減（#74）
 
 ### Fixed

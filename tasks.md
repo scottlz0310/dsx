@@ -227,9 +227,9 @@
 
 - [x] cargo-update 経路では `cargo install --list` を省略
 
-### Phase 3: UpdatedCount 表示バグ修正
+### Phase 3: UpdatedCount 表示バグ修正（完了）
 
-- [ ] `cargo install-update -a` の出力パース or `len(checkResult.Packages)` 使用
+- [x] `cargo install-update -a` の出力をパースし、` -> ` を含む行を更新件数としてカウント
 
 ### Phase 4: 細部の整理
 

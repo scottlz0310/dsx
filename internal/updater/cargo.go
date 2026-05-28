@@ -1,8 +1,10 @@
 package updater
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -88,8 +90,10 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 	}
 
 	// フルパスで直接実行（PATH に ~/.cargo/bin がない環境でも動作）
+	var buf bytes.Buffer
+
 	cmd := exec.CommandContext(ctx, updateBin, "-a")
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = io.MultiWriter(os.Stdout, &buf)
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
@@ -98,7 +102,13 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 		return result, fmt.Errorf("cargo install-update -a に失敗: %w", err)
 	}
 
-	result.Message = "cargo パッケージを確認・更新しました"
+	result.UpdatedCount = c.parseUpdateCount(buf.String())
+
+	if result.UpdatedCount > 0 {
+		result.Message = fmt.Sprintf("%d 件のパッケージを更新しました", result.UpdatedCount)
+	} else {
+		result.Message = "cargo パッケージを確認しました（更新なし）"
+	}
 
 	return result, nil
 }
@@ -171,6 +181,21 @@ func cargoInstallUpdateBinPath() (string, error) {
 	}
 
 	return "", fmt.Errorf("%s に cargo-install-update が見つかりません", binDir)
+}
+
+// parseUpdateCount は "cargo install-update -a" の出力から実際に更新されたパッケージ数を返します。
+// "pkg vX.Y.Z -> vA.B.C" 形式の行（バージョン遷移を示す " -> " を含む行）をカウントします。
+func (c *CargoUpdater) parseUpdateCount(output string) int {
+	output = strings.ReplaceAll(output, "\r\n", "\n")
+	count := 0
+
+	for _, line := range strings.Split(output, "\n") {
+		if strings.Contains(line, " -> ") {
+			count++
+		}
+	}
+
+	return count
 }
 
 // parseInstallList は "cargo install --list" の出力をパースします
