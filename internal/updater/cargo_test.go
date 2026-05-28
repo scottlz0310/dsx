@@ -222,6 +222,7 @@ func TestCargoUpdater_Update(t *testing.T) {
 				if !tc.noCargoBin {
 					writeFakeCIUBinary(t, filepath.Join(cargoHomeDir, "bin"))
 				}
+
 				t.Setenv("CARGO_HOME", cargoHomeDir)
 				t.Setenv("PATH", fakeDir)
 			} else {
