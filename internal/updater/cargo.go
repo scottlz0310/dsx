@@ -96,7 +96,6 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 	cmd := exec.CommandContext(ctx, updateBin, "-a")
 	cmd.Stdout = io.MultiWriter(os.Stdout, &buf)
 	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
 
 	if err := cmd.Run(); err != nil {
 		result.Errors = append(result.Errors, err)

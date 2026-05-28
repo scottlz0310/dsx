@@ -231,10 +231,10 @@
 
 - [x] `cargo install-update -a` の出力をパースし、`Updated N package(s).` サマリ行から更新件数を取得
 
-### Phase 4: 細部の整理
+### Phase 4: 細部の整理（完了）
 
-- [ ] `exec.LookPath` への変更（Phase 1 で実施済み）
-- [ ] `cmd.Stdin` 接続の見直し
+- [x] `exec.LookPath` への変更（Phase 1 で実施済み）
+- [x] `cmd.Stdin` 接続の削除（非対話コマンドのため不要）
 
 ---
 
