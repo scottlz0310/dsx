@@ -229,7 +229,7 @@
 
 ### Phase 3: UpdatedCount 表示バグ修正（完了）
 
-- [x] `cargo install-update -a` の出力をパースし、` -> ` を含む行を更新件数としてカウント
+- [x] `cargo install-update -a` の出力をパースし、`Updated N package(s).` サマリ行から更新件数を取得
 
 ### Phase 4: 細部の整理
 
