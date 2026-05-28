@@ -93,7 +93,7 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 	// フルパスで直接実行（PATH に ~/.cargo/bin がない環境でも動作）
 	var buf bytes.Buffer
 
-	cmd := exec.CommandContext(ctx, updateBin, "-a")
+	cmd := exec.CommandContext(ctx, updateBin, cargoUpdateArgs(updateBin)...)
 	cmd.Stdout = io.MultiWriter(os.Stdout, &buf)
 	cmd.Stderr = os.Stderr
 
@@ -148,6 +148,18 @@ func (c *CargoUpdater) ensureCargoUpdate(ctx context.Context) (string, error) {
 	return path, nil
 }
 
+// cargoUpdateArgs はインストール済みの cargo-update バージョンに応じた実行引数を返します。
+// v19-: --version が "cargo-install-update N.N.N" を返す → ["-a"]（直接引数形式）
+// v20+: --version が "cargo N.N.N" を返す、または検出失敗 → ["install-update", "-a"]（サブコマンド形式）
+func cargoUpdateArgs(bin string) []string {
+	out, err := exec.CommandContext(context.Background(), bin, "--version").Output()
+	if err == nil && strings.HasPrefix(strings.TrimSpace(string(out)), "cargo-install-update") {
+		return []string{"-a"}
+	}
+
+	return []string{"install-update", "-a"}
+}
+
 // cargoInstallUpdateBinPath は CARGO_HOME/bin の cargo-install-update のパスを返します。
 // PATH に ~/.cargo/bin が含まれていない環境での自動インストール後のフォールバックに使用します。
 func cargoInstallUpdateBinPath() (string, error) {
@@ -184,21 +196,30 @@ func cargoInstallUpdateBinPath() (string, error) {
 }
 
 // parseUpdateCount は "cargo install-update -a" の出力から実際に更新されたパッケージ数を返します。
-// 末尾のサマリ行 "Updated N package(s)." を解析します。
+// v20+: "Overall updated N package(s)." / v19-: "Updated N package(s)." のサマリ行を解析します。
 func (c *CargoUpdater) parseUpdateCount(output string) int {
 	output = strings.ReplaceAll(output, "\r\n", "\n")
 
 	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)
 
-		if !strings.HasPrefix(line, "Updated ") {
-			continue
+		// v20+: "Overall updated N package(s)."
+		if strings.HasPrefix(line, "Overall updated ") {
+			parts := strings.Fields(line)
+			if len(parts) >= 3 {
+				if n, err := strconv.Atoi(parts[2]); err == nil {
+					return n
+				}
+			}
 		}
 
-		parts := strings.Fields(line)
-		if len(parts) >= 2 {
-			if n, err := strconv.Atoi(parts[1]); err == nil {
-				return n
+		// v19-: "Updated N package(s)."
+		if strings.HasPrefix(line, "Updated ") {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				if n, err := strconv.Atoi(parts[1]); err == nil {
+					return n
+				}
 			}
 		}
 	}
