@@ -90,10 +90,12 @@ func TestCargoUpdater_parseUpdateCount(t *testing.T) {
 		expected int
 	}{
 		{name: "空の出力", output: "", expected: 0},
-		{name: "更新なし", output: "ripgrep v14.0.0\nbat v0.24.0\n", expected: 0},
-		{name: "1件更新", output: "ripgrep v14.0.0 -> v14.1.0\nbat v0.24.0\n", expected: 1},
-		{name: "2件更新", output: "ripgrep v14.0.0 -> v14.1.0\nbat v0.24.0 -> v0.25.0\n", expected: 2},
-		{name: "CRLF改行", output: "ripgrep v14.0.0 -> v14.1.0\r\nbat v0.24.0 -> v0.25.0\r\n", expected: 2},
+		{name: "更新なし（サマリなし）", output: "ripgrep - already at newest version\n", expected: 0},
+		{name: "1件更新", output: "Updated 1 package.\n", expected: 1},
+		{name: "2件更新", output: "Updated 2 packages.\n", expected: 2},
+		{name: "大きい数字", output: "Updated 10 packages.\n", expected: 10},
+		{name: "CRLF改行", output: "Updated 2 packages.\r\n", expected: 2},
+		{name: "テーブル付き出力", output: "  ripgrep  14.0.0  14.1.0  Yes\n  bat      0.24.0  0.24.0  No\nUpdated 1 package.\n", expected: 1},
 	}
 
 	for _, tt := range tests {
@@ -347,7 +349,7 @@ exit /b 0
 			return
 		}
 
-		updateContent := "@echo off\r\nset mode=%DSX_TEST_CARGO_MODE%\r\nif \"%1\"==\"-a\" goto doupdate\r\necho invalid args 1>&2\r\nexit /b 1\r\n:doupdate\r\nif \"%mode%\"==\"update_error\" (\r\n  echo cargo install-update failed 1>&2\r\n  exit /b 1\r\n)\r\nif \"%mode%\"==\"updates\" (\r\n  echo ripgrep v14.0.0 -^> v14.1.0\r\n  echo bat v0.24.0 -^> v0.25.0\r\n)\r\nexit /b 0\r\n"
+		updateContent := "@echo off\r\nset mode=%DSX_TEST_CARGO_MODE%\r\nif \"%1\"==\"-a\" goto doupdate\r\necho invalid args 1>&2\r\nexit /b 1\r\n:doupdate\r\nif \"%mode%\"==\"update_error\" (\r\n  echo cargo install-update failed 1>&2\r\n  exit /b 1\r\n)\r\nif \"%mode%\"==\"updates\" (\r\n  echo Updated 2 packages.\r\n)\r\nexit /b 0\r\n"
 
 		updatePath := filepath.Join(dir, "cargo-install-update.cmd")
 		if err := os.WriteFile(updatePath, []byte(updateContent), 0o755); err != nil {
@@ -424,7 +426,7 @@ esac
 			return
 		}
 
-		updateContent := "#!/bin/sh\nmode=\"${DSX_TEST_CARGO_MODE}\"\ncase \"$1\" in\n  -a)\n    if [ \"${mode}\" = \"update_error\" ]; then\n      echo \"cargo install-update failed\" 1>&2\n      exit 1\n    fi\n    if [ \"${mode}\" = \"updates\" ]; then\n      echo \"ripgrep v14.0.0 -> v14.1.0\"\n      echo \"bat v0.24.0 -> v0.25.0\"\n    fi\n    exit 0\n    ;;\n  *)\n    echo \"invalid args\" 1>&2\n    exit 1\n    ;;\nesac\n"
+		updateContent := "#!/bin/sh\nmode=\"${DSX_TEST_CARGO_MODE}\"\ncase \"$1\" in\n  -a)\n    if [ \"${mode}\" = \"update_error\" ]; then\n      echo \"cargo install-update failed\" 1>&2\n      exit 1\n    fi\n    if [ \"${mode}\" = \"updates\" ]; then\n      echo \"Updated 2 packages.\"\n    fi\n    exit 0\n    ;;\n  *)\n    echo \"invalid args\" 1>&2\n    exit 1\n    ;;\nesac\n"
 
 		updatePath := filepath.Join(dir, "cargo-install-update")
 		if err := os.WriteFile(updatePath, []byte(updateContent), 0o755); err != nil {
@@ -447,14 +449,14 @@ func writeFakeCIUBinary(t *testing.T, dir string) {
 	}
 
 	if runtime.GOOS == "windows" {
-		content := "@echo off\r\nset mode=%DSX_TEST_CARGO_MODE%\r\nif \"%1\"==\"-a\" goto doupdate\r\nexit /b 1\r\n:doupdate\r\nif \"%mode%\"==\"updates\" (\r\n  echo ripgrep v14.0.0 -^> v14.1.0\r\n  echo bat v0.24.0 -^> v0.25.0\r\n)\r\nexit /b 0\r\n"
+		content := "@echo off\r\nset mode=%DSX_TEST_CARGO_MODE%\r\nif \"%1\"==\"-a\" goto doupdate\r\nexit /b 1\r\n:doupdate\r\nif \"%mode%\"==\"updates\" (\r\n  echo Updated 2 packages.\r\n)\r\nexit /b 0\r\n"
 		path := filepath.Join(dir, "cargo-install-update.cmd")
 
 		if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
 			t.Fatalf("fake cargo-install-update.cmd write failed: %v", err)
 		}
 	} else {
-		content := "#!/bin/sh\nmode=\"${DSX_TEST_CARGO_MODE}\"\ncase \"$1\" in\n  -a)\n    if [ \"${mode}\" = \"updates\" ]; then\n      echo \"ripgrep v14.0.0 -> v14.1.0\"\n      echo \"bat v0.24.0 -> v0.25.0\"\n    fi\n    exit 0\n    ;;\n  *)\n    exit 1\n    ;;\nesac\n"
+		content := "#!/bin/sh\nmode=\"${DSX_TEST_CARGO_MODE}\"\ncase \"$1\" in\n  -a)\n    if [ \"${mode}\" = \"updates\" ]; then\n      echo \"Updated 2 packages.\"\n    fi\n    exit 0\n    ;;\n  *)\n    exit 1\n    ;;\nesac\n"
 		path := filepath.Join(dir, "cargo-install-update")
 
 		if err := os.WriteFile(path, []byte(content), 0o755); err != nil {

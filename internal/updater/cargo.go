@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/scottlz0310/dsx/internal/config"
@@ -184,18 +185,26 @@ func cargoInstallUpdateBinPath() (string, error) {
 }
 
 // parseUpdateCount は "cargo install-update -a" の出力から実際に更新されたパッケージ数を返します。
-// "pkg vX.Y.Z -> vA.B.C" 形式の行（バージョン遷移を示す " -> " を含む行）をカウントします。
+// 末尾のサマリ行 "Updated N package(s)." を解析します。
 func (c *CargoUpdater) parseUpdateCount(output string) int {
 	output = strings.ReplaceAll(output, "\r\n", "\n")
-	count := 0
 
 	for _, line := range strings.Split(output, "\n") {
-		if strings.Contains(line, " -> ") {
-			count++
+		line = strings.TrimSpace(line)
+
+		if !strings.HasPrefix(line, "Updated ") {
+			continue
+		}
+
+		parts := strings.Fields(line)
+		if len(parts) >= 2 {
+			if n, err := strconv.Atoi(parts[1]); err == nil {
+				return n
+			}
 		}
 	}
 
-	return count
+	return 0
 }
 
 // parseInstallList は "cargo install --list" の出力をパースします
