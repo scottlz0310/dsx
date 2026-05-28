@@ -152,7 +152,7 @@ func (c *CargoUpdater) ensureCargoUpdate(ctx context.Context) (string, error) {
 // v19-: --version が "cargo-install-update N.N.N" を返す → ["-a"]（直接引数形式）
 // v20+: --version が "cargo N.N.N" を返す、または検出失敗 → ["install-update", "-a"]（サブコマンド形式）
 func cargoUpdateArgs(bin string) []string {
-	out, err := exec.Command(bin, "--version").Output()
+	out, err := exec.CommandContext(context.Background(), bin, "--version").Output()
 	if err == nil && strings.HasPrefix(strings.TrimSpace(string(out)), "cargo-install-update") {
 		return []string{"-a"}
 	}

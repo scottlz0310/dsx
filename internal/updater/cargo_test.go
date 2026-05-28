@@ -275,10 +275,12 @@ func TestCargoUpdater_Update(t *testing.T) {
 				// また CARGO_HOME を設定して cargoInstallUpdateBinPath のフォールバックが機能するよう
 				// CARGO_HOME/bin にダミーバイナリを配置する（cargo install 後の状態をシミュレート）。
 				writeFakeCargoCommandImpl(t, fakeDir, false)
+
 				cargoHomeDir := filepath.Join(fakeDir, "cargo_home")
 				if !tc.noCargoBin {
 					writeFakeCIUBinary(t, filepath.Join(cargoHomeDir, "bin"))
 				}
+
 				t.Setenv("CARGO_HOME", cargoHomeDir)
 				t.Setenv("PATH", fakeDir)
 			default:
@@ -561,7 +563,7 @@ func TestCargoUpdateArgs(t *testing.T) {
 
 // writeFakeVersionBinary は --version に対して versionOut を返す fake バイナリを作成し、そのパスを返します。
 // versionOut が空の場合は --version で exit 1 を返します。
-func writeFakeVersionBinary(t *testing.T, dir string, versionOut string) string {
+func writeFakeVersionBinary(t *testing.T, dir, versionOut string) string {
 	t.Helper()
 
 	if runtime.GOOS == "windows" {
