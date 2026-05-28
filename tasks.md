@@ -214,6 +214,30 @@
 
 ---
 
+## Issue #74: cargo 更新パフォーマンス最適化
+
+### Phase 1: cargo-update 自動インストール（対応中）
+
+- [x] `internal/updater/cargo.go`: cargo-update 未インストール時に `cargo install cargo-update` で自動インストールし `cargo install-update -a` 経路に統一
+- [x] `internal/updater/cargo_test.go`: 自動インストール成功・失敗テストケース追加
+- [x] `CHANGELOG.md` 更新
+- [ ] PR 作成・マージ
+
+### Phase 2: Check() 事前実行のスキップ
+
+- [ ] cargo-update 経路では `cargo install --list` を省略
+
+### Phase 3: UpdatedCount 表示バグ修正
+
+- [ ] `cargo install-update -a` の出力パース or `len(checkResult.Packages)` 使用
+
+### Phase 4: 細部の整理
+
+- [ ] `exec.LookPath` への変更（Phase 1 で実施済み）
+- [ ] `cmd.Stdin` 接続の見直し
+
+---
+
 ## Backlog / 改善候補
 
 ### `AutoStash` オプションの修正（設定が機能していないバグ）

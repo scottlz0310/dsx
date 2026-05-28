@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/scottlz0310/dsx/internal/config"
@@ -80,51 +82,97 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 		return result, nil
 	}
 
-	// cargo-update がインストールされているか確認
-	// cargo-update は cargo のサブコマンドとして動作するため、
-	// cargo install-update --help で確認
-	checkCmd := exec.CommandContext(ctx, "cargo", "install-update", "--help")
-	if err := checkCmd.Run(); err == nil {
-		// cargo-update を使用（推奨）
-		cmd := exec.CommandContext(ctx, "cargo", "install-update", "-a")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = os.Stdin
+	// cargo-update がなければ自動インストール、フルパスを取得
+	updateBin, err := c.ensureCargoUpdate(ctx)
+	if err != nil {
+		return result, err
+	}
 
-		if err := cmd.Run(); err != nil {
-			result.Errors = append(result.Errors, err)
-			return result, fmt.Errorf("cargo install-update -a に失敗: %w", err)
-		}
-	} else {
-		// cargo-update がない場合は個別に再インストール
-		for _, pkg := range checkResult.Packages {
-			cmd := exec.CommandContext(ctx, "cargo", "install", "--force", pkg.Name)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmd.Stdin = os.Stdin
+	// フルパスで直接実行（PATH に ~/.cargo/bin がない環境でも動作）
+	cmd := exec.CommandContext(ctx, updateBin, "-a")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
 
-			if err := cmd.Run(); err != nil {
-				result.FailedCount++
-				result.Errors = append(result.Errors, fmt.Errorf("%s: %w", pkg.Name, err))
-
-				continue
-			}
-
-			result.UpdatedCount++
-		}
-
-		if len(result.Errors) > 0 {
-			result.Packages = checkResult.Packages
-			result.Message = fmt.Sprintf("%d 件更新、%d 件失敗", result.UpdatedCount, result.FailedCount)
-
-			return result, fmt.Errorf("一部のパッケージ更新に失敗しました")
-		}
+	if err := cmd.Run(); err != nil {
+		result.Errors = append(result.Errors, err)
+		return result, fmt.Errorf("cargo install-update -a に失敗: %w", err)
 	}
 
 	result.Packages = checkResult.Packages
-	result.Message = fmt.Sprintf("%d 件のパッケージを確認・更新しました", result.UpdatedCount)
+	result.Message = fmt.Sprintf("%d 件のパッケージを確認・更新しました", len(checkResult.Packages))
 
 	return result, nil
+}
+
+// ensureCargoUpdate は cargo-update がなければ自動インストールし、
+// cargo-install-update のフルパスを返します。
+func (c *CargoUpdater) ensureCargoUpdate(ctx context.Context) (string, error) {
+	if path, err := exec.LookPath("cargo-install-update"); err == nil {
+		return path, nil
+	}
+
+	fmt.Println("ℹ️  cargo-update が見つかりません。自動インストールします...")
+
+	cmd := exec.CommandContext(ctx, "cargo", "install", "cargo-update")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("cargo-update のインストールに失敗: %w", err)
+	}
+
+	fmt.Println("✅ cargo-update のインストールが完了しました。")
+
+	// PATH への反映を再確認
+	if path, err := exec.LookPath("cargo-install-update"); err == nil {
+		return path, nil
+	}
+
+	// PATH に反映されていない場合は CARGO_HOME/bin を直接確認
+	path, err := cargoInstallUpdateBinPath()
+	if err != nil {
+		return "", fmt.Errorf(
+			"cargo-update のインストールは成功しましたが、cargo-install-update が PATH に見つかりません。"+
+				"~/.cargo/bin を PATH に追加してから再実行してください: %w", err)
+	}
+
+	return path, nil
+}
+
+// cargoInstallUpdateBinPath は CARGO_HOME/bin の cargo-install-update のパスを返します。
+// PATH に ~/.cargo/bin が含まれていない環境での自動インストール後のフォールバックに使用します。
+func cargoInstallUpdateBinPath() (string, error) {
+	cargoHome := os.Getenv("CARGO_HOME")
+	if cargoHome == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+
+		cargoHome = filepath.Join(home, ".cargo")
+	}
+
+	binDir := filepath.Join(cargoHome, "bin")
+
+	// 実行可能ファイルの候補（Windows では .exe/.cmd/.bat も確認）
+	candidates := []string{"cargo-install-update"}
+	if runtime.GOOS == windowsOS {
+		candidates = []string{
+			"cargo-install-update.exe",
+			"cargo-install-update.cmd",
+			"cargo-install-update.bat",
+		}
+	}
+
+	for _, name := range candidates {
+		path := filepath.Join(binDir, name)
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+
+	return "", fmt.Errorf("%s に cargo-install-update が見つかりません", binDir)
 }
 
 // parseInstallList は "cargo install --list" の出力をパースします
