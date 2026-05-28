@@ -204,8 +204,13 @@ func TestCargoUpdater_Update(t *testing.T) {
 			writeFakeCargoCommandImpl(t, fakeDir, !tc.noUpdate)
 
 			// noUpdate=true の場合は PATH を fakeDir のみに絞り、
-			// 実環境の cargo-install-update が LookPath に引っかからないようにする
+			// 実環境の cargo-install-update が LookPath に引っかからないようにする。
+			// また CARGO_HOME を設定して cargoInstallUpdateBinPath のフォールバックが機能するよう
+			// CARGO_HOME/bin にダミーバイナリを配置する（cargo install 後の状態をシミュレート）。
 			if tc.noUpdate {
+				cargoHomeDir := filepath.Join(fakeDir, "cargo_home")
+				writeFakeCIUBinary(t, filepath.Join(cargoHomeDir, "bin"))
+				t.Setenv("CARGO_HOME", cargoHomeDir)
 				t.Setenv("PATH", fakeDir)
 			} else {
 				t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
@@ -301,7 +306,7 @@ exit /b 0
 			return
 		}
 
-		updateContent := "@echo off\r\nexit /b 0\r\n"
+		updateContent := "@echo off\r\nset mode=%DSX_TEST_CARGO_MODE%\r\nif \"%1\"==\"-a\" goto doupdate\r\necho invalid args 1>&2\r\nexit /b 1\r\n:doupdate\r\nif \"%mode%\"==\"update_error\" (\r\n  echo cargo install-update failed 1>&2\r\n  exit /b 1\r\n)\r\nexit /b 0\r\n"
 
 		updatePath := filepath.Join(dir, "cargo-install-update.cmd")
 		if err := os.WriteFile(updatePath, []byte(updateContent), 0o755); err != nil {
@@ -378,7 +383,7 @@ esac
 			return
 		}
 
-		updateContent := "#!/bin/sh\nexit 0\n"
+		updateContent := "#!/bin/sh\nmode=\"${DSX_TEST_CARGO_MODE}\"\ncase \"$1\" in\n  -a)\n    if [ \"${mode}\" = \"update_error\" ]; then\n      echo \"cargo install-update failed\" 1>&2\n      exit 1\n    fi\n    exit 0\n    ;;\n  *)\n    echo \"invalid args\" 1>&2\n    exit 1\n    ;;\nesac\n"
 
 		updatePath := filepath.Join(dir, "cargo-install-update")
 		if err := os.WriteFile(updatePath, []byte(updateContent), 0o755); err != nil {
@@ -387,6 +392,36 @@ esac
 
 		if err := os.Chmod(updatePath, 0o755); err != nil {
 			t.Fatalf("fake cargo-install-update command chmod failed: %v", err)
+		}
+	}
+}
+
+// writeFakeCIUBinary は指定ディレクトリに fake cargo-install-update バイナリを作成します。
+// noUpdate=true のテストで CARGO_HOME/bin へのフォールバックを検証するために使用します。
+func writeFakeCIUBinary(t *testing.T, dir string) {
+	t.Helper()
+
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("dir creation failed: %v", err)
+	}
+
+	if runtime.GOOS == "windows" {
+		content := "@echo off\r\nexit /b 0\r\n"
+		path := filepath.Join(dir, "cargo-install-update.cmd")
+
+		if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
+			t.Fatalf("fake cargo-install-update.cmd write failed: %v", err)
+		}
+	} else {
+		content := "#!/bin/sh\nexit 0\n"
+		path := filepath.Join(dir, "cargo-install-update")
+
+		if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
+			t.Fatalf("fake cargo-install-update write failed: %v", err)
+		}
+
+		if err := os.Chmod(path, 0o755); err != nil {
+			t.Fatalf("fake cargo-install-update chmod failed: %v", err)
 		}
 	}
 }

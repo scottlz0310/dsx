@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/scottlz0310/dsx/internal/config"
@@ -80,13 +82,14 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 		return result, nil
 	}
 
-	// cargo-update がなければ自動インストール
-	if err := c.ensureCargoUpdate(ctx); err != nil {
+	// cargo-update がなければ自動インストール、フルパスを取得
+	updateBin, err := c.ensureCargoUpdate(ctx)
+	if err != nil {
 		return result, err
 	}
 
-	// cargo install-update -a で更新（更新不要なパッケージは自動スキップ）
-	cmd := exec.CommandContext(ctx, "cargo", "install-update", "-a")
+	// フルパスで直接実行（PATH に ~/.cargo/bin がない環境でも動作）
+	cmd := exec.CommandContext(ctx, updateBin, "-a")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -102,10 +105,11 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 	return result, nil
 }
 
-// ensureCargoUpdate は cargo-update がなければ自動インストールします。
-func (c *CargoUpdater) ensureCargoUpdate(ctx context.Context) error {
-	if _, err := exec.LookPath("cargo-install-update"); err == nil {
-		return nil
+// ensureCargoUpdate は cargo-update がなければ自動インストールし、
+// cargo-install-update のフルパスを返します。
+func (c *CargoUpdater) ensureCargoUpdate(ctx context.Context) (string, error) {
+	if path, err := exec.LookPath("cargo-install-update"); err == nil {
+		return path, nil
 	}
 
 	fmt.Println("ℹ️  cargo-update が見つかりません。自動インストールします...")
@@ -115,12 +119,60 @@ func (c *CargoUpdater) ensureCargoUpdate(ctx context.Context) error {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("cargo-update のインストールに失敗: %w", err)
+		return "", fmt.Errorf("cargo-update のインストールに失敗: %w", err)
 	}
 
 	fmt.Println("✅ cargo-update のインストールが完了しました。")
 
-	return nil
+	// PATH への反映を再確認
+	if path, err := exec.LookPath("cargo-install-update"); err == nil {
+		return path, nil
+	}
+
+	// PATH に反映されていない場合は CARGO_HOME/bin を直接確認
+	path, err := cargoInstallUpdateBinPath()
+	if err != nil {
+		return "", fmt.Errorf(
+			"cargo-update のインストールは成功しましたが、cargo-install-update が PATH に見つかりません。"+
+				"~/.cargo/bin を PATH に追加してから再実行してください: %w", err)
+	}
+
+	return path, nil
+}
+
+// cargoInstallUpdateBinPath は CARGO_HOME/bin の cargo-install-update のパスを返します。
+// PATH に ~/.cargo/bin が含まれていない環境での自動インストール後のフォールバックに使用します。
+func cargoInstallUpdateBinPath() (string, error) {
+	cargoHome := os.Getenv("CARGO_HOME")
+	if cargoHome == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+
+		cargoHome = filepath.Join(home, ".cargo")
+	}
+
+	binDir := filepath.Join(cargoHome, "bin")
+
+	// 実行可能ファイルの候補（Windows では .exe/.cmd/.bat も確認）
+	candidates := []string{"cargo-install-update"}
+	if runtime.GOOS == "windows" {
+		candidates = []string{
+			"cargo-install-update.exe",
+			"cargo-install-update.cmd",
+			"cargo-install-update.bat",
+		}
+	}
+
+	for _, name := range candidates {
+		path := filepath.Join(binDir, name)
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+
+	return "", fmt.Errorf("%s に cargo-install-update が見つかりません", binDir)
 }
 
 // parseInstallList は "cargo install --list" の出力をパースします
