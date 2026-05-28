@@ -146,6 +146,7 @@ func TestCargoUpdater_Update(t *testing.T) {
 		name        string
 		mode        string
 		noUpdate    bool // true: cargo-install-update バイナリを PATH に含めない
+		noCargoBin  bool // true: CARGO_HOME/bin にもバイナリを配置しない（フォールバック失敗のテスト用）
 		opts        UpdateOptions
 		wantErr     bool
 		errContains string
@@ -195,6 +196,15 @@ func TestCargoUpdater_Update(t *testing.T) {
 			wantErr:     true,
 			errContains: "cargo-update のインストールに失敗",
 		},
+		{
+			name:        "cargo-update 未インストール → 自動インストール成功 → PATH にも CARGO_HOME にも見つからない",
+			mode:        "updates",
+			noUpdate:    true,
+			noCargoBin:  true,
+			opts:        UpdateOptions{},
+			wantErr:     true,
+			errContains: "PATH に見つかりません",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -209,7 +219,9 @@ func TestCargoUpdater_Update(t *testing.T) {
 			// CARGO_HOME/bin にダミーバイナリを配置する（cargo install 後の状態をシミュレート）。
 			if tc.noUpdate {
 				cargoHomeDir := filepath.Join(fakeDir, "cargo_home")
-				writeFakeCIUBinary(t, filepath.Join(cargoHomeDir, "bin"))
+				if !tc.noCargoBin {
+					writeFakeCIUBinary(t, filepath.Join(cargoHomeDir, "bin"))
+				}
 				t.Setenv("CARGO_HOME", cargoHomeDir)
 				t.Setenv("PATH", fakeDir)
 			} else {
