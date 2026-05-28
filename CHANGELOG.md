@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Performance
+
+- `dsx sys update` の cargo 更新処理で `cargo install --list` の事前実行を省略。非 DryRun 時は `cargo install-update -a` を直接実行するよう変更し、起動時の余分な CLI 呼び出しを削減（#74）
+
 ### Fixed
 
 - `dsx sys update` の cargo 更新処理で `cargo-update` が未インストールの場合に全パッケージを `cargo install --force` で強制再ビルドしていた問題を修正。`cargo-update` がなければ自動インストールし、`cargo install-update -a`（更新必要分のみ再ビルド）を使用するよう変更（#74）
