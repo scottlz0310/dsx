@@ -91,10 +91,9 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 	}
 
 	// フルパスで直接実行（PATH に ~/.cargo/bin がない環境でも動作）
-	// v20 以降はサブコマンド形式: cargo-install-update install-update -a
 	var buf bytes.Buffer
 
-	cmd := exec.CommandContext(ctx, updateBin, "install-update", "-a")
+	cmd := exec.CommandContext(ctx, updateBin, cargoUpdateArgs(updateBin)...)
 	cmd.Stdout = io.MultiWriter(os.Stdout, &buf)
 	cmd.Stderr = os.Stderr
 
@@ -147,6 +146,18 @@ func (c *CargoUpdater) ensureCargoUpdate(ctx context.Context) (string, error) {
 	}
 
 	return path, nil
+}
+
+// cargoUpdateArgs はインストール済みの cargo-update バージョンに応じた実行引数を返します。
+// v19-: --version が "cargo-install-update N.N.N" を返す → ["-a"]（直接引数形式）
+// v20+: --version が "cargo N.N.N" を返す、または検出失敗 → ["install-update", "-a"]（サブコマンド形式）
+func cargoUpdateArgs(bin string) []string {
+	out, err := exec.Command(bin, "--version").Output()
+	if err == nil && strings.HasPrefix(strings.TrimSpace(string(out)), "cargo-install-update") {
+		return []string{"-a"}
+	}
+
+	return []string{"install-update", "-a"}
 }
 
 // cargoInstallUpdateBinPath は CARGO_HOME/bin の cargo-install-update のパスを返します。
