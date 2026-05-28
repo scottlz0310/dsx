@@ -80,51 +80,47 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 		return result, nil
 	}
 
-	// cargo-update がインストールされているか確認
-	// cargo-update は cargo のサブコマンドとして動作するため、
-	// cargo install-update --help で確認
-	checkCmd := exec.CommandContext(ctx, "cargo", "install-update", "--help")
-	if err := checkCmd.Run(); err == nil {
-		// cargo-update を使用（推奨）
-		cmd := exec.CommandContext(ctx, "cargo", "install-update", "-a")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = os.Stdin
+	// cargo-update がなければ自動インストール
+	if err := c.ensureCargoUpdate(ctx); err != nil {
+		return result, err
+	}
 
-		if err := cmd.Run(); err != nil {
-			result.Errors = append(result.Errors, err)
-			return result, fmt.Errorf("cargo install-update -a に失敗: %w", err)
-		}
-	} else {
-		// cargo-update がない場合は個別に再インストール
-		for _, pkg := range checkResult.Packages {
-			cmd := exec.CommandContext(ctx, "cargo", "install", "--force", pkg.Name)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmd.Stdin = os.Stdin
+	// cargo install-update -a で更新（更新不要なパッケージは自動スキップ）
+	cmd := exec.CommandContext(ctx, "cargo", "install-update", "-a")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
 
-			if err := cmd.Run(); err != nil {
-				result.FailedCount++
-				result.Errors = append(result.Errors, fmt.Errorf("%s: %w", pkg.Name, err))
-
-				continue
-			}
-
-			result.UpdatedCount++
-		}
-
-		if len(result.Errors) > 0 {
-			result.Packages = checkResult.Packages
-			result.Message = fmt.Sprintf("%d 件更新、%d 件失敗", result.UpdatedCount, result.FailedCount)
-
-			return result, fmt.Errorf("一部のパッケージ更新に失敗しました")
-		}
+	if err := cmd.Run(); err != nil {
+		result.Errors = append(result.Errors, err)
+		return result, fmt.Errorf("cargo install-update -a に失敗: %w", err)
 	}
 
 	result.Packages = checkResult.Packages
-	result.Message = fmt.Sprintf("%d 件のパッケージを確認・更新しました", result.UpdatedCount)
+	result.Message = fmt.Sprintf("%d 件のパッケージを確認・更新しました", len(checkResult.Packages))
 
 	return result, nil
+}
+
+// ensureCargoUpdate は cargo-update がなければ自動インストールします。
+func (c *CargoUpdater) ensureCargoUpdate(ctx context.Context) error {
+	if _, err := exec.LookPath("cargo-install-update"); err == nil {
+		return nil
+	}
+
+	fmt.Println("ℹ️  cargo-update が見つかりません。自動インストールします...")
+
+	cmd := exec.CommandContext(ctx, "cargo", "install", "cargo-update")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("cargo-update のインストールに失敗: %w", err)
+	}
+
+	fmt.Println("✅ cargo-update のインストールが完了しました。")
+
+	return nil
 }
 
 // parseInstallList は "cargo install --list" の出力をパースします
