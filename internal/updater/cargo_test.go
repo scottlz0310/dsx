@@ -210,6 +210,7 @@ func TestCargoUpdater_Update(t *testing.T) {
 			} else {
 				t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 			}
+
 			t.Setenv("DSX_TEST_CARGO_MODE", tc.mode)
 
 			c := &CargoUpdater{}
@@ -301,6 +302,7 @@ exit /b 0
 		}
 
 		updateContent := "@echo off\r\nexit /b 0\r\n"
+
 		updatePath := filepath.Join(dir, "cargo-install-update.cmd")
 		if err := os.WriteFile(updatePath, []byte(updateContent), 0o755); err != nil {
 			t.Fatalf("fake cargo-install-update command write failed: %v", err)
@@ -377,6 +379,7 @@ esac
 		}
 
 		updateContent := "#!/bin/sh\nexit 0\n"
+
 		updatePath := filepath.Join(dir, "cargo-install-update")
 		if err := os.WriteFile(updatePath, []byte(updateContent), 0o755); err != nil {
 			t.Fatalf("fake cargo-install-update command write failed: %v", err)
