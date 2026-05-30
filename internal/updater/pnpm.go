@@ -131,7 +131,7 @@ func (p *PnpmUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRe
 	if err := p.runUpdate(ctx); err != nil {
 		result.Errors = append(result.Errors, err)
 
-		return result, fmt.Errorf("pnpm update -g に失敗: %w", err)
+		return result, fmt.Errorf("pnpm update -g --latest に失敗: %w", err)
 	}
 
 	result.UpdatedCount = checkResult.AvailableUpdates
@@ -142,7 +142,7 @@ func (p *PnpmUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRe
 }
 
 func (p *PnpmUpdater) runUpdate(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, "pnpm", "update", "-g")
+	cmd := exec.CommandContext(ctx, "pnpm", "update", "-g", "--latest")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

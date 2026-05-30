@@ -250,6 +250,19 @@
 
 ---
 
+## Issue #81: sys update マネージャ本体更新フェーズ
+
+- [x] `ManagerSelfUpdater` / `CheckSelfUpdate` / `SelfUpdate` を追加し、既存 `Updater` インターフェースを壊さない拡張点を用意
+- [x] `sys update` の中央実行フローに「マネージャ本体更新フェーズ → 通常更新フェーズ」を追加
+- [x] `uv` updater で `uv self update --dry-run` / `uv self update` に対応
+- [x] `uv self update` 非対応のインストール経路では本体更新をスキップし、通常更新フェーズを継続
+- [x] `pnpm` のグローバル更新を `pnpm update -g --latest` に変更
+- [x] dry-run が `SelfUpdate` ではなく `CheckSelfUpdate` のみを呼ぶことをテストで固定
+- [x] self update 後に通常更新を継続するかスキップするかを `SelfUpdateContinuation` で表現し、スキップ時の挙動をテストで固定
+- [x] `CHANGELOG.md` / `README.md` / `docs/Implementation_Plan.md` を更新
+
+---
+
 ## Backlog / 改善候補
 
 ### `AutoStash` オプションの修正（設定が機能していないバグ）

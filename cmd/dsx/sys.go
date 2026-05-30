@@ -131,9 +131,8 @@ func runSysUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	jobs := resolveSysJobs(cfg.Control.Concurrency, sysJobs)
-	exclusiveUpdaters, parallelUpdaters := splitUpdatersForExecution(enabledUpdaters)
 
-	stats, err := runSysUpdatePhases(ctx, cfg, opts, exclusiveUpdaters, parallelUpdaters, jobs, useTUI)
+	stats, err := runSysUpdatePhases(ctx, cfg, opts, enabledUpdaters, jobs, useTUI)
 	if err != nil {
 		return err
 	}
@@ -158,9 +157,14 @@ func runSysUpdate(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// runSysUpdatePhases は単独実行・並列実行の各フェーズを実行します。
-func runSysUpdatePhases(ctx context.Context, cfg *config.Config, opts updater.UpdateOptions, exclusiveUpdaters, parallelUpdaters []updater.Updater, jobs int, useTUI bool) (updateStats, error) {
+// runSysUpdatePhases はマネージャ本体更新・単独実行・並列実行の各フェーズを実行します。
+func runSysUpdatePhases(ctx context.Context, cfg *config.Config, opts updater.UpdateOptions, enabledUpdaters []updater.Updater, jobs int, useTUI bool) (updateStats, error) {
 	var stats updateStats
+
+	remainingUpdaters, selfUpdateStats := runManagerSelfUpdatePhase(ctx, opts, enabledUpdaters, useTUI)
+	mergeUpdateStats(&stats, selfUpdateStats)
+
+	exclusiveUpdaters, parallelUpdaters := splitUpdatersForExecution(remainingUpdaters)
 
 	if len(exclusiveUpdaters) > 0 {
 		if err := runExclusivePhase(ctx, cfg, opts, exclusiveUpdaters, useTUI, &stats); err != nil {
@@ -175,6 +179,203 @@ func runSysUpdatePhases(ctx context.Context, cfg *config.Config, opts updater.Up
 	}
 
 	return stats, nil
+}
+
+type managerSelfUpdateTarget struct {
+	updater updater.Updater
+	self    updater.ManagerSelfUpdater
+}
+
+func runManagerSelfUpdatePhase(ctx context.Context, opts updater.UpdateOptions, updaters []updater.Updater, useTUI bool) ([]updater.Updater, updateStats) {
+	targets := collectManagerSelfUpdateTargets(updaters)
+	if len(targets) == 0 {
+		return updaters, updateStats{}
+	}
+
+	if useTUI {
+		return runManagerSelfUpdatePhaseWithTUI(ctx, opts, updaters, targets)
+	}
+
+	printManagerSelfUpdatePhaseHeader()
+
+	var stats updateStats
+
+	skipNormalUpdate := make(map[string]bool)
+
+	for _, target := range targets {
+		select {
+		case <-ctx.Done():
+			stats.Errors = append(stats.Errors, fmt.Errorf("マネージャ本体更新フェーズがタイムアウトまたはキャンセルされました"))
+
+			return filterNormalUpdateUpdaters(updaters, skipNormalUpdate), stats
+		default:
+		}
+
+		printManagerSelfUpdateHeader(target.updater)
+
+		result, err := executeManagerSelfUpdate(ctx, target.self, opts)
+		if err != nil {
+			recordManagerSelfUpdateError(target.updater, err, &stats)
+			fmt.Fprintf(os.Stderr, "❌ エラー: %v\n", err)
+			fmt.Println()
+
+			continue
+		}
+
+		printUpdaterResult(&result.UpdateResult)
+		fmt.Println()
+
+		mergeSelfUpdateResult(&stats, result)
+
+		if !result.ShouldContinueNormalUpdate() {
+			skipNormalUpdate[target.updater.Name()] = true
+		}
+	}
+
+	return filterNormalUpdateUpdaters(updaters, skipNormalUpdate), stats
+}
+
+func runManagerSelfUpdatePhaseWithTUI(ctx context.Context, opts updater.UpdateOptions, updaters []updater.Updater, targets []managerSelfUpdateTarget) ([]updater.Updater, updateStats) {
+	var (
+		stats            updateStats
+		statsMu          sync.Mutex
+		skipNormalUpdate = make(map[string]bool)
+	)
+
+	jobs := make([]runner.Job, 0, len(targets))
+	for _, item := range targets {
+		target := item
+
+		jobs = append(jobs, runner.Job{
+			Name: target.updater.Name() + "-self-update",
+			Run: func(jobCtx context.Context) error {
+				result, err := executeManagerSelfUpdate(jobCtx, target.self, opts)
+				if err != nil {
+					if isContextCancellation(err) {
+						return err
+					}
+
+					statsMu.Lock()
+					recordManagerSelfUpdateError(target.updater, err, &stats)
+					statsMu.Unlock()
+
+					return err
+				}
+
+				statsMu.Lock()
+				mergeSelfUpdateResult(&stats, result)
+
+				if !result.ShouldContinueNormalUpdate() {
+					skipNormalUpdate[target.updater.Name()] = true
+				}
+				statsMu.Unlock()
+
+				return nil
+			},
+		})
+	}
+
+	summary := runJobsWithOptionalTUI(ctx, "マネージャ本体更新 進捗", 1, jobs, true, sysLogFile)
+	if summary.Skipped > 0 {
+		stats.Errors = append(stats.Errors, fmt.Errorf("キャンセルまたはタイムアウトによりマネージャ本体更新 %d 件をスキップしました", summary.Skipped))
+	}
+
+	return filterNormalUpdateUpdaters(updaters, skipNormalUpdate), stats
+}
+
+func collectManagerSelfUpdateTargets(updaters []updater.Updater) []managerSelfUpdateTarget {
+	targets := make([]managerSelfUpdateTarget, 0, len(updaters))
+
+	for _, u := range updaters {
+		self, ok := u.(updater.ManagerSelfUpdater)
+		if !ok {
+			continue
+		}
+
+		targets = append(targets, managerSelfUpdateTarget{updater: u, self: self})
+	}
+
+	return targets
+}
+
+func executeManagerSelfUpdate(ctx context.Context, self updater.ManagerSelfUpdater, opts updater.UpdateOptions) (*updater.SelfUpdateResult, error) {
+	if !opts.DryRun {
+		result, err := self.SelfUpdate(ctx, opts)
+		if result == nil {
+			result = &updater.SelfUpdateResult{Continuation: updater.ContinueNormalUpdate}
+		}
+
+		return result, err
+	}
+
+	checkResult, err := self.CheckSelfUpdate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return buildDryRunSelfUpdateResult(checkResult), nil
+}
+
+func buildDryRunSelfUpdateResult(checkResult *updater.CheckResult) *updater.SelfUpdateResult {
+	result := &updater.SelfUpdateResult{
+		Continuation: updater.ContinueNormalUpdate,
+	}
+
+	if checkResult == nil {
+		result.Message = "マネージャ本体更新を確認しました（DryRunモード）"
+
+		return result
+	}
+
+	result.Packages = checkResult.Packages
+	if checkResult.AvailableUpdates > 0 {
+		result.Message = fmt.Sprintf("%d 件のマネージャ本体更新が可能です（DryRunモード）", checkResult.AvailableUpdates)
+		if checkResult.Message != "" {
+			result.Message = checkResult.Message + "（DryRunモード）"
+		}
+
+		return result
+	}
+
+	if checkResult.Message != "" {
+		result.Message = checkResult.Message + "（DryRunモード）"
+	} else {
+		result.Message = "マネージャ本体は最新です（DryRunモード）"
+	}
+
+	return result
+}
+
+func mergeSelfUpdateResult(stats *updateStats, result *updater.SelfUpdateResult) {
+	if result == nil {
+		return
+	}
+
+	stats.Updated += result.UpdatedCount
+	stats.Failed += result.FailedCount
+	stats.Errors = append(stats.Errors, result.Errors...)
+}
+
+func recordManagerSelfUpdateError(u updater.Updater, err error, stats *updateStats) {
+	stats.Errors = append(stats.Errors, fmt.Errorf("%s 本体更新: %w", u.Name(), err))
+	stats.Failed++
+}
+
+func filterNormalUpdateUpdaters(updaters []updater.Updater, skip map[string]bool) []updater.Updater {
+	if len(skip) == 0 {
+		return updaters
+	}
+
+	filtered := make([]updater.Updater, 0, len(updaters))
+	for _, u := range updaters {
+		if skip[u.Name()] {
+			continue
+		}
+
+		filtered = append(filtered, u)
+	}
+
+	return filtered
 }
 
 func runExclusivePhase(ctx context.Context, cfg *config.Config, opts updater.UpdateOptions, updaters []updater.Updater, useTUI bool, stats *updateStats) error {
@@ -225,6 +426,17 @@ func printSysUpdateDryRunNotice(dryRun bool) {
 
 	fmt.Println("📋 DryRun モード: 実際の更新は行いません")
 	fmt.Println()
+}
+
+func printManagerSelfUpdatePhaseHeader() {
+	fmt.Println("🧰 マネージャ本体更新フェーズを開始します...")
+	fmt.Println()
+}
+
+func printManagerSelfUpdateHeader(u updater.Updater) {
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	fmt.Printf("🧰 %s 本体更新 (%s)\n", u.DisplayName(), u.Name())
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 }
 
 // updateStats は更新処理の統計情報を保持します。

@@ -38,6 +38,38 @@ type Updater interface {
 	Configure(cfg config.ManagerConfig) error
 }
 
+// ManagerSelfUpdater はマネージャ本体を更新できるUpdaterが追加で実装する任意インターフェースです。
+// Updater.Update は配下ツールやパッケージの更新に専念し、マネージャ本体更新は sys update の前段フェーズで扱います。
+type ManagerSelfUpdater interface {
+	// CheckSelfUpdate はマネージャ本体の更新可否を副作用なしで確認します。
+	CheckSelfUpdate(ctx context.Context) (*CheckResult, error)
+
+	// SelfUpdate はマネージャ本体の更新を実行します。
+	SelfUpdate(ctx context.Context, opts UpdateOptions) (*SelfUpdateResult, error)
+}
+
+// SelfUpdateContinuation はマネージャ本体更新後に通常更新フェーズへ進むかを表します。
+type SelfUpdateContinuation string
+
+const (
+	// ContinueNormalUpdate は本体更新後も通常更新フェーズを継続します。
+	ContinueNormalUpdate SelfUpdateContinuation = "continue"
+	// SkipNormalUpdate は本体更新後に同じマネージャの通常更新フェーズをスキップします。
+	SkipNormalUpdate SelfUpdateContinuation = "skip"
+)
+
+// SelfUpdateResult はマネージャ本体更新の結果です。
+type SelfUpdateResult struct {
+	UpdateResult
+	Continuation SelfUpdateContinuation
+}
+
+// ShouldContinueNormalUpdate は通常更新フェーズへ進むべきかを返します。
+// Continuation 未設定の実装は既存挙動を壊さないよう継続扱いにします。
+func (r *SelfUpdateResult) ShouldContinueNormalUpdate() bool {
+	return r == nil || r.Continuation != SkipNormalUpdate
+}
+
 // CheckResult は更新確認の結果を保持します。
 type CheckResult struct {
 	// AvailableUpdates は更新可能なパッケージ数

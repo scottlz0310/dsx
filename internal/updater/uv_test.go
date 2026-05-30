@@ -87,6 +87,50 @@ pkg 1.2.3 (/tmp/path)
 	}
 }
 
+func TestUVUpdater_parseSelfUpdateDryRunOutput(t *testing.T) {
+	testCases := []struct {
+		name   string
+		output string
+		want   []PackageInfo
+	}{
+		{
+			name:   "更新あり",
+			output: "info: Checking for updates...\nWould update uv from v0.11.16 to v0.11.17\n",
+			want: []PackageInfo{
+				{Name: "uv", CurrentVersion: "0.11.16", NewVersion: "0.11.17"},
+			},
+		},
+		{
+			name:   "vなしでも解析する",
+			output: "Would update uv from 0.11.16 to 0.11.17\n",
+			want: []PackageInfo{
+				{Name: "uv", CurrentVersion: "0.11.16", NewVersion: "0.11.17"},
+			},
+		},
+		{
+			name:   "最新版",
+			output: "uv is already up-to-date\n",
+			want:   []PackageInfo{},
+		},
+		{
+			name:   "空出力",
+			output: "",
+			want:   []PackageInfo{},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			u := &UVUpdater{}
+			got := u.parseSelfUpdateDryRunOutput(tc.output)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestUVUpdater_Check(t *testing.T) {
 	testCases := []struct {
 		name        string
@@ -147,6 +191,76 @@ func TestUVUpdater_Check(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, tc.wantUpdates, got.AvailableUpdates)
+		})
+	}
+}
+
+func TestUVUpdater_CheckSelfUpdate(t *testing.T) {
+	testCases := []struct {
+		name        string
+		mode        string
+		wantUpdates int
+		wantPackage PackageInfo
+		wantErr     bool
+		errContains string
+		msgContains string
+	}{
+		{
+			name:        "本体更新あり",
+			mode:        "self_update_available",
+			wantUpdates: 1,
+			wantPackage: PackageInfo{Name: "uv", CurrentVersion: "0.11.16", NewVersion: "0.11.17"},
+			msgContains: "更新が可能",
+		},
+		{
+			name:        "本体は最新版",
+			mode:        "self_latest",
+			wantUpdates: 0,
+			msgContains: "最新",
+		},
+		{
+			name:        "dry-run失敗",
+			mode:        "self_error",
+			wantErr:     true,
+			errContains: "uv self update --dry-run の実行に失敗",
+		},
+		{
+			name:        "self update非対応のインストール経路はスキップ",
+			mode:        "self_unsupported",
+			wantUpdates: 0,
+			msgContains: "利用できない",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			fakeDir := t.TempDir()
+			writeFakeUVCommand(t, fakeDir)
+
+			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+			t.Setenv("DSX_TEST_UV_MODE", tc.mode)
+
+			u := &UVUpdater{}
+			got, err := u.CheckSelfUpdate(context.Background())
+
+			if tc.wantErr {
+				assert.Error(t, err)
+
+				if tc.errContains != "" && err != nil {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.wantUpdates, got.AvailableUpdates)
+			assert.Contains(t, got.Message, tc.msgContains)
+
+			if tc.wantUpdates > 0 {
+				assert.Equal(t, []PackageInfo{tc.wantPackage}, got.Packages)
+			}
 		})
 	}
 }
@@ -229,6 +343,88 @@ func TestUVUpdater_Update(t *testing.T) {
 	}
 }
 
+func TestUVUpdater_SelfUpdate(t *testing.T) {
+	testCases := []struct {
+		name        string
+		mode        string
+		opts        UpdateOptions
+		wantUpdated int
+		wantErr     bool
+		errContains string
+		msgContains string
+	}{
+		{
+			name:        "DryRunは実更新せず計画表示",
+			mode:        "self_update_available",
+			opts:        UpdateOptions{DryRun: true},
+			wantUpdated: 0,
+			msgContains: "DryRun",
+		},
+		{
+			name:        "本体は最新版",
+			mode:        "self_latest",
+			opts:        UpdateOptions{},
+			wantUpdated: 0,
+			msgContains: "最新",
+		},
+		{
+			name:        "本体更新成功",
+			mode:        "self_update_available",
+			opts:        UpdateOptions{},
+			wantUpdated: 1,
+			msgContains: "uv 本体を更新しました",
+		},
+		{
+			name:        "本体更新失敗",
+			mode:        "self_update_error",
+			opts:        UpdateOptions{},
+			wantErr:     true,
+			errContains: "uv self update に失敗",
+		},
+		{
+			name:        "self update非対応のインストール経路はエラーにしない",
+			mode:        "self_unsupported",
+			opts:        UpdateOptions{},
+			wantUpdated: 0,
+			msgContains: "利用できない",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			fakeDir := t.TempDir()
+			writeFakeUVCommand(t, fakeDir)
+
+			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+			t.Setenv("DSX_TEST_UV_MODE", tc.mode)
+
+			u := &UVUpdater{}
+			got, err := u.SelfUpdate(context.Background(), tc.opts)
+
+			if tc.wantErr {
+				assert.Error(t, err)
+				assert.NotNil(t, got)
+
+				if tc.errContains != "" && err != nil {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.NotNil(t, got)
+			assert.Equal(t, tc.wantUpdated, got.UpdatedCount)
+			assert.Equal(t, ContinueNormalUpdate, got.Continuation)
+
+			if tc.msgContains != "" {
+				assert.Contains(t, got.Message, tc.msgContains)
+			}
+		})
+	}
+}
+
 func writeFakeUVCommand(t *testing.T, dir string) {
 	t.Helper()
 
@@ -243,6 +439,7 @@ func writeFakeUVCommand(t *testing.T, dir string) {
 set mode=%DSX_TEST_UV_MODE%
 if "%1"=="tool" if "%2"=="list" goto list
 if "%1"=="tool" if "%2"=="upgrade" goto upgrade
+if "%1"=="self" if "%2"=="update" goto selfupdate
 >&2 echo invalid args
 exit /b 1
 :list
@@ -264,6 +461,30 @@ if "%mode%"=="update_error" (
   >&2 echo uv tool upgrade failed
   exit /b 1
 )
+exit /b 0
+:selfupdate
+if "%3"=="--dry-run" goto selfupdatedryrun
+if "%mode%"=="self_update_error" (
+  >&2 echo uv self update failed
+  exit /b 1
+)
+exit /b 0
+:selfupdatedryrun
+if "%mode%"=="self_error" goto selferror
+if "%mode%"=="self_unsupported" goto selfunsupported
+if "%mode%"=="self_update_available" if not "%DSX_TEST_UV_SELF_UPDATED%"=="1" goto selfavailable
+if "%mode%"=="self_update_error" goto selfavailable
+echo uv is already up-to-date
+exit /b 0
+:selferror
+echo uv self update dry-run failed 1>&2
+exit /b 1
+:selfunsupported
+echo warning: Self-update is only available for uv binaries installed via the standalone installation scripts. 1>&2
+exit /b 1
+:selfavailable
+echo info: Checking for updates...
+echo Would update uv from v0.11.16 to v0.11.17
 exit /b 0
 `
 	} else {
@@ -288,6 +509,35 @@ fi
 if [ "$1" = "tool" ] && [ "$2" = "upgrade" ]; then
   if [ "${mode}" = "update_error" ]; then
     echo "uv tool upgrade failed" 1>&2
+    exit 1
+  fi
+  exit 0
+fi
+if [ "$1" = "self" ] && [ "$2" = "update" ]; then
+  if [ "$3" = "--dry-run" ]; then
+    if [ "${mode}" = "self_error" ]; then
+      echo "uv self update dry-run failed" 1>&2
+      exit 1
+    fi
+    if [ "${mode}" = "self_unsupported" ]; then
+      echo "warning: Self-update is only available for uv binaries installed via the standalone installation scripts." 1>&2
+      exit 1
+    fi
+    if [ "${mode}" = "self_update_available" ] && [ "${DSX_TEST_UV_SELF_UPDATED}" != "1" ]; then
+      echo "info: Checking for updates..."
+      echo "Would update uv from v0.11.16 to v0.11.17"
+      exit 0
+    fi
+    if [ "${mode}" = "self_update_error" ]; then
+      echo "info: Checking for updates..."
+      echo "Would update uv from v0.11.16 to v0.11.17"
+      exit 0
+    fi
+    echo "uv is already up-to-date"
+    exit 0
+  fi
+  if [ "${mode}" = "self_update_error" ]; then
+    echo "uv self update failed" 1>&2
     exit 1
   fi
   exit 0

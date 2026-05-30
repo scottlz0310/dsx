@@ -43,6 +43,44 @@ func (s stubUpdater) Configure(config.ManagerConfig) error {
 	return nil
 }
 
+type selfUpdateStubUpdater struct {
+	stubUpdater
+	checkResult *updater.CheckResult
+	checkErr    error
+	selfResult  *updater.SelfUpdateResult
+	selfErr     error
+	checkCalls  int
+	selfCalls   int
+}
+
+func (s *selfUpdateStubUpdater) CheckSelfUpdate(context.Context) (*updater.CheckResult, error) {
+	s.checkCalls++
+
+	if s.checkErr != nil {
+		return nil, s.checkErr
+	}
+
+	if s.checkResult != nil {
+		return s.checkResult, nil
+	}
+
+	return &updater.CheckResult{}, nil
+}
+
+func (s *selfUpdateStubUpdater) SelfUpdate(context.Context, updater.UpdateOptions) (*updater.SelfUpdateResult, error) {
+	s.selfCalls++
+
+	if s.selfErr != nil {
+		return s.selfResult, s.selfErr
+	}
+
+	if s.selfResult != nil {
+		return s.selfResult, nil
+	}
+
+	return &updater.SelfUpdateResult{Continuation: updater.ContinueNormalUpdate}, nil
+}
+
 func TestResolveSysJobs(t *testing.T) {
 	t.Parallel()
 
@@ -88,6 +126,74 @@ func TestResolveSysJobs(t *testing.T) {
 				t.Fatalf("resolveSysJobs(%d, %d) = %d, want %d", tc.configJobs, tc.flagJobs, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestExecuteManagerSelfUpdate_DryRunUsesCheckOnly(t *testing.T) {
+	u := &selfUpdateStubUpdater{
+		stubUpdater: stubUpdater{name: "uv"},
+		checkResult: &updater.CheckResult{
+			AvailableUpdates: 1,
+			Packages: []updater.PackageInfo{
+				{Name: "uv", CurrentVersion: "0.11.16", NewVersion: "0.11.17"},
+			},
+			Message: "uv 本体の更新が可能です",
+		},
+	}
+
+	got, err := executeManagerSelfUpdate(context.Background(), u, updater.UpdateOptions{DryRun: true})
+	if err != nil {
+		t.Fatalf("executeManagerSelfUpdate returned error: %v", err)
+	}
+
+	if u.checkCalls != 1 {
+		t.Fatalf("CheckSelfUpdate calls = %d, want 1", u.checkCalls)
+	}
+
+	if u.selfCalls != 0 {
+		t.Fatalf("SelfUpdate calls = %d, want 0", u.selfCalls)
+	}
+
+	if got.UpdatedCount != 0 {
+		t.Fatalf("UpdatedCount = %d, want 0", got.UpdatedCount)
+	}
+
+	if !strings.Contains(got.Message, "DryRun") {
+		t.Fatalf("Message = %q, want DryRun", got.Message)
+	}
+}
+
+func TestRunManagerSelfUpdatePhase_SkipNormalUpdate(t *testing.T) {
+	selfUpdater := &selfUpdateStubUpdater{
+		stubUpdater: stubUpdater{name: "uv"},
+		selfResult: &updater.SelfUpdateResult{
+			UpdateResult: updater.UpdateResult{
+				UpdatedCount: 1,
+				Message:      "uv 本体を更新しました",
+			},
+			Continuation: updater.SkipNormalUpdate,
+		},
+	}
+	normalUpdater := stubUpdater{name: "npm"}
+
+	remaining, stats := runManagerSelfUpdatePhase(
+		context.Background(),
+		updater.UpdateOptions{},
+		[]updater.Updater{selfUpdater, normalUpdater},
+		false,
+	)
+
+	if stats.Updated != 1 {
+		t.Fatalf("Updated = %d, want 1", stats.Updated)
+	}
+
+	if len(remaining) != 1 || remaining[0].Name() != "npm" {
+		names := make([]string, 0, len(remaining))
+		for _, u := range remaining {
+			names = append(names, u.Name())
+		}
+
+		t.Fatalf("remaining = %v, want [npm]", names)
 	}
 }
 
