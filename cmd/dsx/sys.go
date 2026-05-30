@@ -186,6 +186,8 @@ type managerSelfUpdateTarget struct {
 	self    updater.ManagerSelfUpdater
 }
 
+var runManagerSelfUpdateJobs = runJobsWithOptionalTUI
+
 func runManagerSelfUpdatePhase(ctx context.Context, opts updater.UpdateOptions, updaters []updater.Updater, useTUI bool) ([]updater.Updater, updateStats) {
 	targets := collectManagerSelfUpdateTargets(updaters)
 	if len(targets) == 0 {
@@ -275,7 +277,7 @@ func runManagerSelfUpdatePhaseWithTUI(ctx context.Context, opts updater.UpdateOp
 		})
 	}
 
-	summary := runJobsWithOptionalTUI(ctx, "マネージャ本体更新 進捗", 1, jobs, true, sysLogFile)
+	summary := runManagerSelfUpdateJobs(ctx, "マネージャ本体更新 進捗", 1, jobs, true, sysLogFile)
 	if summary.Skipped > 0 {
 		stats.Errors = append(stats.Errors, fmt.Errorf("キャンセルまたはタイムアウトによりマネージャ本体更新 %d 件をスキップしました", summary.Skipped))
 	}
