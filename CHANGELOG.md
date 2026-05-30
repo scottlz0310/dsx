@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [v0.7.0] - 2026-05-30
+
 ### Added
 
 - `dsx sys update` にマネージャ本体更新フェーズを追加。対応マネージャは通常更新フェーズの前に `CheckSelfUpdate` / `SelfUpdate` を実行し、dry-run では副作用なしで予定を表示するようになった（#81）
@@ -398,7 +400,8 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.6.4...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.7.0...HEAD
+[v0.7.0]: https://github.com/scottlz0310/dsx/compare/v0.6.4...v0.7.0
 [v0.6.4]: https://github.com/scottlz0310/dsx/compare/v0.6.3...v0.6.4
 [v0.6.3]: https://github.com/scottlz0310/dsx/compare/v0.6.2...v0.6.3
 [v0.6.2]: https://github.com/scottlz0310/dsx/compare/v0.6.1...v0.6.2

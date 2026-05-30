@@ -263,6 +263,20 @@
 
 ---
 
+## v0.7.0 リリース準備
+
+- [x] PR #82 が main にマージ済みであることを確認
+- [x] `task check` 通過（fmt/vet/test/lint）
+- [x] `go build ./...` 通過
+- [x] `go run ./cmd/dsx --help` 表示確認
+- [x] `task release:check` 通過
+- [ ] タグ push 後の Release workflow で `go test -race ./...` 通過を確認（ローカル Windows は gcc 未導入のため未実施）
+- [x] CHANGELOG.md: [Unreleased] → [v0.7.0] - 2026-05-30
+- [x] README.md: バージョン表記を v0.7.0 に更新
+- [ ] `v0.7.0` タグ発行・push → goreleaser が GitHub Release を自動作成
+
+---
+
 ## Backlog / 改善候補
 
 ### `AutoStash` オプションの修正（設定が機能していないバグ）
