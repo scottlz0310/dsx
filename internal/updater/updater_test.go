@@ -40,6 +40,43 @@ func clearRegistry() {
 	globalRegistry.mu.Unlock()
 }
 
+func TestSelfUpdateResult_ShouldContinueNormalUpdate(t *testing.T) {
+	testCases := []struct {
+		name string
+		in   *SelfUpdateResult
+		want bool
+	}{
+		{
+			name: "nilは通常更新を継続",
+			in:   nil,
+			want: true,
+		},
+		{
+			name: "Continuation未設定は通常更新を継続",
+			in:   &SelfUpdateResult{},
+			want: true,
+		},
+		{
+			name: "ContinueNormalUpdateは通常更新を継続",
+			in:   &SelfUpdateResult{Continuation: ContinueNormalUpdate},
+			want: true,
+		},
+		{
+			name: "SkipNormalUpdateは通常更新をスキップ",
+			in:   &SelfUpdateResult{Continuation: SkipNormalUpdate},
+			want: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.in.ShouldContinueNormalUpdate()
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestRegisterAndGet(t *testing.T) {
 	t.Run("正常系: Updaterを登録して取得", func(t *testing.T) {
 		clearRegistry()

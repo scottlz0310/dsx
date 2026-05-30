@@ -187,6 +187,12 @@ dsx sys discover --manager go # Go バイナリのみスキャン
 `snapd unavailable` の環境では `snap` を利用不可として自動スキップします。
 `sys.enable` に未インストールのマネージャが含まれている場合は、警告を表示してスキップし、利用可能なマネージャのみ継続実行します。
 
+`sys update` は対応マネージャについて「マネージャ本体更新フェーズ」→「通常更新フェーズ」の順に実行します。
+たとえば `uv` は `uv self update` で uv 本体を確認・更新してから、通常更新フェーズで `uv tool upgrade --all` を実行します。
+`uv self update` が利用できないインストール経路では、uv 本体更新はスキップし、通常更新フェーズを継続します。
+`dsx` 本体はこのフェーズでは更新せず、従来通り `dsx self-update` で扱います。
+`pnpm` のグローバル更新は `pnpm update -g --latest` を使用し、version range に制限されず latest まで更新します。
+
 Go updater は `go.targets` のうち `@latest` 対象について、インストール済みバイナリの module 情報と `go list -m -json <module>@latest` を best-effort で比較します。
 すでに最新版の Go ツールは `go install` をスキップし、判定不能なツールや固定バージョン target は従来通り安全側で `go install` を実行します。
 `go.targets` に `github.com/scottlz0310/dsx/cmd/dsx` が含まれる場合、Go updater では dsx 本体を更新しません。

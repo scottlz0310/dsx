@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/scottlz0310/dsx/internal/config"
@@ -13,6 +14,10 @@ import (
 
 // UVUpdater は uv tool (Python CLI ツール) の実装です。
 type UVUpdater struct{}
+
+var uvSelfUpdatePattern = regexp.MustCompile(`(?i)would update uv from v?(\S+) to v?(\S+)`)
+
+const uvSelfUpdateUnavailableMessage = "uv 本体の self update はこのインストール経路では利用できないためスキップします"
 
 // 起動時にレジストリに登録
 func init() {
@@ -61,6 +66,76 @@ func (u *UVUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	}, nil
 }
 
+func (u *UVUpdater) CheckSelfUpdate(ctx context.Context) (*CheckResult, error) {
+	output, err := u.runSelfUpdateDryRun(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if isUVSelfUpdateUnsupportedOutput(output) {
+		return &CheckResult{
+			Message: uvSelfUpdateUnavailableMessage,
+		}, nil
+	}
+
+	packages := u.parseSelfUpdateDryRunOutput(output)
+	if len(packages) == 0 {
+		return &CheckResult{
+			Message: "uv 本体は最新です",
+		}, nil
+	}
+
+	return &CheckResult{
+		AvailableUpdates: len(packages),
+		Packages:         packages,
+		Message:          "uv 本体の更新が可能です",
+	}, nil
+}
+
+func (u *UVUpdater) SelfUpdate(ctx context.Context, opts UpdateOptions) (*SelfUpdateResult, error) {
+	checkResult, err := u.CheckSelfUpdate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &SelfUpdateResult{
+		Continuation: ContinueNormalUpdate,
+	}
+
+	if checkResult.AvailableUpdates == 0 {
+		result.Message = checkResult.Message
+		if result.Message == "" {
+			result.Message = "uv 本体は最新です"
+		}
+
+		return result, nil
+	}
+
+	if opts.DryRun {
+		result.Packages = checkResult.Packages
+		result.Message = "uv 本体の更新が可能です（DryRunモード）"
+
+		return result, nil
+	}
+
+	cmd := exec.CommandContext(ctx, "uv", "self", "update")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Run(); err != nil {
+		result.Errors = append(result.Errors, err)
+
+		return result, fmt.Errorf("uv self update に失敗: %w", err)
+	}
+
+	result.UpdatedCount = checkResult.AvailableUpdates
+	result.Packages = checkResult.Packages
+	result.Message = "uv 本体を更新しました"
+
+	return result, nil
+}
+
 func (u *UVUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateResult, error) {
 	result := &UpdateResult{}
 
@@ -98,6 +173,32 @@ func (u *UVUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateResu
 	return result, nil
 }
 
+func (u *UVUpdater) runSelfUpdateDryRun(ctx context.Context) (string, error) {
+	cmd := exec.CommandContext(ctx, "uv", "self", "update", "--dry-run")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		outputText := string(output)
+		if isUVSelfUpdateUnsupportedOutput(outputText) {
+			return outputText, nil
+		}
+
+		return "", fmt.Errorf(
+			"uv self update --dry-run の実行に失敗: %w",
+			buildCommandOutputErr(err, output),
+		)
+	}
+
+	return string(output), nil
+}
+
+func isUVSelfUpdateUnsupportedOutput(output string) bool {
+	lower := strings.ToLower(output)
+
+	return strings.Contains(lower, "self-update is only available") ||
+		strings.Contains(lower, "self-updates are disabled")
+}
+
 func (u *UVUpdater) parseToolListOutput(output string) []PackageInfo {
 	lines := strings.Split(output, "\n")
 	packages := make([]PackageInfo, 0, len(lines))
@@ -129,6 +230,21 @@ func (u *UVUpdater) parseToolListOutput(output string) []PackageInfo {
 	}
 
 	return packages
+}
+
+func (u *UVUpdater) parseSelfUpdateDryRunOutput(output string) []PackageInfo {
+	matches := uvSelfUpdatePattern.FindStringSubmatch(output)
+	if len(matches) != 3 {
+		return []PackageInfo{}
+	}
+
+	return []PackageInfo{
+		{
+			Name:           "uv",
+			CurrentVersion: strings.TrimPrefix(matches[1], "v"),
+			NewVersion:     strings.TrimPrefix(matches[2], "v"),
+		},
+	}
 }
 
 func parseToolLine(line string) (name, version string, ok bool) {

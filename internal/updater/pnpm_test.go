@@ -510,6 +510,13 @@ func TestPnpmUpdater_Update(t *testing.T) {
 			wantMessageContains:   "更新確認をスキップしました",
 			expectManifestMissing: true,
 		},
+		{
+			name:        "通常更新失敗",
+			mode:        "update_fail",
+			opts:        UpdateOptions{},
+			expectErr:   true,
+			errContains: "pnpm update -g --latest に失敗",
+		},
 	}
 
 	for _, tc := range tests {
@@ -645,9 +652,16 @@ if "%subcmd%"=="outdated" (
 )
 
 if "%subcmd%"=="update" (
-  if "%DSX_TEST_PNPM_MODE%"=="update_fail" (
-    >&2 echo update failed
+  if not "%2"=="-g" (
+    >&2 echo missing -g
     exit /b 1
+  )
+  if not "%3"=="--latest" (
+    >&2 echo missing --latest
+    exit /b 1
+  )
+  if "%DSX_TEST_PNPM_MODE%"=="update_fail" (
+    goto updatefail
   )
   echo updated
   exit /b 0
@@ -655,6 +669,10 @@ if "%subcmd%"=="update" (
 
 echo []
 exit /b 0
+
+:updatefail
+>&2 echo update failed
+exit /b 1
 `
 	} else {
 		fileName = "pnpm"
@@ -716,6 +734,14 @@ if [ "${subcmd}" = "outdated" ]; then
 fi
 
 if [ "${subcmd}" = "update" ]; then
+  if [ "$2" != "-g" ]; then
+    echo 'missing -g' 1>&2
+    exit 1
+  fi
+  if [ "$3" != "--latest" ]; then
+    echo 'missing --latest' 1>&2
+    exit 1
+  fi
   if [ "${mode}" = "update_fail" ]; then
     echo 'update failed' 1>&2
     exit 1

@@ -6,6 +6,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- `dsx sys update` にマネージャ本体更新フェーズを追加。対応マネージャは通常更新フェーズの前に `CheckSelfUpdate` / `SelfUpdate` を実行し、dry-run では副作用なしで予定を表示するようになった（#81）
+- `uv` updater で `uv self update --dry-run` / `uv self update` による uv 本体更新に対応。`uv tool upgrade --all` は従来通り通常更新フェーズで実行し、self update 非対応のインストール経路では本体更新をスキップする（#81）
+
+### Changed
+
+- `pnpm` のグローバル更新を `pnpm update -g` から `pnpm update -g --latest` に変更し、version range に制限されず latest まで更新するようにした（#81）
+
 ## [v0.6.4] - 2026-05-28
 
 ### Performance
