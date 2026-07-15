@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `dsx sys update` に Bun updater を追加。`bun outdated -g` / `bun update -g --latest` によるグローバルパッケージ更新と、Bun 管理のインストールに対する `bun upgrade` に対応し、Homebrew / Scoop 管理下または所有元不明の本体更新は安全にスキップする（#96）
+
 ## [v0.7.0] - 2026-05-30
 
 ### Added

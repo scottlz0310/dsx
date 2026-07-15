@@ -133,5 +133,6 @@ secrets:
   - 進捗（第2弾）: `pnpm` / `nvm` を追加し、`config init` / `sys update` / README の対応マネージャ表記を更新済み
   - 進捗（第3弾）: `uv tool` / `rustup` / `gem` を追加し、`config init` / `sys list` / README の対応マネージャ表記を更新済み
   - 進捗（第4弾）: `sys update` にマネージャ本体更新フェーズを追加し、`uv self update` と `pnpm update -g --latest` に対応
-  - 残件（第5弾以降）: `winget` / `scoop` と統合テスト
+  - 進捗（第5弾）: `bun` を追加し、グローバルパッケージ更新とインストール経路に応じた Bun 本体更新に対応
+  - 残件（第6弾以降）: 統合テスト
 - [ ] リリース/CI（GoReleaser/GitHub Actions/E2E）

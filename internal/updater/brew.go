@@ -106,7 +106,7 @@ func (b *BrewUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRe
 	}
 
 	// フォーミュラの更新
-	upgradeCmd := exec.CommandContext(ctx, "brew", "upgrade")
+	upgradeCmd := exec.CommandContext(ctx, "brew", upgradeCommand)
 	upgradeCmd.Stdout = os.Stdout
 	upgradeCmd.Stderr = os.Stderr
 
@@ -115,7 +115,7 @@ func (b *BrewUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRe
 	}
 
 	// Cask の更新（greedy オプション考慮）
-	caskArgs := []string{"upgrade", "--cask"}
+	caskArgs := []string{upgradeCommand, "--cask"}
 	if b.greedy {
 		caskArgs = append(caskArgs, "--greedy")
 	}

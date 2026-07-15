@@ -345,7 +345,7 @@ func TestBuildConfigInitDefaults(t *testing.T) {
 	t.Parallel()
 
 	promptOptions := []string{
-		"apt", "brew", "go", "npm", "pnpm", "nvm", "snap", "flatpak", "fwupdmgr", "pipx", "cargo", "uv", "rustup", "gem",
+		"apt", "brew", "go", "npm", "pnpm", "bun", "nvm", "snap", "flatpak", "fwupdmgr", "pipx", "cargo", "uv", "rustup", "gem",
 	}
 
 	testCases := []struct {

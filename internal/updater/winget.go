@@ -37,7 +37,7 @@ func (w *WingetUpdater) Configure(cfg config.ManagerConfig) error {
 }
 
 func (w *WingetUpdater) Check(ctx context.Context) (*CheckResult, error) {
-	cmd := exec.CommandContext(ctx, "winget", "upgrade", "--include-unknown", "--disable-interactivity", "--accept-source-agreements")
+	cmd := exec.CommandContext(ctx, "winget", upgradeCommand, "--include-unknown", "--disable-interactivity", "--accept-source-agreements")
 
 	// stderr も含めた出力を取得することで、エラー時の診断情報を失わないようにする。
 	// winget はアップグレード可能なパッケージがある場合も exit code 0 以外を返すことがあるため、
@@ -71,7 +71,7 @@ func (w *WingetUpdater) Update(ctx context.Context, opts UpdateOptions) (*Update
 			return fmt.Sprintf("%d 件の winget パッケージが更新可能です（DryRunモード）", count)
 		},
 		"winget",
-		[]string{"upgrade", "--all", "--include-unknown", "--disable-interactivity", "--accept-source-agreements", "--accept-package-agreements"},
+		[]string{upgradeCommand, "--all", "--include-unknown", "--disable-interactivity", "--accept-source-agreements", "--accept-package-agreements"},
 		"winget upgrade --all に失敗: %w",
 		func(count int) string {
 			return fmt.Sprintf("%d 件の winget パッケージを更新しました", count)
