@@ -286,7 +286,21 @@
 - [ ] タグ push 後の Release workflow で `go test -race ./...` 通過を確認（ローカル Windows は gcc 未導入のため未実施）
 - [x] CHANGELOG.md: [Unreleased] → [v0.7.0] - 2026-05-30
 - [x] README.md: バージョン表記を v0.7.0 に更新
-- [ ] `v0.7.0` タグ発行・push → goreleaser が GitHub Release を自動作成
+- [x] `v0.7.0` タグ発行・push → goreleaser が GitHub Release を自動作成
+
+---
+
+## v0.8.0 リリース準備
+
+- [x] PR #97 が main にマージ済みであることを確認
+- [x] `task check` 通過（fmt/vet/test/lint）
+- [x] `go build ./...` 通過
+- [x] `go run ./cmd/dsx --help` 表示確認
+- [x] `task release:check` 通過
+- [x] CHANGELOG.md: [Unreleased] → [v0.8.0] - 2026-07-16
+- [x] README.md: バージョン表記とリリース方針を v0.8.0 に更新
+- [ ] リリース準備 PR をレビューレディで作成
+- [ ] `v0.8.0` タグ発行・push → goreleaser が GitHub Release を自動作成
 
 ---
 

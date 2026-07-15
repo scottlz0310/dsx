@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [v0.8.0] - 2026-07-16
+
 ### Added
 
 - `dsx sys update` に Bun updater を追加。`bun outdated -g` / `bun update -g --latest` によるグローバルパッケージ更新と、Bun 管理のインストールに対する `bun upgrade` に対応し、Homebrew / Scoop 管理下または所有元不明の本体更新は安全にスキップする（#96）
@@ -404,7 +406,8 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.8.0...HEAD
+[v0.8.0]: https://github.com/scottlz0310/dsx/compare/v0.7.0...v0.8.0
 [v0.7.0]: https://github.com/scottlz0310/dsx/compare/v0.6.4...v0.7.0
 [v0.6.4]: https://github.com/scottlz0310/dsx/compare/v0.6.3...v0.6.4
 [v0.6.3]: https://github.com/scottlz0310/dsx/compare/v0.6.2...v0.6.3

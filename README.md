@@ -31,8 +31,8 @@ dsx は、開発環境の運用作業を統合・一元化するためのクロ�
 [Releases ページ](https://github.com/scottlz0310/dsx/releases) からお使いの OS 向けのバイナリをダウンロードして PATH に配置してください。
 
 ```bash
-# 例: Linux amd64（v0.7.0 の場合）
-curl -Lo dsx.tar.gz https://github.com/scottlz0310/dsx/releases/download/v0.7.0/dsx_0.7.0_linux_amd64.tar.gz
+# 例: Linux amd64（v0.8.0 の場合）
+curl -Lo dsx.tar.gz https://github.com/scottlz0310/dsx/releases/download/v0.8.0/dsx_0.8.0_linux_amd64.tar.gz
 tar xzf dsx.tar.gz
 sudo mv dsx /usr/local/bin/
 ```
@@ -157,7 +157,7 @@ Remove-Item -Force (Get-Command dsx).Source
 
 ### メインコマンド
 ```
-dsx --version      # バージョン表示（現在: v0.7.0）
+dsx --version      # バージョン表示（現在: v0.8.0）
 dsx run           # 日次の統合タスクを実行（Bitwarden解錠→環境変数読込→更新処理）
 dsx run -n        # ドライラン（sys/repo に伝播）
 dsx run --tui     # TUI 進捗表示を有効化（sys/repo に伝播）
@@ -292,26 +292,26 @@ dsx config validate   # 設定内容を検証
 dsx config uninstall  # シェル設定からdsxを削除
 ```
 
-## 📋 リリース方針（v0.7.0）
+## 📋 リリース方針（v0.8.0）
 
-本バージョンは **`dsx sys update` のマネージャ本体更新フェーズ** を追加する機能強化リリースです。
+本バージョンは **Bun のグローバルパッケージ更新と本体更新** に対応する機能強化リリースです。
 
 ### 主な変更
 
-- `sys update` の通常更新前に、対応マネージャの本体更新を中央フローで実行
-- `uv` は `uv self update --dry-run` / `uv self update` に対応し、非対応のインストール経路では安全にスキップ
-- `pnpm` のグローバル更新を `pnpm update -g --latest` に変更
+- `bun outdated -g` / `bun update -g --latest` によるグローバルパッケージ更新に対応
+- Bun 管理のインストールでは、通常更新前に `bun upgrade` で本体を更新
+- Homebrew / Scoop 管理下または所有元不明の Bun 本体更新は、安全のためスキップ
 
 ### 推奨運用（当面）
 
-- `dsx sys update -n --tui` で、マネージャ本体更新と通常更新の予定を先に確認する
-- `uv self update` が使えないインストール経路では、表示メッセージを確認したうえで通常更新フェーズを継続する
+- `dsx sys update -n --tui` で、Bun 本体更新とグローバルパッケージ更新の予定を先に確認する
+- Homebrew / Scoop で導入した Bun は、それぞれのパッケージマネージャで本体を更新する
 - `dsx` 本体更新は従来通り `dsx self-update` で実行する
 
 ### 既知の制約
 
-- マネージャ本体更新フェーズは任意インターフェース対応済みの updater のみ対象
-- `uv self update` は uv のインストール経路によって利用できない場合がある
+- Bun 本体の所有元を特定できない場合は、自動更新を行わない
+- Bun のグローバル更新は、実行環境に `bun` がインストールされている場合のみ対象
 - `sys` パッケージマネージャ対応は拡張中（追加対応は `tasks.md` 管理）
 
 ## 🧪 日常運用（マニュアルテスト手順）
@@ -535,7 +535,7 @@ task lint
 
 ## 📅 ステータス
 
-現在 **v0.7.0（安定版）** です。
+現在 **v0.8.0（安定版）** です。
 詳細なロードマップについては [docs/Implementation_Plan.md](docs/Implementation_Plan.md) を参照してください。
 
 ## 📄 ライセンス
