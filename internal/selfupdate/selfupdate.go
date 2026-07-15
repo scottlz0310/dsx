@@ -110,13 +110,18 @@ func CheckAvailable(ctx context.Context, currentVersion string, fetch ReleaseFet
 
 // FetchLatestRelease は GitHub Releases API から最新リリースタグを取得します。
 func FetchLatestRelease(ctx context.Context, userAgentVersion string) (latestVersion, releaseURL string, err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, latestReleaseAPIURL, http.NoBody)
+	return FetchGitHubLatestRelease(ctx, latestReleaseAPIURL, "dsx/"+strings.TrimSpace(userAgentVersion))
+}
+
+// FetchGitHubLatestRelease は指定した GitHub Releases API から最新リリースタグを取得します。
+func FetchGitHubLatestRelease(ctx context.Context, apiURL, userAgent string) (latestVersion, releaseURL string, err error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, http.NoBody)
 	if err != nil {
 		return "", "", err
 	}
 
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "dsx/"+strings.TrimSpace(userAgentVersion))
+	req.Header.Set("User-Agent", strings.TrimSpace(userAgent))
 
 	client := latestReleaseHTTPClient
 	if client == nil {

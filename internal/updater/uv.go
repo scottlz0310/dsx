@@ -156,7 +156,7 @@ func (u *UVUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateResu
 		return result, nil
 	}
 
-	cmd := exec.CommandContext(ctx, "uv", "tool", "upgrade", "--all")
+	cmd := exec.CommandContext(ctx, "uv", "tool", upgradeCommand, "--all")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

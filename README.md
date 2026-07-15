@@ -177,7 +177,7 @@ dsx sys discover              # インストール済み Go バイナリを検�
 dsx sys discover --manager go # Go バイナリのみスキャン
 ```
 
-**対応パッケージマネージャ**: apt, brew, go, npm, pnpm, nvm, snap, flatpak, fwupdmgr, pipx, cargo, uv, rustup, gem, winget, scoop
+**対応パッケージマネージャ**: apt, brew, go, npm, pnpm, bun, nvm, snap, flatpak, fwupdmgr, pipx, cargo, uv, rustup, gem, winget, scoop
 
 `sys update` は `--jobs / -j` で並列数を指定できます（未指定時は `config.yaml` の `control.concurrency` を使用）。
 `apt` はパッケージロック競合を避けるため、依存関係ルールとして単独実行されます。
@@ -190,6 +190,9 @@ dsx sys discover --manager go # Go バイナリのみスキャン
 `sys update` は対応マネージャについて「マネージャ本体更新フェーズ」→「通常更新フェーズ」の順に実行します。
 たとえば `uv` は `uv self update` で uv 本体を確認・更新してから、通常更新フェーズで `uv tool upgrade --all` を実行します。
 `uv self update` が利用できないインストール経路では、uv 本体更新はスキップし、通常更新フェーズを継続します。
+`bun` は Bun 管理のインストールでは `bun upgrade` で本体を更新してから、`bun update -g --latest` でグローバルパッケージを latest まで更新します。
+Homebrew / Scoop 管理下または所有元を安全に判定できない Bun は本体更新をスキップし、グローバルパッケージ更新のみ継続します。
+Bun updater は Homebrew / Scoop による本体更新との競合を避けるため、通常更新の並列フェーズより先に単独実行します。
 `dsx` 本体はこのフェーズでは更新せず、従来通り `dsx self-update` で扱います。
 `pnpm` のグローバル更新は `pnpm update -g --latest` を使用し、version range に制限されず latest まで更新します。
 

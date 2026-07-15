@@ -95,7 +95,7 @@ func (a *AptUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRes
 	}
 
 	// 実際の更新を実行
-	args := []string{"upgrade", "-y"}
+	args := []string{upgradeCommand, "-y"}
 	if err := a.runCommand(ctx, args...); err != nil {
 		result.Errors = append(result.Errors, err)
 		return result, fmt.Errorf("apt upgrade に失敗: %w", err)

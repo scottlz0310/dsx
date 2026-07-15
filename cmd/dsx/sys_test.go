@@ -546,17 +546,18 @@ func TestSplitUpdatersForExecution(t *testing.T) {
 	input := []updater.Updater{
 		stubUpdater{name: "brew"},
 		stubUpdater{name: "apt"},
+		stubUpdater{name: "bun"},
 		stubUpdater{name: "go"},
 	}
 
 	exclusive, parallel := splitUpdatersForExecution(input)
 
-	if len(exclusive) != 1 {
-		t.Fatalf("exclusive length = %d, want 1", len(exclusive))
+	if len(exclusive) != 2 {
+		t.Fatalf("exclusive length = %d, want 2", len(exclusive))
 	}
 
-	if exclusive[0].Name() != "apt" {
-		t.Fatalf("exclusive[0] = %s, want apt", exclusive[0].Name())
+	if exclusive[0].Name() != "apt" || exclusive[1].Name() != "bun" {
+		t.Fatalf("exclusive order = [%s, %s], want [apt, bun]", exclusive[0].Name(), exclusive[1].Name())
 	}
 
 	if len(parallel) != 2 {
@@ -585,6 +586,11 @@ func TestMustRunExclusively(t *testing.T) {
 			name: "brewは並列可",
 			in:   stubUpdater{name: "brew"},
 			want: false,
+		},
+		{
+			name: "bunは所有元の更新との競合回避のため単独実行",
+			in:   stubUpdater{name: "bun"},
+			want: true,
 		},
 	}
 

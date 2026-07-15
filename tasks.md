@@ -263,6 +263,19 @@
 
 ---
 
+## Issue #96: Bun のグローバルツール更新とマネージャ本体更新
+
+- [x] `BunUpdater` を updater レジストリへ追加
+- [x] `bun outdated -g` / `bun update -g --latest` によるグローバルパッケージ更新に対応
+- [x] Bun 管理のインストールで `bun upgrade` による本体更新に対応
+- [x] Homebrew / Scoop 管理下または所有元不明の本体更新を安全にスキップ
+- [x] dry-run、出力 parser、境界値、失敗系、インストール経路判定を table-driven tests で固定
+- [x] `config init` / `sys update --help` / `sys list` に Bun を統合
+- [x] `CHANGELOG.md` / `README.md` / `tasks.md` / `docs/Implementation_Plan.md` を更新
+- [x] `task test` / `task check` / `go build ./...` / `dsx --help` の検証
+
+---
+
 ## v0.7.0 リリース準備
 
 - [x] PR #82 が main にマージ済みであることを確認

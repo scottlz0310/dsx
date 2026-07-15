@@ -46,6 +46,7 @@ var sysUpdateCmd = &cobra.Command{
   - go        (Go ツール)
   - npm       (Node.js グローバルパッケージ)
   - pnpm      (Node.js グローバルパッケージ)
+  - bun       (JavaScript/TypeScript グローバルパッケージ)
   - nvm       (Node.js バージョン管理)
   - snap      (Ubuntu Snap パッケージ)
   - flatpak   (Linux Flatpak)
@@ -710,7 +711,8 @@ func isContextCancellation(err error) bool {
 }
 
 func mustRunExclusively(u updater.Updater) bool {
-	return u.Name() == "apt"
+	// Bun 本体が Homebrew / Scoop 管理の場合、所有元の更新と bun update -g の競合を避けます。
+	return u.Name() == "apt" || u.Name() == "bun"
 }
 
 func mergeUpdateStats(dst *updateStats, src updateStats) {
