@@ -299,7 +299,7 @@
 - [x] `task release:check` 通過
 - [x] CHANGELOG.md: [Unreleased] → [v0.8.0] - 2026-07-16
 - [x] README.md: バージョン表記とリリース方針を v0.8.0 に更新
-- [ ] リリース準備 PR をレビューレディで作成
+- [x] リリース準備 PR #98 をレビューレディで作成
 - [ ] `v0.8.0` タグ発行・push → goreleaser が GitHub Release を自動作成
 
 ---
