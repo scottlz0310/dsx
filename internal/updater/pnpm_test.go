@@ -660,6 +660,14 @@ if "%subcmd%"=="update" (
     >&2 echo missing --latest
     exit /b 1
   )
+  if not "%4"=="--no-interactive" (
+    >&2 echo missing --no-interactive
+    exit /b 1
+  )
+  if not "%CI%"=="true" (
+    >&2 echo missing CI=true
+    exit /b 1
+  )
   if "%DSX_TEST_PNPM_MODE%"=="update_fail" (
     goto updatefail
   )
@@ -740,6 +748,14 @@ if [ "${subcmd}" = "update" ]; then
   fi
   if [ "$3" != "--latest" ]; then
     echo 'missing --latest' 1>&2
+    exit 1
+  fi
+  if [ "$4" != "--no-interactive" ]; then
+    echo 'missing --no-interactive' 1>&2
+    exit 1
+  fi
+  if [ "${CI}" != "true" ]; then
+    echo 'missing CI=true' 1>&2
     exit 1
   fi
   if [ "${mode}" = "update_fail" ]; then

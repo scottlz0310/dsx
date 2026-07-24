@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `pnpm` のグローバル更新実行時 (`pnpm update -g --latest`) に `--no-interactive` フラグと `CI=true` 環境変数を追加し、無人・自動実行時の対話プロンプトによるタイムアウトを防止（#101）
+
 ## [v0.8.0] - 2026-07-16
 
 ### Added
