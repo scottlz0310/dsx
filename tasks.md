@@ -10,7 +10,7 @@
 - [x] `internal/updater/pnpm_test.go` に `--no-interactive` フラグと `CI=true` のテスト検証を追加
 - [x] `CHANGELOG.md` 更新
 - [x] `task check` 通過
-- [ ] コミット・push & PR 作成
+- [x] コミット・push & PR #102 作成
 
 ---
 
