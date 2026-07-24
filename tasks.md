@@ -4,6 +4,20 @@
 
 > 過去の完了タスク履歴は [docs/archive/tasks_v0.2.3.md](docs/archive/tasks_v0.2.3.md) を参照してください。
 
+## v0.8.1 リリース準備
+
+- [x] PR #102 が main にマージ済みであることを確認
+- [x] `task check` 通過（fmt/vet/test/lint）
+- [x] `go build ./...` 通過
+- [x] `go run ./cmd/dsx --help` 表示確認
+- [x] `task release:check` 通過
+- [x] CHANGELOG.md: [Unreleased] → [v0.8.1] - 2026-07-25
+- [x] README.md: バージョン表記を v0.8.1 に更新
+- [x] リリース準備 PR を作成
+- [ ] `v0.8.1` タグ発行・push → goreleaser が GitHub Release を自動作成
+
+---
+
 ## Issue #101: pnpm update -g 実行時のインタラクティブプロンプトによるタイムアウト防止
 
 - [x] `internal/updater/pnpm.go` に `--no-interactive` フラグおよび `CI=true` 環境変数を追加
