@@ -142,7 +142,9 @@ func (p *PnpmUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRe
 }
 
 func (p *PnpmUpdater) runUpdate(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, "pnpm", "update", "-g", "--latest")
+	cmd := exec.CommandContext(ctx, "pnpm", "update", "-g", "--latest", "--no-interactive")
+
+	cmd.Env = append(os.Environ(), "CI=true")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

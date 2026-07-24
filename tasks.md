@@ -4,6 +4,14 @@
 
 > 過去の完了タスク履歴は [docs/archive/tasks_v0.2.3.md](docs/archive/tasks_v0.2.3.md) を参照してください。
 
+## Issue #101: pnpm update -g 実行時のインタラクティブプロンプトによるタイムアウト防止
+
+- [x] `internal/updater/pnpm.go` に `--no-interactive` フラグおよび `CI=true` 環境変数を追加
+- [x] `internal/updater/pnpm_test.go` に `--no-interactive` フラグと `CI=true` のテスト検証を追加
+- [x] `CHANGELOG.md` 更新
+- [x] `task check` 通過
+- [ ] コミット・push & PR 作成
+
 ---
 
 ## Issue #1: dsx repo branch-clean サブコマンド実装
