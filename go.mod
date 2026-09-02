@@ -1,6 +1,6 @@
 module github.com/scottlz0310/dsx
 
-go 1.26.7
+go 1.26.8
 
 require (
 	charm.land/bubbletea/v2 v2.0.9
