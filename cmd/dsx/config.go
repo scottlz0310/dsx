@@ -19,6 +19,7 @@ import (
 	"github.com/scottlz0310/dsx/internal/config"
 
 	"github.com/scottlz0310/dsx/internal/env"
+	"github.com/scottlz0310/dsx/internal/msix"
 	"github.com/scottlz0310/dsx/internal/updater"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -43,6 +44,7 @@ var availableSystemManagers = []string{
 var (
 	surveyAskOneStep             = survey.AskOne
 	getPowerShellProfilePathStep = getPowerShellProfilePath
+	isMSIXPackagedStep           = msix.IsPackaged
 )
 
 type configInitDefaults struct {
@@ -705,6 +707,22 @@ func generateShellInit(home string) error {
 }
 
 func resolveExecutablePath() (string, error) {
+	packaged, err := isMSIXPackagedStep()
+	if err != nil {
+		return "", err
+	}
+
+	// MSIX 版の実体パスはバージョンごとに変わり、直接実行するとパッケージ外として動くため、
+	// バージョンに依存しない実行エイリアスを使う
+	if packaged {
+		localAppData := os.Getenv("LOCALAPPDATA")
+		if localAppData == "" {
+			return "", errors.New("LOCALAPPDATA が未設定のため、dsx の実行エイリアスのパスを決定できません")
+		}
+
+		return filepath.Join(localAppData, "Microsoft", "WindowsApps", "dsx.exe"), nil
+	}
+
 	// 現在の実行ファイルのパスを取得
 	exePath, err := os.Executable()
 	if err != nil {

@@ -253,58 +253,92 @@ func TestRunSelfUpdate(t *testing.T) {
 	originalCheck := selfUpdateCheckStep
 	originalApply := selfUpdateApplyStep
 	originalCheckOnly := selfUpdateCheckOnly
+	originalGOOS := selfUpdateGOOS
+	originalPackaged := selfUpdatePackagedStep
 
 	t.Cleanup(func() {
 		version = originalVersion
 		selfUpdateCheckStep = originalCheck
 		selfUpdateApplyStep = originalApply
 		selfUpdateCheckOnly = originalCheckOnly
+		selfUpdateGOOS = originalGOOS
+		selfUpdatePackagedStep = originalPackaged
 	})
 
+	updateAvailable := &selfUpdateInfo{CurrentVersion: "v0.2.0", LatestVersion: "v0.3.0"}
+
 	testCases := []struct {
-		name          string
-		checkOnly     bool
-		checkResult   *selfUpdateInfo
-		checkErr      error
-		applyErr      error
-		wantErr       bool
-		wantApplyCall bool
+		name            string
+		goos            string
+		packaged        bool
+		packagedErr     error
+		checkOnly       bool
+		checkResult     *selfUpdateInfo
+		checkErr        error
+		applyErr        error
+		wantErr         bool
+		wantErrContains string
+		wantApplyCall   bool
+		wantStdout      string
 	}{
 		{
 			name:          "更新ありで適用実行",
-			checkOnly:     false,
-			checkResult:   &selfUpdateInfo{CurrentVersion: "v0.2.0", LatestVersion: "v0.3.0"},
-			wantErr:       false,
+			goos:          "linux",
+			checkResult:   updateAvailable,
 			wantApplyCall: true,
 		},
 		{
-			name:          "check指定時は適用しない",
-			checkOnly:     true,
-			checkResult:   &selfUpdateInfo{CurrentVersion: "v0.2.0", LatestVersion: "v0.3.0"},
-			wantErr:       false,
-			wantApplyCall: false,
+			name:        "check指定時は適用しない",
+			goos:        "linux",
+			checkOnly:   true,
+			checkResult: updateAvailable,
 		},
 		{
-			name:          "更新なし",
-			checkOnly:     false,
-			checkResult:   nil,
-			wantErr:       false,
-			wantApplyCall: false,
+			name: "更新なし",
+			goos: "linux",
 		},
 		{
-			name:          "確認失敗",
-			checkOnly:     false,
-			checkErr:      errors.New("check failed"),
-			wantErr:       true,
-			wantApplyCall: false,
+			name:     "確認失敗",
+			goos:     "linux",
+			checkErr: errors.New("check failed"),
+			wantErr:  true,
 		},
 		{
 			name:          "適用失敗",
-			checkOnly:     false,
-			checkResult:   &selfUpdateInfo{CurrentVersion: "v0.2.0", LatestVersion: "v0.3.0"},
+			goos:          "linux",
+			checkResult:   updateAvailable,
 			applyErr:      errors.New("apply failed"),
 			wantErr:       true,
 			wantApplyCall: true,
+		},
+		{
+			name:        "WindowsのMSIX版はgo installせず自動更新を案内する",
+			goos:        "windows",
+			packaged:    true,
+			checkResult: updateAvailable,
+			wantStdout:  "自動更新されます",
+		},
+		{
+			name:            "WindowsのMSIX版以外はgo installせず移行手順付きでエラーにする",
+			goos:            "windows",
+			checkResult:     updateAvailable,
+			wantErr:         true,
+			wantErrContains: "MSIX 版へ移行",
+		},
+		{
+			name:            "Windowsでパッケージ判定に失敗したらエラーを返す",
+			goos:            "windows",
+			packagedErr:     errors.New("api failed"),
+			checkResult:     updateAvailable,
+			wantErr:         true,
+			wantErrContains: "api failed",
+		},
+		{
+			name:        "Windowsでもcheck指定時はパッケージ判定せず終了する",
+			goos:        "windows",
+			packagedErr: errors.New("must not be called"),
+			checkOnly:   true,
+			checkResult: updateAvailable,
 		},
 	}
 
@@ -313,6 +347,7 @@ func TestRunSelfUpdate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			version = "v0.2.0"
 			selfUpdateCheckOnly = tc.checkOnly
+			selfUpdateGOOS = tc.goos
 
 			applyCalled := false
 			selfUpdateCheckStep = func(context.Context, string) (*selfUpdateInfo, error) {
@@ -327,14 +362,98 @@ func TestRunSelfUpdate(t *testing.T) {
 
 				return tc.applyErr
 			}
+			selfUpdatePackagedStep = func() (bool, error) {
+				return tc.packaged, tc.packagedErr
+			}
 
-			err := runSelfUpdate(&cobra.Command{Use: "self-update"}, nil)
+			var err error
+
+			stdout := captureStdout(t, func() {
+				err = runSelfUpdate(&cobra.Command{Use: "self-update"}, nil)
+			})
+
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("runSelfUpdate() error = %v, wantErr %v", err, tc.wantErr)
 			}
 
+			if tc.wantErrContains != "" && !strings.Contains(err.Error(), tc.wantErrContains) {
+				t.Fatalf("runSelfUpdate() error = %q, want contains %q", err, tc.wantErrContains)
+			}
+
 			if applyCalled != tc.wantApplyCall {
 				t.Fatalf("apply called = %v, want %v", applyCalled, tc.wantApplyCall)
+			}
+
+			if tc.wantStdout != "" && !strings.Contains(stdout, tc.wantStdout) {
+				t.Fatalf("stdout = %q, want contains %q", stdout, tc.wantStdout)
+			}
+		})
+	}
+}
+
+func TestResolveSelfUpdateMethod(t *testing.T) {
+	originalGOOS := selfUpdateGOOS
+	originalPackaged := selfUpdatePackagedStep
+
+	t.Cleanup(func() {
+		selfUpdateGOOS = originalGOOS
+		selfUpdatePackagedStep = originalPackaged
+	})
+
+	testCases := []struct {
+		name        string
+		goos        string
+		packaged    bool
+		packagedErr error
+		want        selfUpdateMethod
+		wantErr     bool
+	}{
+		{
+			name:        "Linuxはパッケージ判定せずgo install",
+			goos:        "linux",
+			packagedErr: errors.New("must not be called"),
+			want:        selfUpdateByGoInstall,
+		},
+		{
+			name:        "macOSはパッケージ判定せずgo install",
+			goos:        "darwin",
+			packagedErr: errors.New("must not be called"),
+			want:        selfUpdateByGoInstall,
+		},
+		{
+			name:     "WindowsのMSIX版はappinstaller",
+			goos:     "windows",
+			packaged: true,
+			want:     selfUpdateByAppInstaller,
+		},
+		{
+			name: "WindowsのMSIX版以外は非サポート",
+			goos: "windows",
+			want: selfUpdateUnsupported,
+		},
+		{
+			name:        "Windowsでパッケージ判定失敗はエラー",
+			goos:        "windows",
+			packagedErr: errors.New("api failed"),
+			wantErr:     true,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			selfUpdateGOOS = tc.goos
+			selfUpdatePackagedStep = func() (bool, error) {
+				return tc.packaged, tc.packagedErr
+			}
+
+			got, err := resolveSelfUpdateMethod()
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("resolveSelfUpdateMethod() error = %v, wantErr %v", err, tc.wantErr)
+			}
+
+			if !tc.wantErr && got != tc.want {
+				t.Fatalf("resolveSelfUpdateMethod() = %v, want %v", got, tc.want)
 			}
 		})
 	}
@@ -342,28 +461,64 @@ func TestRunSelfUpdate(t *testing.T) {
 
 func TestPrintSelfUpdateNoticeAtEnd(t *testing.T) {
 	originalCheck := selfUpdateCheckStep
+	originalGOOS := selfUpdateGOOS
+	originalPackaged := selfUpdatePackagedStep
+
 	t.Cleanup(func() {
 		selfUpdateCheckStep = originalCheck
+		selfUpdateGOOS = originalGOOS
+		selfUpdatePackagedStep = originalPackaged
 	})
 
+	updateAvailable := &selfUpdateInfo{CurrentVersion: "v0.2.0", LatestVersion: "v0.3.0"}
+
 	testCases := []struct {
-		name      string
-		checkInfo *selfUpdateInfo
-		checkErr  error
-		wantText  string
+		name        string
+		goos        string
+		packaged    bool
+		packagedErr error
+		checkInfo   *selfUpdateInfo
+		checkErr    error
+		wantText    string
+		wantAbsent  string
 	}{
 		{
-			name:      "通知あり",
-			checkInfo: &selfUpdateInfo{CurrentVersion: "v0.2.0", LatestVersion: "v0.3.0"},
-			wantText:  "新しいバージョン",
+			name:      "Windows以外はself-updateを案内",
+			goos:      "linux",
+			checkInfo: updateAvailable,
+			wantText:  "更新コマンド: dsx self-update",
 		},
 		{
-			name:      "通知なし",
-			checkInfo: nil,
-			wantText:  "",
+			name:       "WindowsのMSIX版は自動更新を案内",
+			goos:       "windows",
+			packaged:   true,
+			checkInfo:  updateAvailable,
+			wantText:   "MSIX 版は自動更新されます",
+			wantAbsent: "dsx self-update",
+		},
+		{
+			name:       "WindowsのMSIX版以外は移行を案内",
+			goos:       "windows",
+			checkInfo:  updateAvailable,
+			wantText:   "MSIX 版への移行が必要です",
+			wantAbsent: "dsx self-update",
+		},
+		{
+			name:        "パッケージ判定失敗時は更新方法の案内だけ省略",
+			goos:        "windows",
+			packagedErr: errors.New("api failed"),
+			checkInfo:   updateAvailable,
+			wantText:    "新しいバージョン",
+			wantAbsent:  "MSIX",
+		},
+		{
+			name:     "通知なし",
+			goos:     "linux",
+			wantText: "",
 		},
 		{
 			name:     "確認エラー時は表示なし",
+			goos:     "linux",
 			checkErr: errors.New("check failed"),
 			wantText: "",
 		},
@@ -372,6 +527,10 @@ func TestPrintSelfUpdateNoticeAtEnd(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			selfUpdateGOOS = tc.goos
+			selfUpdatePackagedStep = func() (bool, error) {
+				return tc.packaged, tc.packagedErr
+			}
 			selfUpdateCheckStep = func(context.Context, string) (*selfUpdateInfo, error) {
 				return tc.checkInfo, tc.checkErr
 			}

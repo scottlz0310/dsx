@@ -18,6 +18,21 @@
 
 ---
 
+## Issue #111: MSIX 版での self-update と config init の対応（BREAKING: Windows の go install 廃止）
+
+方針: Windows は MSIX 版のみサポート / Linux・macOS は go install を維持 / 並存時の警告は PR B のインストーラーで扱う
+
+- [x] `internal/msix`: `GetCurrentPackageFullName` によるパッケージ実行判定（Windows 以外は常に false）とインストールワンライナー定数
+- [x] `dsx self-update`: Windows では go install せず、MSIX 版は自動更新を案内・MSIX 版以外は移行手順付きでエラー
+- [x] 実行後の更新通知の案内文を実行環境ごとに切り替え
+- [x] `dsx config init`: MSIX 版では実行エイリアス（`%LOCALAPPDATA%\Microsoft\WindowsApps\dsx.exe`）を埋め込む
+- [x] table-driven tests（OS / パッケージ判定を差し替え、判定失敗の伝播を含む）
+- [x] `CHANGELOG.md`（BREAKING と移行手順）/ `README.md`（Windows 非サポートの注記）
+- [x] 開発者モード登録での実機確認: alias 経由は自動更新案内（exit 0）、パッケージ外は移行案内エラー（exit 1）、パッケージフォルダの実体パス直接実行はパッケージ外と判定されることを確認（`config init` は対話専用のため埋め込みパスは単体テストで確認）
+- [ ] PR 作成・レビュー・マージ
+
+---
+
 ## Issue #104: PowerShell ワンライナー (irm ... | iex) による証明書信頼設定と MSIX/.appinstaller 自動インストールの提供
 
 - [x] GitHub Issue #104 を tacho-graph-studio 実績ベースのワンライナー MSIX/Appinstaller 方針に更新

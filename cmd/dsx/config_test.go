@@ -1173,6 +1173,85 @@ func createConfigDir(t *testing.T, home string) {
 	}
 }
 
+func TestResolveExecutablePath(t *testing.T) {
+	original := isMSIXPackagedStep
+	t.Cleanup(func() {
+		isMSIXPackagedStep = original
+	})
+
+	localAppData := t.TempDir()
+
+	exePath, err := os.Executable()
+	if err != nil {
+		t.Fatalf("os.Executable() error = %v", err)
+	}
+
+	exePath, err = filepath.EvalSymlinks(exePath)
+	if err != nil {
+		t.Fatalf("filepath.EvalSymlinks() error = %v", err)
+	}
+
+	testCases := []struct {
+		name            string
+		packaged        bool
+		packagedErr     error
+		localAppData    string
+		want            string
+		wantErrContains string
+	}{
+		{
+			name:         "MSIX版はバージョンに依存しない実行エイリアスのパスを返す",
+			packaged:     true,
+			localAppData: localAppData,
+			want:         filepath.Join(localAppData, "Microsoft", "WindowsApps", "dsx.exe"),
+		},
+		{
+			name:            "MSIX版でLOCALAPPDATA未設定はエラー",
+			packaged:        true,
+			localAppData:    "",
+			wantErrContains: "LOCALAPPDATA",
+		},
+		{
+			name:         "MSIX版以外は実行ファイルの実体パスを返す",
+			localAppData: localAppData,
+			want:         exePath,
+		},
+		{
+			name:            "パッケージ判定の失敗はエラーを返す",
+			packagedErr:     errors.New("api failed"),
+			localAppData:    localAppData,
+			wantErrContains: "api failed",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("LOCALAPPDATA", tc.localAppData)
+
+			isMSIXPackagedStep = func() (bool, error) {
+				return tc.packaged, tc.packagedErr
+			}
+
+			got, err := resolveExecutablePath()
+			if tc.wantErrContains != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErrContains) {
+					t.Fatalf("resolveExecutablePath() error = %v, want contains %q", err, tc.wantErrContains)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("resolveExecutablePath() error = %v, want nil", err)
+			}
+
+			if got != tc.want {
+				t.Fatalf("resolveExecutablePath() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestGenerateShellInit_UnsupportedShell(t *testing.T) {
 	t.Setenv("PSModulePath", "")
 	t.Setenv("SHELL", "")

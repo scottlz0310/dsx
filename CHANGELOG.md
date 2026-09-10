@@ -11,6 +11,11 @@
 - Windows 向け MSIX パッケージ配布を追加。リリース時に署名済み `dsx_x64.msix`・`dsx.appinstaller`・公開証明書 `dsx.cer` を GitHub Release に発行し、`AppExecutionAlias` により PATH から `dsx` を実行できる。子プロセス（go / npm / winget 等）の書き込みが仮想化されないよう、ファイル・レジストリ書き込み仮想化を無効化している（#104）
 - MSIX 署名用自己署名証明書の生成スクリプト `packaging/msix/New-SigningCertificate.ps1` と、CI での未署名 MSIX パッケージ化検証を追加（#104）
 
+### Changed
+
+- **BREAKING**: Windows では `go install` による dsx の導入・更新をサポートしないように変更。`dsx self-update` は MSIX 版では `.appinstaller` による自動更新を案内し、MSIX 版以外では MSIX 版への移行手順を示してエラー終了する（Windows 以外は従来通り `go install`）。移行手順: MSIX 版を導入 → `~/go/bin/dsx.exe` を削除 → `dsx config init` を再実行（#111）
+- `dsx config init` を MSIX 版で実行した場合、バージョンに依存しない実行エイリアス（`%LOCALAPPDATA%\Microsoft\WindowsApps\dsx.exe`）をシェル連携スクリプトに埋め込むように変更（#111）
+
 ## [v0.8.1] - 2026-07-25
 
 ### Fixed

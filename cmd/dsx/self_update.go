@@ -7,12 +7,25 @@ import (
 	"os/exec"
 	"runtime"
 
+	"github.com/scottlz0310/dsx/internal/msix"
 	"github.com/scottlz0310/dsx/internal/selfupdate"
 	"github.com/spf13/cobra"
 )
 
 type selfUpdateInfo = selfupdate.Info
 type semverCore = selfupdate.SemverCore
+
+// selfUpdateMethod は実行環境に応じた dsx 本体の更新方法です。
+type selfUpdateMethod int
+
+const (
+	// selfUpdateByGoInstall は go install で更新します（Windows 以外）。
+	selfUpdateByGoInstall selfUpdateMethod = iota
+	// selfUpdateByAppInstaller は MSIX 版で、.appinstaller による自動更新に任せます。
+	selfUpdateByAppInstaller
+	// selfUpdateUnsupported は Windows の MSIX 版以外です。Windows では go install による更新をサポートしません。
+	selfUpdateUnsupported
+)
 
 var (
 	selfUpdateCheckOnly bool
@@ -22,6 +35,8 @@ var (
 	selfUpdateFetchReleaseStep = func(ctx context.Context) (string, string, error) {
 		return selfupdate.FetchLatestRelease(ctx, version)
 	}
+	selfUpdateGOOS         = runtime.GOOS
+	selfUpdatePackagedStep = msix.IsPackaged
 )
 
 func selfUpdateInstallTarget(version string) string {
@@ -34,7 +49,10 @@ var selfUpdateCmd = &cobra.Command{
 	Long: `dsx 本体の更新確認と更新適用を行います。
 
 既定では更新確認後に更新を実行します。
-確認のみ行う場合は --check を指定してください。`,
+確認のみ行う場合は --check を指定してください。
+
+Windows では MSIX 版のみをサポートし、更新は .appinstaller による自動更新で行います。
+go install で導入した dsx は、MSIX 版への移行を案内します。`,
 	RunE: runSelfUpdate,
 }
 
@@ -69,6 +87,22 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	method, err := resolveSelfUpdateMethod()
+	if err != nil {
+		return err
+	}
+
+	switch method {
+	case selfUpdateByAppInstaller:
+		fmt.Println("ℹ️  MSIX 版は .appinstaller により自動更新されます。")
+		fmt.Printf("   すぐに更新する場合は PowerShell で次を実行してください:\n   %s\n", msix.InstallCommand)
+
+		return nil
+	case selfUpdateUnsupported:
+		return fmt.Errorf("go install による self-update は Windows ではサポートしていません。PowerShell で次を実行して MSIX 版へ移行してください: %s", msix.InstallCommand)
+	case selfUpdateByGoInstall:
+	}
+
 	fmt.Println("🔄 self-update を実行します...")
 
 	applyCtx := cmd.Context()
@@ -94,10 +128,42 @@ func printSelfUpdateNoticeAtEnd() {
 
 	fmt.Println()
 	fmt.Printf("🆕 dsx の新しいバージョン %s が利用可能です（現在: %s）\n", info.LatestVersion, info.CurrentVersion)
-	fmt.Println("   更新コマンド: dsx self-update")
+
+	// 通知は補助情報のため、判定に失敗した場合は更新方法の案内だけを省略する
+	if method, err := resolveSelfUpdateMethod(); err == nil {
+		fmt.Printf("   %s\n", selfUpdateHint(method))
+	}
 
 	if info.ReleaseURL != "" {
 		fmt.Printf("   リリース情報: %s\n", info.ReleaseURL)
+	}
+}
+
+func resolveSelfUpdateMethod() (selfUpdateMethod, error) {
+	if selfUpdateGOOS != "windows" {
+		return selfUpdateByGoInstall, nil
+	}
+
+	packaged, err := selfUpdatePackagedStep()
+	if err != nil {
+		return selfUpdateUnsupported, err
+	}
+
+	if packaged {
+		return selfUpdateByAppInstaller, nil
+	}
+
+	return selfUpdateUnsupported, nil
+}
+
+func selfUpdateHint(method selfUpdateMethod) string {
+	switch method {
+	case selfUpdateByAppInstaller:
+		return "MSIX 版は自動更新されます（すぐに更新する場合: " + msix.InstallCommand + "）"
+	case selfUpdateUnsupported:
+		return "MSIX 版への移行が必要です: " + msix.InstallCommand
+	default:
+		return "更新コマンド: dsx self-update"
 	}
 }
 
@@ -117,14 +183,6 @@ func applySelfUpdate(ctx context.Context, version string) error {
 	cmd.Stdin = os.Stdin
 
 	if err := cmd.Run(); err != nil {
-		if runtime.GOOS == "windows" {
-			return fmt.Errorf(
-				"self-update に失敗しました（実行中バイナリの置換競合の可能性があります）。別シェルで `go install %s` を実行してください: %w",
-				target,
-				err,
-			)
-		}
-
 		return fmt.Errorf("self-update に失敗しました: %w", err)
 	}
 
