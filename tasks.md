@@ -29,7 +29,7 @@
 - [x] table-driven tests（OS / パッケージ判定を差し替え、判定失敗の伝播を含む）
 - [x] `CHANGELOG.md`（BREAKING と移行手順）/ `README.md`（Windows 非サポートの注記）
 - [x] 開発者モード登録での実機確認: alias 経由は自動更新案内（exit 0）、パッケージ外は移行案内エラー（exit 1）、パッケージフォルダの実体パス直接実行はパッケージ外と判定されることを確認（`config init` は対話専用のため埋め込みパスは単体テストで確認）
-- [ ] PR 作成・レビュー・マージ
+- [x] PR 作成・レビュー・マージ
 
 ---
 
@@ -51,13 +51,13 @@
 
 ### PR B: インストーラースクリプト
 
-- [ ] ワンライナー対応インストーラースクリプト (`scripts/install.ps1`) の作成（証明書信頼登録 ＋ `.appinstaller` 導入、昇格は証明書インポートのみ）
+- [x] ワンライナー対応インストーラースクリプト (`scripts/install.ps1`) の作成（証明書信頼登録 ＋ `.appinstaller` 導入、昇格は証明書インポートのみ）
 - [x] Windows PowerShell 5.1 での日本語復号を検証: Release アセットは `application/octet-stream` 配信のため `irm | iex` では文字化けする（pwsh 7 は正常）。`iwr` の Byte[] を UTF-8 で明示復号すれば 5.1 / 7 とも正常
 - [x] 配布ワンライナーを決定: `iex ([Text.Encoding]::UTF8.GetString((iwr -UseBasicParsing https://github.com/scottlz0310/dsx/releases/latest/download/install.ps1).Content))`
-- [ ] PR A マージ後に着手（AGENTS.md: レビュー対応中はサブ PR を作成しない）
-- [ ] Pester テストと CI job の追加
-- [ ] `release.yml` で `install.ps1` を Release アセットに追加
-- [ ] ドキュメント更新（`README.md` にワンライナー導入手順を追加）
+- [x] PR A マージ後に着手（AGENTS.md: レビュー対応中はサブ PR を作成しない）
+- [x] Pester テストと CI job の追加
+- [x] `release.yml` で `install.ps1` を Release アセットに追加
+- [x] ドキュメント更新（`README.md` にワンライナー導入手順を追加）
 
 ### 後続 Issue
 
