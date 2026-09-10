@@ -23,7 +23,7 @@
 - [x] GitHub Issue #104 を tacho-graph-studio 実績ベースのワンライナー MSIX/Appinstaller 方針に更新
 方針: 署名証明書は dsx 専用に新規生成 / 信頼ストアは `LocalMachine\TrustedPeople` / 配布 URL は `releases/latest/download/install.ps1` / PR は 2 分割
 
-### PR A: MSIX パッケージ化とリリースパイプライン
+### PR A: MSIX パッケージ化とリリースパイプライン（PR #112）
 
 - [x] `packaging/msix/AppxManifest.xml`（`AppExecutionAlias`・書き込み仮想化無効化）と `.appinstaller` テンプレート
 - [x] `packaging/msix/Build-Msix.ps1`（makeappx / signtool / .cer / .appinstaller 生成）
@@ -37,7 +37,9 @@
 ### PR B: インストーラースクリプト
 
 - [ ] ワンライナー対応インストーラースクリプト (`scripts/install.ps1`) の作成（証明書信頼登録 ＋ `.appinstaller` 導入、昇格は証明書インポートのみ）
-- [ ] Windows PowerShell 5.1 の `irm | iex` で日本語メッセージが文字化けしないことを検証（Release アセットは `application/octet-stream` 配信）
+- [x] Windows PowerShell 5.1 での日本語復号を検証: Release アセットは `application/octet-stream` 配信のため `irm | iex` では文字化けする（pwsh 7 は正常）。`iwr` の Byte[] を UTF-8 で明示復号すれば 5.1 / 7 とも正常
+- [x] 配布ワンライナーを決定: `iex ([Text.Encoding]::UTF8.GetString((iwr -UseBasicParsing https://github.com/scottlz0310/dsx/releases/latest/download/install.ps1).Content))`
+- [ ] PR A マージ後に着手（AGENTS.md: レビュー対応中はサブ PR を作成しない）
 - [ ] Pester テストと CI job の追加
 - [ ] `release.yml` で `install.ps1` を Release アセットに追加
 - [ ] ドキュメント更新（`README.md` にワンライナー導入手順を追加）
