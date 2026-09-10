@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- PowerShell の UTF-8 BOM 付き `install.ps1` を `iex` で実行する際、BOM を明示的に除去するワンライナーへ更新し、`#Requires` と `param` の誤解釈を防止
+
 ## [v0.9.0] - 2026-09-10
 
 ### Added

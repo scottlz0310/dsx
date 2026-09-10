@@ -45,7 +45,7 @@ MSIX 版を現在のユーザーへインストールします。証明書が未
 UAC が表示されます。
 
 ```powershell
-iex ([Text.Encoding]::UTF8.GetString((iwr -UseBasicParsing https://github.com/scottlz0310/dsx/releases/latest/download/install.ps1).Content))
+iex ([Text.Encoding]::UTF8.GetString((iwr -UseBasicParsing https://github.com/scottlz0310/dsx/releases/latest/download/install.ps1).Content).TrimStart([char]0xFEFF))
 ```
 
 `go install` 版の `~/go/bin/dsx.exe` が残っている場合は警告が表示されます。
