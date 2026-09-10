@@ -45,7 +45,7 @@ jobs:
           cache: true
 
       - name: Run golangci-lint
-        run: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4 run ./cmd/... ./internal/...
+        run: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2 run ./cmd/... ./internal/...
 
   test:
     name: Test
@@ -87,6 +87,27 @@ jobs:
 
       - name: Run tests
         run: go test -v ./...
+
+  msix:
+    name: MSIX Package
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build dsx.exe
+        run: go build -o dist/dsx.exe ./cmd/dsx
+
+      # リリース時に初めてマニフェスト不備が発覚しないよう、未署名でパッケージ化だけ検証する
+      - name: Validate MSIX packaging
+        shell: pwsh
+        run: ./packaging/msix/Build-Msix.ps1 -BinaryPath dist/dsx.exe -Tag v0.0.0 -OutDir dist/msix
 
   build:
     name: Build

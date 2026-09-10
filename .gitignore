@@ -2,6 +2,8 @@
 /dsx
 /dist/
 /.task/
+# MSIX 署名証明書の出力先（packaging/msix/New-SigningCertificate.ps1）
+/artifacts/
 *.exe
 *.exe~
 *.dll

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppInstaller
+    xmlns="http://schemas.microsoft.com/appx/appinstaller/2018"
+    Uri="https://github.com/scottlz0310/dsx/releases/latest/download/dsx.appinstaller"
+    Version="{VERSION}">
+
+  <MainPackage
+      Name="scottlz0310.dsx"
+      Publisher="CN=scottlz0310"
+      Version="{VERSION}"
+      ProcessorArchitecture="x64"
+      Uri="https://github.com/scottlz0310/dsx/releases/download/{TAG}/dsx_x64.msix" />
+
+  <!-- CLI は起動頻度が高く更新確認 UI も出せないため、プロンプトなしの起動時確認と
+       バックグラウンド確認を併用する -->
+  <UpdateSettings>
+    <OnLaunch HoursBetweenUpdateChecks="24" />
+    <AutomaticBackgroundTask />
+  </UpdateSettings>
+
+</AppInstaller>

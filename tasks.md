@@ -18,6 +18,38 @@
 
 ---
 
+## Issue #104: PowerShell ワンライナー (irm ... | iex) による証明書信頼設定と MSIX/.appinstaller 自動インストールの提供
+
+- [x] GitHub Issue #104 を tacho-graph-studio 実績ベースのワンライナー MSIX/Appinstaller 方針に更新
+方針: 署名証明書は dsx 専用に新規生成 / 信頼ストアは `LocalMachine\TrustedPeople` / 配布 URL は `releases/latest/download/install.ps1` / PR は 2 分割
+
+### PR A: MSIX パッケージ化とリリースパイプライン（PR #112）
+
+- [x] `packaging/msix/AppxManifest.xml`（`AppExecutionAlias`・書き込み仮想化無効化）と `.appinstaller` テンプレート
+- [x] `packaging/msix/Build-Msix.ps1`（makeappx / signtool / .cer / .appinstaller 生成）
+- [x] `packaging/msix/New-SigningCertificate.ps1`（dsx 専用署名証明書の生成）
+- [x] `release.yml` に `msix` job 追加（goreleaser の Windows バイナリを署名済み MSIX 化して Release に追加）
+- [x] `ci.yml` に未署名 MSIX パッケージ化検証 job 追加
+- [x] ローカル検証（未署名/署名付きビルド、開発者モード登録で alias 起動・仮想化無効を確認）
+- [x] golangci-lint の固定バージョンを v2.11.4 → v2.13.2 に更新（`lefthook.yml` / `ci.yml`。v2.11.4 は Go 1.27 の export data を読めず pre-push が失敗するため）
+- [ ] **次回リリース前に必須**: `New-SigningCertificate.ps1` を実行し `SIGNING_CERTIFICATE_BASE64` / `SIGNING_CERTIFICATE_PASSWORD` を dsx リポジトリの Secrets に登録（ユーザー作業）
+
+### PR B: インストーラースクリプト
+
+- [ ] ワンライナー対応インストーラースクリプト (`scripts/install.ps1`) の作成（証明書信頼登録 ＋ `.appinstaller` 導入、昇格は証明書インポートのみ）
+- [x] Windows PowerShell 5.1 での日本語復号を検証: Release アセットは `application/octet-stream` 配信のため `irm | iex` では文字化けする（pwsh 7 は正常）。`iwr` の Byte[] を UTF-8 で明示復号すれば 5.1 / 7 とも正常
+- [x] 配布ワンライナーを決定: `iex ([Text.Encoding]::UTF8.GetString((iwr -UseBasicParsing https://github.com/scottlz0310/dsx/releases/latest/download/install.ps1).Content))`
+- [ ] PR A マージ後に着手（AGENTS.md: レビュー対応中はサブ PR を作成しない）
+- [ ] Pester テストと CI job の追加
+- [ ] `release.yml` で `install.ps1` を Release アセットに追加
+- [ ] ドキュメント更新（`README.md` にワンライナー導入手順を追加）
+
+### 後続 Issue
+
+- [x] Issue #111 作成: MSIX 版での `dsx self-update`（go install）と `config init`（バージョン付き実体パスの埋め込み）の対応
+
+---
+
 ## Issue #101: pnpm update -g 実行時のインタラクティブプロンプトによるタイムアウト防止
 
 - [x] `internal/updater/pnpm.go` に `--no-interactive` フラグおよび `CI=true` 環境変数を追加
