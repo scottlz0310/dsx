@@ -10,6 +10,7 @@
 
 - Windows 向け MSIX パッケージ配布を追加。リリース時に署名済み `dsx_x64.msix`・`dsx.appinstaller`・公開証明書 `dsx.cer` を GitHub Release に発行し、`AppExecutionAlias` により PATH から `dsx` を実行できる。子プロセス（go / npm / winget 等）の書き込みが仮想化されないよう、ファイル・レジストリ書き込み仮想化を無効化している（#104）
 - MSIX 署名用自己署名証明書の生成スクリプト `packaging/msix/New-SigningCertificate.ps1` と、CI での未署名 MSIX パッケージ化検証を追加（#104）
+- PowerShell ワンライナー用の `scripts/install.ps1` を追加。署名証明書の信頼登録と `.appinstaller` 経由の MSIX 導入を自動化し、証明書のインポートだけを必要に応じて管理者権限で実行する（#104）
 
 ### Changed
 

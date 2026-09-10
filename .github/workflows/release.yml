@@ -92,6 +92,10 @@ jobs:
           ./packaging/msix/Build-Msix.ps1 -BinaryPath "$env:RUNNER_TEMP\bin\dsx.exe" -Tag $env:TAG `
             -OutDir "$env:RUNNER_TEMP\msix" -PfxPath "$env:RUNNER_TEMP\signing.pfx"
 
+      - name: Add installer script
+        shell: pwsh
+        run: Copy-Item -LiteralPath "scripts/install.ps1" -Destination "$env:RUNNER_TEMP\msix\install.ps1"
+
       - name: Upload MSIX assets to release
         shell: pwsh
         env:

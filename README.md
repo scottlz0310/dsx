@@ -37,6 +37,20 @@ tar xzf dsx.tar.gz
 sudo mv dsx /usr/local/bin/
 ```
 
+### Windows でのインストール（MSIX）
+
+PowerShell で次のワンライナーを実行してください。署名証明書を
+`LocalMachine\TrustedPeople` に信頼登録した後、`.appinstaller` 経由で
+MSIX 版を現在のユーザーへインストールします。証明書が未登録の場合だけ
+UAC が表示されます。
+
+```powershell
+iex ([Text.Encoding]::UTF8.GetString((iwr -UseBasicParsing https://github.com/scottlz0310/dsx/releases/latest/download/install.ps1).Content))
+```
+
+`go install` 版の `~/go/bin/dsx.exe` が残っている場合は警告が表示されます。
+MSIX 版の導入後に旧ファイルを削除し、`dsx config init` を再実行してください。
+
 ### インストール方法（go install）
 
 > **Windows では非サポート**: Windows では `go install` による導入と、`dsx self-update` による `go install` 経由の更新をサポートしません（Linux / macOS は従来通り）。
