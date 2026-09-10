@@ -50,3 +50,52 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  msix:
+    name: MSIX
+    needs: release
+    # MSIX のバージョンは数値 4 要素のみのため、prerelease タグ（v1.2.3-alpha 等）は対象外
+    if: ${{ !contains(github.ref_name, '-') }}
+    runs-on: windows-latest
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # goreleaser が発行した Windows バイナリをそのままパッケージ化し、配布物の出所を 1 つに保つ
+      - name: Download Windows binary from release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $zip = "dsx_$($env:TAG.TrimStart('v'))_windows_amd64.zip"
+          gh release download $env:TAG --pattern $zip --dir "$env:RUNNER_TEMP\release"
+          Expand-Archive "$env:RUNNER_TEMP\release\$zip" -DestinationPath "$env:RUNNER_TEMP\bin"
+
+      - name: Restore signing certificate
+        shell: pwsh
+        env:
+          SIGNING_CERTIFICATE_BASE64: ${{ secrets.SIGNING_CERTIFICATE_BASE64 }}
+        run: |
+          if (-not $env:SIGNING_CERTIFICATE_BASE64) {
+            throw "Secret SIGNING_CERTIFICATE_BASE64 が未設定です（packaging/msix/New-SigningCertificate.ps1 参照）"
+          }
+          [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\signing.pfx",
+            [Convert]::FromBase64String($env:SIGNING_CERTIFICATE_BASE64))
+
+      - name: Build and sign MSIX
+        shell: pwsh
+        env:
+          SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          ./packaging/msix/Build-Msix.ps1 -BinaryPath "$env:RUNNER_TEMP\bin\dsx.exe" -Tag $env:TAG `
+            -OutDir "$env:RUNNER_TEMP\msix" -PfxPath "$env:RUNNER_TEMP\signing.pfx"
+
+      - name: Upload MSIX assets to release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $files = Get-ChildItem "$env:RUNNER_TEMP\msix" | ForEach-Object FullName
+          gh release upload $env:TAG @files
