@@ -17,7 +17,7 @@ GitHub Releases から公開証明書と .appinstaller を取得する。
 証明書と .appinstaller を取得するベース URL。ローカル検証時に差し替えられる。
 
 .EXAMPLE
-iex ([Text.Encoding]::UTF8.GetString((iwr -UseBasicParsing https://github.com/scottlz0310/dsx/releases/latest/download/install.ps1).Content))
+iex ([Text.Encoding]::UTF8.GetString((iwr -UseBasicParsing https://github.com/scottlz0310/dsx/releases/latest/download/install.ps1).Content).TrimStart([char]0xFEFF))
 
 .EXAMPLE
 pwsh -File .\scripts\install.ps1 -BaseUrl http://localhost:8000

@@ -73,6 +73,7 @@
 - [x] Pester テストと CI job の追加
 - [x] `release.yml` で `install.ps1` を Release アセットに追加
 - [x] ドキュメント更新（`README.md` にワンライナー導入手順を追加）
+- [x] UTF-8 BOM が `iex` で誤解釈されないよう、ワンライナーの実行例を更新
 
 ### 後続 Issue
 
