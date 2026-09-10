@@ -31,8 +31,8 @@ dsx は、開発環境の運用作業を統合・一元化するためのクロ�
 [Releases ページ](https://github.com/scottlz0310/dsx/releases) からお使いの OS 向けのバイナリをダウンロードして PATH に配置してください。
 
 ```bash
-# 例: Linux amd64（v0.8.1 の場合）
-curl -Lo dsx.tar.gz https://github.com/scottlz0310/dsx/releases/download/v0.8.1/dsx_0.8.1_linux_amd64.tar.gz
+# 例: Linux amd64（v0.9.0 の場合）
+curl -Lo dsx.tar.gz https://github.com/scottlz0310/dsx/releases/download/v0.9.0/dsx_0.9.0_linux_amd64.tar.gz
 tar xzf dsx.tar.gz
 sudo mv dsx /usr/local/bin/
 ```
@@ -175,7 +175,7 @@ Remove-Item -Force (Get-Command dsx).Source
 
 ### メインコマンド
 ```
-dsx --version      # バージョン表示（現在: v0.8.1）
+dsx --version      # バージョン表示（現在: v0.9.0）
 dsx run           # 日次の統合タスクを実行（Bitwarden解錠→環境変数読込→更新処理）
 dsx run -n        # ドライラン（sys/repo に伝播）
 dsx run --tui     # TUI 進捗表示を有効化（sys/repo に伝播）
@@ -310,27 +310,26 @@ dsx config validate   # 設定内容を検証
 dsx config uninstall  # シェル設定からdsxを削除
 ```
 
-## 📋 リリース方針（v0.8.1）
+## 📋 リリース方針（v0.9.0）
 
-本バージョンは **Bun のグローバルパッケージ更新と本体更新** に対応する機能強化リリースです。
+本バージョンは **Windows の配布経路を MSIX に統一**し、MSIX の自動更新とワンライナー導入を提供するリリースです。
 
 ### 主な変更
 
-- `bun outdated -g` / `bun update -g --latest` によるグローバルパッケージ更新に対応
-- Bun 管理のインストールでは、通常更新前に `bun upgrade` で本体を更新
-- Homebrew / Scoop 管理下または所有元不明の Bun 本体更新は、安全のためスキップ
+- Windows では署名済み MSIX と `.appinstaller` による導入・自動更新に対応
+- PowerShell ワンライナーで署名証明書の信頼登録と MSIX 導入を実行可能
+- Windows の `go install` による dsx の導入・更新を廃止（Linux / macOS は従来通り）
 
 ### 推奨運用（当面）
 
-- `dsx sys update -n --tui` で、Bun 本体更新とグローバルパッケージ更新の予定を先に確認する
-- Homebrew / Scoop で導入した Bun は、それぞれのパッケージマネージャで本体を更新する
-- `dsx` 本体更新は従来通り `dsx self-update` で実行する
+- Windows では [Windows でのインストール（MSIX）](#windows-でのインストールmsix) のワンライナーを使用する
+- `go install` 版から移行する場合は、MSIX 版を導入した後に `~/go/bin/dsx.exe` を削除し、`dsx config init` を再実行する
+- Linux / macOS では従来通り `dsx self-update` を使用する
 
 ### 既知の制約
 
-- Bun 本体の所有元を特定できない場合は、自動更新を行わない
-- Bun のグローバル更新は、実行環境に `bun` がインストールされている場合のみ対象
-- `sys` パッケージマネージャ対応は拡張中（追加対応は `tasks.md` 管理）
+- Windows の MSIX 自動更新は `.appinstaller` の更新確認に依存する
+- Windows の MSIX 版では `dsx self-update` は更新方法を案内するのみで、`go install` は実行しない
 
 ## 🧪 日常運用（マニュアルテスト手順）
 
@@ -553,7 +552,7 @@ task lint
 
 ## 📅 ステータス
 
-現在 **v0.8.1（安定版）** です。
+現在 **v0.9.0（安定版）** です。
 詳細なロードマップについては [docs/Implementation_Plan.md](docs/Implementation_Plan.md) を参照してください。
 
 ## 📄 ライセンス

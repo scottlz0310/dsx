@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [v0.9.0] - 2026-09-10
+
 ### Added
 
 - Windows 向け MSIX パッケージ配布を追加。リリース時に署名済み `dsx_x64.msix`・`dsx.appinstaller`・公開証明書 `dsx.cer` を GitHub Release に発行し、`AppExecutionAlias` により PATH から `dsx` を実行できる。子プロセス（go / npm / winget 等）の書き込みが仮想化されないよう、ファイル・レジストリ書き込み仮想化を無効化している（#104）
@@ -423,7 +425,9 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.9.0...HEAD
+[v0.9.0]: https://github.com/scottlz0310/dsx/compare/v0.8.1...v0.9.0
+[v0.8.1]: https://github.com/scottlz0310/dsx/compare/v0.8.0...v0.8.1
 [v0.8.0]: https://github.com/scottlz0310/dsx/compare/v0.7.0...v0.8.0
 [v0.7.0]: https://github.com/scottlz0310/dsx/compare/v0.6.4...v0.7.0
 [v0.6.4]: https://github.com/scottlz0310/dsx/compare/v0.6.3...v0.6.4

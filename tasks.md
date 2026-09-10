@@ -4,6 +4,21 @@
 
 > 過去の完了タスク履歴は [docs/archive/tasks_v0.2.3.md](docs/archive/tasks_v0.2.3.md) を参照してください。
 
+## v0.9.0 リリース準備
+
+- [x] PR #113 / #114 が main にマージ済みであることを確認
+- [x] `SIGNING_CERTIFICATE_BASE64` / `SIGNING_CERTIFICATE_PASSWORD` を GitHub Secrets に登録
+- [x] `task check` 通過（fmt/vet/test/lint）
+- [x] `go build ./...` 通過
+- [x] `go run ./cmd/dsx --help` 表示確認
+- [x] `task release:check` 通過
+- [x] CHANGELOG.md: [Unreleased] → [v0.9.0] - 2026-09-10
+- [x] README.md: バージョン表記とリリース方針を v0.9.0 に更新
+- [x] リリース準備 PR を作成（PR #115）
+- [ ] `v0.9.0` タグ発行・push → goreleaser が GitHub Release を自動作成
+
+---
+
 ## v0.8.1 リリース準備
 
 - [x] PR #102 が main にマージ済みであることを確認
