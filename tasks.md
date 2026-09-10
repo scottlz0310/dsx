@@ -31,6 +31,7 @@
 - [x] `release.yml` に `msix` job 追加（goreleaser の Windows バイナリを署名済み MSIX 化して Release に追加）
 - [x] `ci.yml` に未署名 MSIX パッケージ化検証 job 追加
 - [x] ローカル検証（未署名/署名付きビルド、開発者モード登録で alias 起動・仮想化無効を確認）
+- [x] golangci-lint の固定バージョンを v2.11.4 → v2.13.2 に更新（`lefthook.yml` / `ci.yml`。v2.11.4 は Go 1.27 の export data を読めず pre-push が失敗するため）
 - [ ] **次回リリース前に必須**: `New-SigningCertificate.ps1` を実行し `SIGNING_CERTIFICATE_BASE64` / `SIGNING_CERTIFICATE_PASSWORD` を dsx リポジトリの Secrets に登録（ユーザー作業）
 
 ### PR B: インストーラースクリプト
