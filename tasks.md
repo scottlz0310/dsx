@@ -14,7 +14,7 @@
 - [x] `task release:check` 通過
 - [x] CHANGELOG.md: [Unreleased] → [v0.9.0] - 2026-09-10
 - [x] README.md: バージョン表記とリリース方針を v0.9.0 に更新
-- [ ] リリース準備 PR を作成
+- [x] リリース準備 PR を作成（PR #115）
 - [ ] `v0.9.0` タグ発行・push → goreleaser が GitHub Release を自動作成
 
 ---
