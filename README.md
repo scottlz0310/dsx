@@ -39,6 +39,10 @@ sudo mv dsx /usr/local/bin/
 
 ### インストール方法（go install）
 
+> **Windows では非サポート**: Windows では `go install` による導入と、`dsx self-update` による `go install` 経由の更新をサポートしません（Linux / macOS は従来通り）。
+> Windows では MSIX 版を使用してください。MSIX 版は `.appinstaller` により自動更新され、`dsx self-update` は更新方法を案内するのみです。
+> `go install` 版から移行する場合は、MSIX 版を導入した後に `~/go/bin/dsx.exe` を削除し、`dsx config init` を再実行してシェル連携スクリプトを再生成してください。
+
 ```bash
 go install github.com/scottlz0310/dsx/cmd/dsx@latest
 ```
