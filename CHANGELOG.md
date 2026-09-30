@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `dsx sys update` に pnpm 本体の自己更新を追加。`pnpm self-update` の前に CLI バージョンと registry 上の最新版を読み取り専用で比較し、DryRun では更新を実行しない。プロジェクトの `packageManager` pin を一時設定で無視し、呼び出し元の作業ディレクトリを維持して NVM for Windows Shim の Node.js 選択に対応する（#119）
+
 ### Fixed
 
 - PowerShell の UTF-8 BOM 付き `install.ps1` を `iex` で実行する際、BOM を明示的に除去するワンライナーへ更新し、`#Requires` と `param` の誤解釈を防止

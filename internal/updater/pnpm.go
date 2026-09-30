@@ -12,10 +12,17 @@ import (
 	"strings"
 
 	"github.com/scottlz0310/dsx/internal/config"
+	"github.com/scottlz0310/dsx/internal/selfupdate"
 )
 
+type pnpmSelfUpdateOutputRunner func(context.Context, ...string) ([]byte, error)
+type pnpmSelfUpdateRunner func(context.Context, ...string) error
+
 // PnpmUpdater は pnpm グローバルパッケージマネージャの実装です。
-type PnpmUpdater struct{}
+type PnpmUpdater struct {
+	runSelfUpdateOutputStep pnpmSelfUpdateOutputRunner
+	runSelfUpdateStep       pnpmSelfUpdateRunner
+}
 
 const (
 	pnpmNoImporterManifestErrorCode = "ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND"
@@ -139,6 +146,171 @@ func (p *PnpmUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRe
 	result.Message = fmt.Sprintf("%d 件の pnpm グローバルパッケージを更新しました", result.UpdatedCount)
 
 	return result, nil
+}
+
+func (p *PnpmUpdater) CheckSelfUpdate(ctx context.Context) (*CheckResult, error) {
+	currentOutput, err := p.runSelfUpdateOutput(ctx, "--version")
+	if err != nil {
+		return nil, fmt.Errorf("pnpm --version の実行に失敗: %w", err)
+	}
+
+	currentVersion, err := parsePnpmVersionOutput(currentOutput)
+	if err != nil {
+		return nil, fmt.Errorf("pnpm --version の出力解析に失敗: %w", err)
+	}
+
+	latestOutput, err := p.runSelfUpdateOutput(ctx, "view", "pnpm", "version", "--json")
+	if err != nil {
+		return nil, fmt.Errorf("pnpm view pnpm version --json の実行に失敗: %w", err)
+	}
+
+	latestVersion, err := parsePnpmVersionOutput(latestOutput)
+	if err != nil {
+		return nil, fmt.Errorf("pnpm view pnpm version --json の出力解析に失敗: %w", err)
+	}
+
+	if comparePnpmVersions(latestVersion, currentVersion) <= 0 {
+		return &CheckResult{Message: "pnpm 本体は最新です"}, nil
+	}
+
+	return &CheckResult{
+		AvailableUpdates: 1,
+		Packages: []PackageInfo{
+			{
+				Name:           "pnpm",
+				CurrentVersion: currentVersion,
+				NewVersion:     latestVersion,
+			},
+		},
+		Message: "pnpm 本体の更新が可能です",
+	}, nil
+}
+
+func (p *PnpmUpdater) SelfUpdate(ctx context.Context, opts UpdateOptions) (*SelfUpdateResult, error) {
+	checkResult, err := p.CheckSelfUpdate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &SelfUpdateResult{
+		Continuation: ContinueNormalUpdate,
+		UpdateResult: UpdateResult{
+			Packages: checkResult.Packages,
+			Message:  checkResult.Message,
+		},
+	}
+
+	if checkResult.AvailableUpdates == 0 {
+		return result, nil
+	}
+
+	if opts.DryRun {
+		result.Message = "pnpm 本体の更新が可能です（DryRunモード）"
+
+		return result, nil
+	}
+
+	if err := p.runSelfUpdate(ctx, "self-update"); err != nil {
+		result.Errors = append(result.Errors, err)
+
+		return result, fmt.Errorf("pnpm self-update の実行に失敗: %w", err)
+	}
+
+	result.UpdatedCount = 1
+	result.Message = "pnpm 本体を更新しました"
+
+	return result, nil
+}
+
+func (p *PnpmUpdater) runSelfUpdateOutput(ctx context.Context, args ...string) ([]byte, error) {
+	args = pnpmSelfUpdateArgs(args...)
+	if p.runSelfUpdateOutputStep != nil {
+		return p.runSelfUpdateOutputStep(ctx, args...)
+	}
+
+	cmd := exec.CommandContext(ctx, "pnpm", args...)
+
+	cmd.Env = append(os.Environ(), "LANG=C", "LC_ALL=C")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, buildCommandOutputErr(err, output)
+	}
+
+	return output, nil
+}
+
+func (p *PnpmUpdater) runSelfUpdate(ctx context.Context, args ...string) error {
+	args = pnpmSelfUpdateArgs(args...)
+	if p.runSelfUpdateStep != nil {
+		return p.runSelfUpdateStep(ctx, args...)
+	}
+
+	cmd := exec.CommandContext(ctx, "pnpm", args...)
+
+	cmd.Env = append(os.Environ(), "CI=true")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+func pnpmSelfUpdateArgs(args ...string) []string {
+	// pnpm v10 以前と v11 以降では packageManager pin を無視する設定名が異なります。
+	result := make([]string, 0, 2+len(args))
+	result = append(result, "--config.managePackageManagerVersions=false", "--config.pmOnFail=ignore")
+
+	return append(result, args...)
+}
+
+func parsePnpmVersionOutput(output []byte) (string, error) {
+	var versionLine string
+	for _, line := range strings.Split(string(output), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "[WARN]") {
+			continue
+		}
+
+		if versionLine != "" {
+			return "", fmt.Errorf("複数のバージョン行があります: %q", string(output))
+		}
+
+		versionLine = trimmed
+	}
+
+	var jsonVersion string
+	if err := json.Unmarshal([]byte(versionLine), &jsonVersion); err == nil {
+		versionLine = strings.TrimSpace(jsonVersion)
+	}
+
+	versionLine = strings.TrimPrefix(versionLine, "v")
+	if _, ok := selfupdate.ParseSemverCore(versionLine); !ok {
+		return "", fmt.Errorf("semver 形式のバージョンではありません: %q", versionLine)
+	}
+
+	return versionLine, nil
+}
+
+func comparePnpmVersions(left, right string) int {
+	leftCore, _ := selfupdate.ParseSemverCore(left)
+
+	rightCore, _ := selfupdate.ParseSemverCore(right)
+	if comparison := selfupdate.CompareSemverCore(leftCore, rightCore); comparison != 0 {
+		return comparison
+	}
+
+	leftPrerelease := strings.Contains(left, "-")
+
+	rightPrerelease := strings.Contains(right, "-")
+	if leftPrerelease == rightPrerelease {
+		return 0
+	}
+
+	if leftPrerelease {
+		return -1
+	}
+
+	return 1
 }
 
 func (p *PnpmUpdater) runUpdate(ctx context.Context) error {
@@ -344,3 +516,5 @@ func (p *PnpmUpdater) parseOutdatedMapJSON(output []byte) ([]PackageInfo, error)
 
 	return packages, nil
 }
+
+var _ ManagerSelfUpdater = (*PnpmUpdater)(nil)

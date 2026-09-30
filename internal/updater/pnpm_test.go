@@ -2,6 +2,7 @@ package updater
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -564,6 +565,228 @@ func TestPnpmUpdater_Update(t *testing.T) {
 				assert.Error(t, statErr)
 				assert.True(t, os.IsNotExist(statErr), "manifest は作成されない想定です")
 			}
+		})
+	}
+}
+
+func TestPnpmUpdater_CheckSelfUpdate(t *testing.T) {
+	tests := []struct {
+		name              string
+		currentOutput     string
+		latestOutput      string
+		errOnCall         int
+		wantUpdates       int
+		wantPackage       PackageInfo
+		wantMessage       string
+		wantErrContains   string
+		wantOutputCallNum int
+	}{
+		{
+			name:              "更新候補を返す",
+			currentOutput:     "12.7.0\n",
+			latestOutput:      `"12.8.1"` + "\n",
+			wantUpdates:       1,
+			wantPackage:       PackageInfo{Name: "pnpm", CurrentVersion: "12.7.0", NewVersion: "12.8.1"},
+			wantMessage:       "pnpm 本体の更新が可能です",
+			wantOutputCallNum: 2,
+		},
+		{
+			name:              "最新版なら候補を返さない",
+			currentOutput:     "v12.8.1\n",
+			latestOutput:      `"12.8.1"`,
+			wantMessage:       "pnpm 本体は最新です",
+			wantOutputCallNum: 2,
+		},
+		{
+			name:              "registry の latest が現在版より古ければ更新しない",
+			currentOutput:     "12.8.1\n",
+			latestOutput:      `"12.7.0"`,
+			wantMessage:       "pnpm 本体は最新です",
+			wantOutputCallNum: 2,
+		},
+		{
+			name:              "同じ core の prerelease から安定版へ更新する",
+			currentOutput:     "12.8.1-rc.1\n",
+			latestOutput:      `"12.8.1"`,
+			wantUpdates:       1,
+			wantPackage:       PackageInfo{Name: "pnpm", CurrentVersion: "12.8.1-rc.1", NewVersion: "12.8.1"},
+			wantMessage:       "pnpm 本体の更新が可能です",
+			wantOutputCallNum: 2,
+		},
+		{
+			name:              "WARN 行を除外してバージョンを読む",
+			currentOutput:     "[WARN] 設定の警告\n12.7.0\n",
+			latestOutput:      `"12.8.1"`,
+			wantUpdates:       1,
+			wantPackage:       PackageInfo{Name: "pnpm", CurrentVersion: "12.7.0", NewVersion: "12.8.1"},
+			wantMessage:       "pnpm 本体の更新が可能です",
+			wantOutputCallNum: 2,
+		},
+		{
+			name:              "不正なバージョンはエラー",
+			currentOutput:     "latest\n",
+			wantErrContains:   "pnpm --version の出力解析に失敗",
+			wantOutputCallNum: 1,
+		},
+		{
+			name:              "空のバージョン出力はエラー",
+			currentOutput:     "",
+			wantErrContains:   "pnpm --version の出力解析に失敗",
+			wantOutputCallNum: 1,
+		},
+		{
+			name:              "現在バージョンの取得失敗はエラー",
+			errOnCall:         1,
+			wantErrContains:   "pnpm --version の実行に失敗",
+			wantOutputCallNum: 1,
+		},
+		{
+			name:              "最新バージョンの取得失敗はエラー",
+			currentOutput:     "12.7.0\n",
+			errOnCall:         2,
+			wantErrContains:   "pnpm view pnpm version --json の実行に失敗",
+			wantOutputCallNum: 2,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			updater := &PnpmUpdater{
+				runSelfUpdateOutputStep: func(_ context.Context, args ...string) ([]byte, error) {
+					calls++
+
+					wantArgs := pnpmSelfUpdateArgs("--version")
+
+					if calls == 2 {
+						wantArgs = pnpmSelfUpdateArgs("view", "pnpm", "version", "--json")
+					}
+
+					assert.Equal(t, wantArgs, args)
+
+					if calls == tc.errOnCall {
+						return nil, errors.New("registry unavailable")
+					}
+
+					if calls == 1 {
+						return []byte(tc.currentOutput), nil
+					}
+
+					return []byte(tc.latestOutput), nil
+				},
+			}
+
+			got, err := updater.CheckSelfUpdate(context.Background())
+
+			assert.Equal(t, tc.wantOutputCallNum, calls)
+
+			if tc.wantErrContains != "" {
+				if assert.Error(t, err) {
+					assert.Contains(t, err.Error(), tc.wantErrContains)
+				}
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.wantUpdates, got.AvailableUpdates)
+			assert.Equal(t, tc.wantMessage, got.Message)
+
+			if tc.wantUpdates > 0 {
+				assert.Equal(t, []PackageInfo{tc.wantPackage}, got.Packages)
+			} else {
+				assert.Empty(t, got.Packages)
+			}
+		})
+	}
+}
+
+func TestPnpmUpdater_SelfUpdate(t *testing.T) {
+	tests := []struct {
+		name                string
+		currentVersion      string
+		latestVersion       string
+		opts                UpdateOptions
+		updateErr           error
+		wantUpdates         int
+		wantMessageContains string
+		wantErrContains     string
+		wantUpdateCalls     int
+	}{
+		{
+			name:                "更新なし",
+			currentVersion:      "12.8.1",
+			latestVersion:       "12.8.1",
+			wantMessageContains: "最新です",
+		},
+		{
+			name:                "DryRun は自己更新コマンドを実行しない",
+			currentVersion:      "12.7.0",
+			latestVersion:       "12.8.1",
+			opts:                UpdateOptions{DryRun: true},
+			wantMessageContains: "DryRun",
+		},
+		{
+			name:                "pnpm self-update で本体を更新する",
+			currentVersion:      "12.7.0",
+			latestVersion:       "12.8.1",
+			wantUpdates:         1,
+			wantMessageContains: "pnpm 本体を更新しました",
+			wantUpdateCalls:     1,
+		},
+		{
+			name:                "自己更新失敗をコマンドの文脈付きで返す",
+			currentVersion:      "12.7.0",
+			latestVersion:       "12.8.1",
+			updateErr:           errors.New("permission denied"),
+			wantUpdates:         0,
+			wantMessageContains: "pnpm 本体の更新が可能です",
+			wantErrContains:     "pnpm self-update の実行に失敗",
+			wantUpdateCalls:     1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			updateCalls := 0
+			updater := &PnpmUpdater{
+				runSelfUpdateOutputStep: func(_ context.Context, args ...string) ([]byte, error) {
+					if strings.HasSuffix(strings.Join(args, " "), "--version") {
+						return []byte(tc.currentVersion), nil
+					}
+
+					assert.Equal(t, pnpmSelfUpdateArgs("view", "pnpm", "version", "--json"), args)
+
+					return []byte(`"` + tc.latestVersion + `"`), nil
+				},
+				runSelfUpdateStep: func(_ context.Context, args ...string) error {
+					updateCalls++
+
+					assert.Equal(t, pnpmSelfUpdateArgs("self-update"), args)
+
+					return tc.updateErr
+				},
+			}
+
+			got, err := updater.SelfUpdate(context.Background(), tc.opts)
+			assert.Equal(t, tc.wantUpdateCalls, updateCalls)
+
+			if tc.wantErrContains != "" {
+				if assert.Error(t, err) {
+					assert.Contains(t, err.Error(), tc.wantErrContains)
+				}
+
+				assert.NotNil(t, got)
+
+				assert.Len(t, got.Errors, 1)
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, ContinueNormalUpdate, got.Continuation)
+			assert.Equal(t, tc.wantUpdates, got.UpdatedCount)
+			assert.Contains(t, got.Message, tc.wantMessageContains)
 		})
 	}
 }

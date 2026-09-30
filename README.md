@@ -212,6 +212,7 @@ dsx sys discover --manager go # Go バイナリのみスキャン
 Homebrew / Scoop 管理下または所有元を安全に判定できない Bun は本体更新をスキップし、グローバルパッケージ更新のみ継続します。
 Bun updater は Homebrew / Scoop による本体更新との競合を避けるため、通常更新の並列フェーズより先に単独実行します。
 `dsx` 本体はこのフェーズでは更新せず、従来通り `dsx self-update` で扱います。
+`pnpm` は `pnpm self-update` で本体を確認・更新してから、グローバルパッケージを更新します。自己更新の候補確認は読み取り専用で、DryRun では本体を更新しません。プロジェクトの `packageManager` pin を無視する一時オプションを使い、呼び出し元の作業ディレクトリを維持するため、NVM for Windows Shim がプロジェクトごとの Node.js を選択する状態も保ちます。
 `pnpm` のグローバル更新は `pnpm update -g --latest` を使用し、version range に制限されず latest まで更新します。
 
 Go updater は `go.targets` のうち `@latest` 対象について、インストール済みバイナリの module 情報と `go list -m -json <module>@latest` を best-effort で比較します。

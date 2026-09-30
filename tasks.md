@@ -19,6 +19,20 @@
 
 ---
 
+## Issue #119: pnpm 本体の self-update
+
+- [x] `CheckSelfUpdate` で現在版と registry の最新版を読み取り専用で比較
+- [x] 通常実行では `pnpm self-update` を呼び出し、グローバルパッケージ更新とは別結果にする
+- [x] DryRun で自己更新を実行せず、`packageManager` pin と lockfile を変更しない引数を固定
+- [x] 呼び出し元の作業ディレクトリを維持して NVM for Windows Shim の Node.js 選択を保つ
+- [x] `internal/updater/pnpm_test.go` に候補比較・DryRun・成功・失敗の table-driven tests を追加
+- [x] pnpm 12.8.1 で pinned packageManager の一時プロジェクトから確認コマンドを実行し、`package.json` / lockfile が不変であることを確認
+- [x] `CHANGELOG.md` / `README.md` / `docs/Implementation_Plan.md` を更新
+- [ ] NVM for Windows v2 Shim モードと NVM 管理下 pnpm の実機更新確認（現在の環境は v2 link モード、pnpm は standalone 版）
+- [x] `task check` / `go build ./...` / `go run ./cmd/dsx --help` を確認
+
+---
+
 ## v0.8.1 リリース準備
 
 - [x] PR #102 が main にマージ済みであることを確認
