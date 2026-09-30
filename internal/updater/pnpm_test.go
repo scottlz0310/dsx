@@ -2,6 +2,7 @@ package updater
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -568,6 +569,302 @@ func TestPnpmUpdater_Update(t *testing.T) {
 	}
 }
 
+func TestPnpmUpdater_CheckSelfUpdate(t *testing.T) {
+	tests := []struct {
+		name              string
+		currentOutput     string
+		latestOutput      string
+		errOnCall         int
+		wantUpdates       int
+		wantPackage       PackageInfo
+		wantMessage       string
+		wantErrContains   string
+		wantOutputCallNum int
+	}{
+		{
+			name:              "更新候補を返す",
+			currentOutput:     "12.7.0\n",
+			latestOutput:      `"12.8.1"` + "\n",
+			wantUpdates:       1,
+			wantPackage:       PackageInfo{Name: "pnpm", CurrentVersion: "12.7.0", NewVersion: "12.8.1"},
+			wantMessage:       "pnpm 本体の更新が可能です",
+			wantOutputCallNum: 2,
+		},
+		{
+			name:              "最新版なら候補を返さない",
+			currentOutput:     "v12.8.1\n",
+			latestOutput:      `"12.8.1"`,
+			wantMessage:       "pnpm 本体は最新です",
+			wantOutputCallNum: 2,
+		},
+		{
+			name:              "registry の latest が現在版より古ければ更新しない",
+			currentOutput:     "12.8.1\n",
+			latestOutput:      `"12.7.0"`,
+			wantMessage:       "pnpm 本体は最新です",
+			wantOutputCallNum: 2,
+		},
+		{
+			name:              "同じ core の prerelease から安定版へ更新する",
+			currentOutput:     "12.8.1-rc.1\n",
+			latestOutput:      `"12.8.1"`,
+			wantUpdates:       1,
+			wantPackage:       PackageInfo{Name: "pnpm", CurrentVersion: "12.8.1-rc.1", NewVersion: "12.8.1"},
+			wantMessage:       "pnpm 本体の更新が可能です",
+			wantOutputCallNum: 2,
+		},
+		{
+			name:              "同じ core の新しい prerelease へ更新する",
+			currentOutput:     "12.8.1-rc.1\n",
+			latestOutput:      `"12.8.1-rc.2"`,
+			wantUpdates:       1,
+			wantPackage:       PackageInfo{Name: "pnpm", CurrentVersion: "12.8.1-rc.1", NewVersion: "12.8.1-rc.2"},
+			wantMessage:       "pnpm 本体の更新が可能です",
+			wantOutputCallNum: 2,
+		},
+		{
+			name:              "WARN 行を除外してバージョンを読む",
+			currentOutput:     "[WARN] 設定の警告\n12.7.0\n",
+			latestOutput:      `"12.8.1"`,
+			wantUpdates:       1,
+			wantPackage:       PackageInfo{Name: "pnpm", CurrentVersion: "12.7.0", NewVersion: "12.8.1"},
+			wantMessage:       "pnpm 本体の更新が可能です",
+			wantOutputCallNum: 2,
+		},
+		{
+			name:              "不正なバージョンはエラー",
+			currentOutput:     "latest\n",
+			wantErrContains:   "pnpm --version の出力解析に失敗",
+			wantOutputCallNum: 1,
+		},
+		{
+			name:              "空のバージョン出力はエラー",
+			currentOutput:     "",
+			wantErrContains:   "pnpm --version の出力解析に失敗",
+			wantOutputCallNum: 1,
+		},
+		{
+			name:              "現在バージョンの取得失敗はエラー",
+			errOnCall:         1,
+			wantErrContains:   "pnpm --version の実行に失敗",
+			wantOutputCallNum: 1,
+		},
+		{
+			name:              "最新バージョンの取得失敗はエラー",
+			currentOutput:     "12.7.0\n",
+			errOnCall:         2,
+			wantErrContains:   "pnpm view pnpm version --json の実行に失敗",
+			wantOutputCallNum: 2,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			updater := &PnpmUpdater{
+				runSelfUpdateOutputStep: func(_ context.Context, args ...string) ([]byte, error) {
+					calls++
+
+					wantArgs := pnpmSelfUpdateArgs("--version")
+
+					if calls == 2 {
+						wantArgs = pnpmSelfUpdateArgs("view", "pnpm", "version", "--json")
+					}
+
+					assert.Equal(t, wantArgs, args)
+
+					if calls == tc.errOnCall {
+						return nil, errors.New("registry unavailable")
+					}
+
+					if calls == 1 {
+						return []byte(tc.currentOutput), nil
+					}
+
+					return []byte(tc.latestOutput), nil
+				},
+			}
+
+			got, err := updater.CheckSelfUpdate(context.Background())
+
+			assert.Equal(t, tc.wantOutputCallNum, calls)
+
+			if tc.wantErrContains != "" {
+				if assert.Error(t, err) {
+					assert.Contains(t, err.Error(), tc.wantErrContains)
+				}
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.wantUpdates, got.AvailableUpdates)
+			assert.Equal(t, tc.wantMessage, got.Message)
+
+			if tc.wantUpdates > 0 {
+				assert.Equal(t, []PackageInfo{tc.wantPackage}, got.Packages)
+			} else {
+				assert.Empty(t, got.Packages)
+			}
+		})
+	}
+}
+
+func TestPnpmUpdater_SelfUpdate(t *testing.T) {
+	tests := []struct {
+		name                string
+		currentVersion      string
+		latestVersion       string
+		opts                UpdateOptions
+		updateErr           error
+		wantUpdates         int
+		wantMessageContains string
+		wantErrContains     string
+		wantUpdateCalls     int
+	}{
+		{
+			name:                "更新なし",
+			currentVersion:      "12.8.1",
+			latestVersion:       "12.8.1",
+			wantMessageContains: "最新です",
+		},
+		{
+			name:                "DryRun は自己更新コマンドを実行しない",
+			currentVersion:      "12.7.0",
+			latestVersion:       "12.8.1",
+			opts:                UpdateOptions{DryRun: true},
+			wantMessageContains: "DryRun",
+		},
+		{
+			name:                "pnpm self-update で本体を更新する",
+			currentVersion:      "12.7.0",
+			latestVersion:       "12.8.1",
+			wantUpdates:         1,
+			wantMessageContains: "pnpm 本体を更新しました",
+			wantUpdateCalls:     1,
+		},
+		{
+			name:                "自己更新失敗をコマンドの文脈付きで返す",
+			currentVersion:      "12.7.0",
+			latestVersion:       "12.8.1",
+			updateErr:           errors.New("permission denied"),
+			wantUpdates:         0,
+			wantMessageContains: "pnpm 本体の更新が可能です",
+			wantErrContains:     "pnpm self-update の実行に失敗",
+			wantUpdateCalls:     1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			updateCalls := 0
+			updater := &PnpmUpdater{
+				runSelfUpdateOutputStep: func(_ context.Context, args ...string) ([]byte, error) {
+					if strings.HasSuffix(strings.Join(args, " "), "--version") {
+						return []byte(tc.currentVersion), nil
+					}
+
+					assert.Equal(t, pnpmSelfUpdateArgs("view", "pnpm", "version", "--json"), args)
+
+					return []byte(`"` + tc.latestVersion + `"`), nil
+				},
+				runSelfUpdateStep: func(_ context.Context, args ...string) error {
+					updateCalls++
+
+					assert.Equal(t, pnpmSelfUpdateArgs("self-update"), args)
+
+					return tc.updateErr
+				},
+			}
+
+			got, err := updater.SelfUpdate(context.Background(), tc.opts)
+			assert.Equal(t, tc.wantUpdateCalls, updateCalls)
+
+			if tc.wantErrContains != "" {
+				if assert.Error(t, err) {
+					assert.Contains(t, err.Error(), tc.wantErrContains)
+				}
+
+				assert.NotNil(t, got)
+
+				assert.Len(t, got.Errors, 1)
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, ContinueNormalUpdate, got.Continuation)
+			assert.Equal(t, tc.wantUpdates, got.UpdatedCount)
+			assert.Contains(t, got.Message, tc.wantMessageContains)
+		})
+	}
+}
+
+func TestComparePnpmVersions(t *testing.T) {
+	tests := []struct {
+		name  string
+		left  string
+		right string
+		want  int
+	}{
+		{
+			name:  "安定版は同じ core の prerelease より新しい",
+			left:  "12.8.1",
+			right: "12.8.1-rc.2",
+			want:  1,
+		},
+		{
+			name:  "prerelease の数値識別子を数値として比較する",
+			left:  "12.8.1-rc.10",
+			right: "12.8.1-rc.2",
+			want:  1,
+		},
+		{
+			name:  "数値識別子は英数字識別子より古い",
+			left:  "12.8.1-rc.10",
+			right: "12.8.1-rc.beta",
+			want:  -1,
+		},
+		{
+			name:  "同じ識別子なら長い prerelease の方が新しい",
+			left:  "12.8.1-rc.1.1",
+			right: "12.8.1-rc.1",
+			want:  1,
+		},
+		{
+			name:  "build metadata は比較に影響しない",
+			left:  "12.8.1-rc.1+build.2",
+			right: "12.8.1-rc.1+build.1",
+			want:  0,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, comparePnpmVersions(tc.left, tc.right))
+		})
+	}
+}
+
+func TestPnpmUpdater_SelfUpdate_DisablesCorepackProjectSpec(t *testing.T) {
+	commandDir := createASCIITempDir(t, "dsx-pnpm-corepack-")
+	writeCorepackAwareFakePnpmCommand(t, commandDir)
+	t.Setenv("PATH", commandDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("COREPACK_ENABLE_PROJECT_SPEC", "1")
+
+	result, err := (&PnpmUpdater{}).SelfUpdate(context.Background(), UpdateOptions{})
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.Equal(t, 1, result.UpdatedCount)
+
+	if assert.Len(t, result.Packages, 1) {
+		assert.Equal(t, "12.7.0", result.Packages[0].CurrentVersion)
+		assert.Equal(t, "12.8.1", result.Packages[0].NewVersion)
+	}
+}
+
 func createASCIITempDir(t *testing.T, pattern string) string {
 	t.Helper()
 
@@ -583,6 +880,67 @@ func createASCIITempDir(t *testing.T, pattern string) string {
 	})
 
 	return dir
+}
+
+func writeCorepackAwareFakePnpmCommand(t *testing.T, dir string) {
+	t.Helper()
+
+	var (
+		fileName string
+		content  string
+	)
+	if runtime.GOOS == "windows" {
+		fileName = "pnpm.cmd"
+		content = `@echo off
+if not "%COREPACK_ENABLE_PROJECT_SPEC%"=="0" exit /b 90
+set "arguments=%*"
+if not "%arguments:--version=%"=="%arguments%" goto current
+if not "%arguments:view=%"=="%arguments%" goto latest
+if not "%arguments:self-update=%"=="%arguments%" exit /b 0
+exit /b 91
+
+:current
+echo 12.7.0
+exit /b 0
+
+:latest
+echo "12.8.1"
+exit /b 0
+`
+	} else {
+		fileName = "pnpm"
+		content = `#!/bin/sh
+if [ "${COREPACK_ENABLE_PROJECT_SPEC}" != "0" ]; then
+  exit 90
+fi
+
+case "$3" in
+  --version)
+    echo '12.7.0'
+    ;;
+  view)
+    echo '"12.8.1"'
+    ;;
+  self-update)
+    exit 0
+    ;;
+  *)
+    exit 91
+    ;;
+esac
+`
+	}
+
+	fullPath := filepath.Join(dir, fileName)
+	if err := os.WriteFile(fullPath, []byte(content), 0o755); err != nil {
+		t.Fatalf("fake Corepack shim の作成に失敗: %v", err)
+	}
+
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(fullPath, 0o755); err != nil {
+			t.Fatalf("fake Corepack shim の実行権限設定に失敗: %v", err)
+		}
+	}
 }
 
 func writeFakePnpmCommand(t *testing.T, dir string) {
