@@ -8,7 +8,7 @@
 
 ### Added
 
-- `dsx sys update` に pnpm 本体の自己更新を追加。`pnpm self-update` の前に CLI バージョンと registry 上の最新版を読み取り専用で比較し、DryRun では更新を実行しない。プロジェクトの `packageManager` pin を一時設定で無視し、呼び出し元の作業ディレクトリを維持して NVM for Windows Shim の Node.js 選択に対応する（#119）
+- `dsx sys update` に pnpm 本体の自己更新を追加。`pnpm self-update` の前に prerelease を含む SemVer 順序で CLI バージョンと registry 上の最新版を読み取り専用で比較し、DryRun では更新を実行しない。pnpm 設定と `COREPACK_ENABLE_PROJECT_SPEC=0` でプロジェクトの `packageManager` pin を避け、呼び出し元の作業ディレクトリを維持して NVM for Windows Shim の Node.js 選択に対応する（#119）
 
 ### Fixed
 

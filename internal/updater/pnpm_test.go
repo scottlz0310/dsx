@@ -614,6 +614,15 @@ func TestPnpmUpdater_CheckSelfUpdate(t *testing.T) {
 			wantOutputCallNum: 2,
 		},
 		{
+			name:              "同じ core の新しい prerelease へ更新する",
+			currentOutput:     "12.8.1-rc.1\n",
+			latestOutput:      `"12.8.1-rc.2"`,
+			wantUpdates:       1,
+			wantPackage:       PackageInfo{Name: "pnpm", CurrentVersion: "12.8.1-rc.1", NewVersion: "12.8.1-rc.2"},
+			wantMessage:       "pnpm 本体の更新が可能です",
+			wantOutputCallNum: 2,
+		},
+		{
 			name:              "WARN 行を除外してバージョンを読む",
 			currentOutput:     "[WARN] 設定の警告\n12.7.0\n",
 			latestOutput:      `"12.8.1"`,
@@ -791,6 +800,71 @@ func TestPnpmUpdater_SelfUpdate(t *testing.T) {
 	}
 }
 
+func TestComparePnpmVersions(t *testing.T) {
+	tests := []struct {
+		name  string
+		left  string
+		right string
+		want  int
+	}{
+		{
+			name:  "安定版は同じ core の prerelease より新しい",
+			left:  "12.8.1",
+			right: "12.8.1-rc.2",
+			want:  1,
+		},
+		{
+			name:  "prerelease の数値識別子を数値として比較する",
+			left:  "12.8.1-rc.10",
+			right: "12.8.1-rc.2",
+			want:  1,
+		},
+		{
+			name:  "数値識別子は英数字識別子より古い",
+			left:  "12.8.1-rc.10",
+			right: "12.8.1-rc.beta",
+			want:  -1,
+		},
+		{
+			name:  "同じ識別子なら長い prerelease の方が新しい",
+			left:  "12.8.1-rc.1.1",
+			right: "12.8.1-rc.1",
+			want:  1,
+		},
+		{
+			name:  "build metadata は比較に影響しない",
+			left:  "12.8.1-rc.1+build.2",
+			right: "12.8.1-rc.1+build.1",
+			want:  0,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, comparePnpmVersions(tc.left, tc.right))
+		})
+	}
+}
+
+func TestPnpmUpdater_SelfUpdate_DisablesCorepackProjectSpec(t *testing.T) {
+	commandDir := createASCIITempDir(t, "dsx-pnpm-corepack-")
+	writeCorepackAwareFakePnpmCommand(t, commandDir)
+	t.Setenv("PATH", commandDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("COREPACK_ENABLE_PROJECT_SPEC", "1")
+
+	result, err := (&PnpmUpdater{}).SelfUpdate(context.Background(), UpdateOptions{})
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.Equal(t, 1, result.UpdatedCount)
+
+	if assert.Len(t, result.Packages, 1) {
+		assert.Equal(t, "12.7.0", result.Packages[0].CurrentVersion)
+		assert.Equal(t, "12.8.1", result.Packages[0].NewVersion)
+	}
+}
+
 func createASCIITempDir(t *testing.T, pattern string) string {
 	t.Helper()
 
@@ -806,6 +880,67 @@ func createASCIITempDir(t *testing.T, pattern string) string {
 	})
 
 	return dir
+}
+
+func writeCorepackAwareFakePnpmCommand(t *testing.T, dir string) {
+	t.Helper()
+
+	var (
+		fileName string
+		content  string
+	)
+	if runtime.GOOS == "windows" {
+		fileName = "pnpm.cmd"
+		content = `@echo off
+if not "%COREPACK_ENABLE_PROJECT_SPEC%"=="0" exit /b 90
+set "arguments=%*"
+if not "%arguments:--version=%"=="%arguments%" goto current
+if not "%arguments:view=%"=="%arguments%" goto latest
+if not "%arguments:self-update=%"=="%arguments%" exit /b 0
+exit /b 91
+
+:current
+echo 12.7.0
+exit /b 0
+
+:latest
+echo "12.8.1"
+exit /b 0
+`
+	} else {
+		fileName = "pnpm"
+		content = `#!/bin/sh
+if [ "${COREPACK_ENABLE_PROJECT_SPEC}" != "0" ]; then
+  exit 90
+fi
+
+case "$3" in
+  --version)
+    echo '12.7.0'
+    ;;
+  view)
+    echo '"12.8.1"'
+    ;;
+  self-update)
+    exit 0
+    ;;
+  *)
+    exit 91
+    ;;
+esac
+`
+	}
+
+	fullPath := filepath.Join(dir, fileName)
+	if err := os.WriteFile(fullPath, []byte(content), 0o755); err != nil {
+		t.Fatalf("fake Corepack shim の作成に失敗: %v", err)
+	}
+
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(fullPath, 0o755); err != nil {
+			t.Fatalf("fake Corepack shim の実行権限設定に失敗: %v", err)
+		}
+	}
 }
 
 func writeFakePnpmCommand(t *testing.T, dir string) {

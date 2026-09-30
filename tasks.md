@@ -21,9 +21,11 @@
 
 ## Issue #119: pnpm 本体の self-update
 
-- [x] `CheckSelfUpdate` で現在版と registry の最新版を読み取り専用で比較
+- [x] `CheckSelfUpdate` で prerelease を含む SemVer 順序により現在版と registry の最新版を読み取り専用で比較
 - [x] 通常実行では `pnpm self-update` を呼び出し、グローバルパッケージ更新とは別結果にする
-- [x] DryRun で自己更新を実行せず、`packageManager` pin と lockfile を変更しない引数を固定
+- [x] DryRun で自己更新を実行せず、pnpm の pin 設定と Corepack の project spec を無効化する子プロセス環境を固定
+- [x] レビュー指摘: Corepack Shim 経由の本体更新を回帰テストで固定
+- [x] レビュー指摘: 同一 core の prerelease 更新を検出し SemVer 順序をテスト
 - [x] 呼び出し元の作業ディレクトリを維持して NVM for Windows Shim の Node.js 選択を保つ
 - [x] `internal/updater/pnpm_test.go` に候補比較・DryRun・成功・失敗の table-driven tests を追加
 - [x] pnpm 12.8.1 で pinned packageManager の一時プロジェクトから確認コマンドを実行し、`package.json` / lockfile が不変であることを確認

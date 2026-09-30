@@ -229,8 +229,7 @@ func (p *PnpmUpdater) runSelfUpdateOutput(ctx context.Context, args ...string) (
 	}
 
 	cmd := exec.CommandContext(ctx, "pnpm", args...)
-
-	cmd.Env = append(os.Environ(), "LANG=C", "LC_ALL=C")
+	cmd.Env = pnpmSelfUpdateEnv()
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -248,7 +247,7 @@ func (p *PnpmUpdater) runSelfUpdate(ctx context.Context, args ...string) error {
 
 	cmd := exec.CommandContext(ctx, "pnpm", args...)
 
-	cmd.Env = append(os.Environ(), "CI=true")
+	cmd.Env = append(pnpmSelfUpdateEnv(), "CI=true")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -261,6 +260,23 @@ func pnpmSelfUpdateArgs(args ...string) []string {
 	result = append(result, "--config.managePackageManagerVersions=false", "--config.pmOnFail=ignore")
 
 	return append(result, args...)
+}
+
+func pnpmSelfUpdateEnv() []string {
+	env := os.Environ()
+
+	result := make([]string, 0, len(env)+3)
+
+	for _, entry := range env {
+		key, _, ok := strings.Cut(entry, "=")
+		if ok && strings.EqualFold(key, "COREPACK_ENABLE_PROJECT_SPEC") {
+			continue
+		}
+
+		result = append(result, entry)
+	}
+
+	return append(result, "COREPACK_ENABLE_PROJECT_SPEC=0", "LANG=C", "LC_ALL=C")
 }
 
 func parsePnpmVersionOutput(output []byte) (string, error) {
@@ -299,18 +315,116 @@ func comparePnpmVersions(left, right string) int {
 		return comparison
 	}
 
-	leftPrerelease := strings.Contains(left, "-")
+	return comparePnpmPrerelease(left, right)
+}
 
-	rightPrerelease := strings.Contains(right, "-")
-	if leftPrerelease == rightPrerelease {
+func comparePnpmPrerelease(left, right string) int {
+	leftIdentifiers := pnpmPrereleaseIdentifiers(left)
+
+	rightIdentifiers := pnpmPrereleaseIdentifiers(right)
+	if len(leftIdentifiers) == 0 && len(rightIdentifiers) == 0 {
 		return 0
 	}
 
-	if leftPrerelease {
+	if len(leftIdentifiers) == 0 {
+		return 1
+	}
+
+	if len(rightIdentifiers) == 0 {
 		return -1
 	}
 
-	return 1
+	for i := 0; i < len(leftIdentifiers) && i < len(rightIdentifiers); i++ {
+		leftIdentifier := leftIdentifiers[i]
+
+		rightIdentifier := rightIdentifiers[i]
+
+		if comparison := comparePnpmPrereleaseIdentifier(leftIdentifier, rightIdentifier); comparison != 0 {
+			return comparison
+		}
+	}
+
+	return comparePnpmIdentifierCount(len(leftIdentifiers), len(rightIdentifiers))
+}
+
+func comparePnpmPrereleaseIdentifier(left, right string) int {
+	leftNumeric := isPnpmNumericIdentifier(left)
+
+	rightNumeric := isPnpmNumericIdentifier(right)
+	if leftNumeric && rightNumeric {
+		return comparePnpmNumericIdentifiers(left, right)
+	}
+
+	if leftNumeric {
+		return -1
+	}
+
+	if rightNumeric {
+		return 1
+	}
+
+	return strings.Compare(left, right)
+}
+
+func comparePnpmIdentifierCount(left, right int) int {
+	if left < right {
+		return -1
+	}
+
+	if left > right {
+		return 1
+	}
+
+	return 0
+}
+
+func pnpmPrereleaseIdentifiers(version string) []string {
+	versionWithoutBuild, _, _ := strings.Cut(version, "+")
+
+	_, prerelease, hasPrerelease := strings.Cut(versionWithoutBuild, "-")
+	if !hasPrerelease {
+		return nil
+	}
+
+	return strings.Split(prerelease, ".")
+}
+
+func isPnpmNumericIdentifier(identifier string) bool {
+	if identifier == "" {
+		return false
+	}
+
+	for _, char := range identifier {
+		if char < '0' || char > '9' {
+			return false
+		}
+	}
+
+	return true
+}
+
+func comparePnpmNumericIdentifiers(left, right string) int {
+	left = strings.TrimLeft(left, "0")
+
+	right = strings.TrimLeft(right, "0")
+
+	if left == "" {
+		left = "0"
+	}
+
+	if right == "" {
+		right = "0"
+	}
+
+	if len(left) < len(right) {
+		return -1
+	}
+
+	if len(left) > len(right) {
+		return 1
+	}
+
+	return strings.Compare(left, right)
 }
 
 func (p *PnpmUpdater) runUpdate(ctx context.Context) error {
