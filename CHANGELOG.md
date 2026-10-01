@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [v0.10.0] - 2026-10-01
+
 ### Added
 
 - `dsx sys update` に pnpm 本体の自己更新を追加。`pnpm self-update` の前に prerelease を含む SemVer 順序で CLI バージョンと registry 上の最新版を読み取り専用で比較し、DryRun では更新を実行しない。pnpm 設定と `COREPACK_ENABLE_PROJECT_SPEC=0` でプロジェクトの `packageManager` pin を避け、呼び出し元の作業ディレクトリを維持して NVM for Windows Shim の Node.js 選択に対応する（#119）
@@ -433,7 +435,8 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.9.0...HEAD
+[v0.10.0]: https://github.com/scottlz0310/dsx/compare/v0.9.0...v0.10.0
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.10.0...HEAD
 [v0.9.0]: https://github.com/scottlz0310/dsx/compare/v0.8.1...v0.9.0
 [v0.8.1]: https://github.com/scottlz0310/dsx/compare/v0.8.0...v0.8.1
 [v0.8.0]: https://github.com/scottlz0310/dsx/compare/v0.7.0...v0.8.0

@@ -4,6 +4,19 @@
 
 > 過去の完了タスク履歴は [docs/archive/tasks_v0.2.3.md](docs/archive/tasks_v0.2.3.md) を参照してください。
 
+## v0.10.0 リリース準備
+
+- [x] PR #121 を main にマージ
+- [x] `task check` / `go build ./...` / `go run ./cmd/dsx --help` 通過（PR CI を含む）
+- [x] MSIX 署名用 GitHub Secrets の登録を確認
+- [x] CHANGELOG.md を v0.10.0 として更新
+- [x] README.md の最新バージョン表記を v0.10.0 に更新
+- [x] `task release:check` / `task snapshot` 通過
+- [ ] リリース準備 PR を作成・マージ
+- [ ] `v0.10.0` タグ発行・push → GitHub Actions で GitHub Release と MSIX を公開
+
+---
+
 ## v0.9.0 リリース準備
 
 - [x] PR #113 / #114 が main にマージ済みであることを確認
@@ -15,7 +28,7 @@
 - [x] CHANGELOG.md: [Unreleased] → [v0.9.0] - 2026-09-10
 - [x] README.md: バージョン表記とリリース方針を v0.9.0 に更新
 - [x] リリース準備 PR を作成（PR #115）
-- [ ] `v0.9.0` タグ発行・push → goreleaser が GitHub Release を自動作成
+- [x] `v0.9.0` タグ発行・push → goreleaser が GitHub Release を自動作成
 
 ---
 
@@ -30,8 +43,17 @@
 - [x] `internal/updater/pnpm_test.go` に候補比較・DryRun・成功・失敗の table-driven tests を追加
 - [x] pnpm 12.8.1 で pinned packageManager の一時プロジェクトから確認コマンドを実行し、`package.json` / lockfile が不変であることを確認
 - [x] `CHANGELOG.md` / `README.md` / `docs/Implementation_Plan.md` を更新
-- [ ] NVM for Windows v2 Shim モードと NVM 管理下 pnpm の実機更新確認（現在の環境は v2 link モード、pnpm は standalone 版）
+- [x] NVM Shim 実機確認を別 Issue #122 に引き継ぎ（リリース非ブロッカー）
 - [x] `task check` / `go build ./...` / `go run ./cmd/dsx --help` を確認
+
+---
+
+## Issue #122: NVM for Windows v2 Shim と NVM 管理下 pnpm の実機更新確認
+
+- [ ] Shim モードで、選択中 Node.js 配下の pnpm を `dsx sys update` から更新
+- [ ] 更新前後の Node.js / pnpm の実体が選択中バージョンに対応することを確認
+- [ ] `package.json` と lockfile が変わらず、standalone 版の既存動作にも影響しないことを確認
+- [ ] 実機確認結果を記録
 
 ---
 
