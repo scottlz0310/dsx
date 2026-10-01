@@ -13,8 +13,8 @@
 - [x] README.md の最新バージョン表記を v0.10.0 に更新
 - [x] `task release:check` / `task snapshot` 通過
 - [x] リリース準備 PR #123 を作成
-- [ ] PR #123 をレビュー後にマージ
-- [ ] `v0.10.0` タグ発行・push → GitHub Actions で GitHub Release と MSIX を公開
+- [x] PR #123 をレビュー後にマージ（merge commit `9f29cb4`）
+- [x] `v0.10.0` タグ発行・push。Release workflow #36796377654 が成功し、GitHub Release と MSIX の公開を確認
 
 ---
 
