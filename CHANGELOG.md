@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- NVM for Windows v2 Shim mode では `pnpm self-update` がプロジェクトの `packageManager` pin だけを更新するため、選択中 Node.js のグローバル pnpm を更新して `nvm reshim` し、更新後の版を検証するよう修正
+
 ## [v0.10.0] - 2026-10-01
 
 ### Added

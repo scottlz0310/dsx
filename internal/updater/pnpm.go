@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/scottlz0310/dsx/internal/config"
@@ -17,11 +18,17 @@ import (
 
 type pnpmSelfUpdateOutputRunner func(context.Context, ...string) ([]byte, error)
 type pnpmSelfUpdateRunner func(context.Context, ...string) error
+type pnpmNvmShimModeChecker func(context.Context) (bool, error)
+type pnpmNvmCommandRunner func(context.Context, string, ...string) error
+type pnpmExecutableLookup func(string) (string, error)
+type pnpmNvmCommandOutputRunner func(context.Context, string, ...string) ([]byte, error)
 
 // PnpmUpdater は pnpm グローバルパッケージマネージャの実装です。
 type PnpmUpdater struct {
 	runSelfUpdateOutputStep pnpmSelfUpdateOutputRunner
 	runSelfUpdateStep       pnpmSelfUpdateRunner
+	detectNvmShimModeStep   pnpmNvmShimModeChecker
+	runNvmCommandStep       pnpmNvmCommandRunner
 }
 
 const (
@@ -210,7 +217,42 @@ func (p *PnpmUpdater) SelfUpdate(ctx context.Context, opts UpdateOptions) (*Self
 		return result, nil
 	}
 
-	if err := p.runSelfUpdate(ctx, "self-update"); err != nil {
+	nvmShimMode, err := p.detectNvmShimMode(ctx)
+	if err != nil {
+		result.Errors = append(result.Errors, err)
+
+		return result, fmt.Errorf("NVM for Windows の動作モード確認に失敗: %w", err)
+	}
+
+	if nvmShimMode {
+		targetVersion := checkResult.Packages[0].NewVersion
+		if err := p.runNvmShimSelfUpdate(ctx, targetVersion); err != nil {
+			result.Errors = append(result.Errors, err)
+
+			return result, fmt.Errorf("NVM for Windows Shim 経由の pnpm 本体更新に失敗: %w", err)
+		}
+
+		versionOutput, err := p.runSelfUpdateOutput(ctx, "--version")
+		if err != nil {
+			result.Errors = append(result.Errors, err)
+
+			return result, fmt.Errorf("NVM for Windows Shim 更新後の pnpm バージョン確認に失敗: %w", err)
+		}
+
+		updatedVersion, err := parsePnpmVersionOutput(versionOutput)
+		if err != nil {
+			result.Errors = append(result.Errors, err)
+
+			return result, fmt.Errorf("NVM for Windows Shim 更新後の pnpm バージョン解析に失敗: %w", err)
+		}
+
+		if updatedVersion != targetVersion {
+			err := fmt.Errorf("pnpm の更新後バージョンが一致しません（期待値 %s、実際 %s）", targetVersion, updatedVersion)
+			result.Errors = append(result.Errors, err)
+
+			return result, err
+		}
+	} else if err := p.runSelfUpdate(ctx, "self-update"); err != nil {
 		result.Errors = append(result.Errors, err)
 
 		return result, fmt.Errorf("pnpm self-update の実行に失敗: %w", err)
@@ -220,6 +262,96 @@ func (p *PnpmUpdater) SelfUpdate(ctx context.Context, opts UpdateOptions) (*Self
 	result.Message = "pnpm 本体を更新しました"
 
 	return result, nil
+}
+
+func (p *PnpmUpdater) detectNvmShimMode(ctx context.Context) (bool, error) {
+	if p.detectNvmShimModeStep != nil {
+		return p.detectNvmShimModeStep(ctx)
+	}
+
+	return detectNvmWindowsShimMode(ctx)
+}
+
+func detectNvmWindowsShimMode(ctx context.Context) (bool, error) {
+	return detectNvmWindowsShimModeWith(ctx, runtime.GOOS, exec.LookPath, runPnpmNvmCommandOutput)
+}
+
+func detectNvmWindowsShimModeWith(ctx context.Context, goos string, lookup pnpmExecutableLookup, run pnpmNvmCommandOutputRunner) (bool, error) {
+	if goos != windowsOS {
+		return false, nil
+	}
+
+	nvmPath, err := lookup("nvm")
+	if err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("nvm コマンドの検索に失敗: %w", err)
+	}
+
+	versionOutput, err := run(ctx, nvmPath, "version")
+	if err != nil {
+		return false, fmt.Errorf("nvm version の実行に失敗: %w", buildCommandOutputErr(err, versionOutput))
+	}
+
+	version := extractSemver(string(versionOutput))
+	if version == "" {
+		return false, fmt.Errorf("nvm version の出力を解析できません: %q", string(versionOutput))
+	}
+
+	versionParts, err := parseSemver(version)
+	if err != nil {
+		return false, fmt.Errorf("nvm version の出力を解析できません: %w", err)
+	}
+
+	if versionParts[0] < 2 {
+		return false, nil
+	}
+
+	modeOutput, err := run(ctx, nvmPath, "config", "get", "mode")
+	if err != nil {
+		return false, fmt.Errorf("nvm config get mode の実行に失敗: %w", buildCommandOutputErr(err, modeOutput))
+	}
+
+	switch strings.ToLower(strings.TrimSpace(string(modeOutput))) {
+	case "shim":
+		return true, nil
+	case "link":
+		return false, nil
+	default:
+		return false, fmt.Errorf("nvm config get mode の出力を解析できません: %q", string(modeOutput))
+	}
+}
+
+func runPnpmNvmCommandOutput(ctx context.Context, name string, args ...string) ([]byte, error) {
+	return exec.CommandContext(ctx, name, args...).CombinedOutput()
+}
+
+func (p *PnpmUpdater) runNvmShimSelfUpdate(ctx context.Context, version string) error {
+	if err := p.runNvmCommand(ctx, "npm", "install", "--global", "pnpm@"+version); err != nil {
+		return fmt.Errorf("npm install --global pnpm@%s の実行に失敗: %w", version, err)
+	}
+
+	if err := p.runNvmCommand(ctx, "nvm", "reshim"); err != nil {
+		return fmt.Errorf("nvm reshim の実行に失敗: %w", err)
+	}
+
+	return nil
+}
+
+func (p *PnpmUpdater) runNvmCommand(ctx context.Context, name string, args ...string) error {
+	if p.runNvmCommandStep != nil {
+		return p.runNvmCommandStep(ctx, name, args...)
+	}
+
+	cmd := exec.CommandContext(ctx, name, args...)
+
+	cmd.Env = append(pnpmSelfUpdateEnv(), "CI=true")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
 }
 
 func (p *PnpmUpdater) runSelfUpdateOutput(ctx context.Context, args ...string) ([]byte, error) {

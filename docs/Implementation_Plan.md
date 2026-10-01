@@ -135,5 +135,6 @@ secrets:
   - 進捗（第4弾）: `sys update` にマネージャ本体更新フェーズを追加し、`uv self update` と `pnpm update -g --latest` に対応
   - 進捗（第5弾）: `bun` を追加し、グローバルパッケージ更新とインストール経路に応じた Bun 本体更新に対応
   - 進捗（第6弾）: `pnpm self-update` による本体更新に対応。DryRun は prerelease を含む SemVer 順序で読み取り専用の候補確認に留め、pnpm 設定と `COREPACK_ENABLE_PROJECT_SPEC=0` でプロジェクト pin を避けながら、NVM Shim の作業ディレクトリ選択を維持
-  - 残件（第6弾以降）: 統合テスト
+  - 進捗（第7弾）: NVM for Windows v2 Shim mode では選択 Node.js のグローバル pnpm を npm で更新し、`nvm reshim` と更新後の版確認を実施。Issue #122 の実機確認でプロジェクト pin / lockfile の不変と standalone 版への影響がないことを確認
+  - 残件（第7弾以降）: 統合テスト
 - [ ] リリース/CI（GoReleaser/GitHub Actions/E2E）

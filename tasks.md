@@ -51,10 +51,13 @@
 
 ## Issue #122: NVM for Windows v2 Shim と NVM 管理下 pnpm の実機更新確認
 
-- [ ] Shim モードで、選択中 Node.js 配下の pnpm を `dsx sys update` から更新
-- [ ] 更新前後の Node.js / pnpm の実体が選択中バージョンに対応することを確認
-- [ ] `package.json` と lockfile が変わらず、standalone 版の既存動作にも影響しないことを確認
-- [ ] 実機確認結果を記録
+- [x] NVM for Windows v2 Shim mode は選択中 Node.js の npm global で pnpm を更新し、`nvm reshim` 後に版を確認
+- [x] Shim 判定・npm global 更新・reshim・更新後バージョン確認の成功 / 失敗系を table-driven tests で検証
+- [x] PR レビュー対応: NVM v2 / Shim 判定と更新後バージョン確認の失敗経路を追加し、pnpm updater のカバレッジを確認
+- [x] 実機確認: NVM for Windows v2.0.0、Node.js v24.21.0、pnpm 12.4.2 → 12.8.1。`node -v` / `process.execPath` / `npm root -g` は更新前後で同一の NVM Node.js を指す
+- [x] 実機確認: `package.json` / `pnpm-lock.yaml` の SHA-256 は前後一致。project pin は pnpm 12.4.2 のまま、pin を無効にした pnpm と npm global 一覧は 12.8.1
+- [x] standalone pnpm 12.8.1 と global package inventory / lockfile hash に変化がないことを確認
+- [x] NVM v24 の global tools を `corepack@0.36.0` / `npm@11.19.0` に復元し、NVM link mode / default Node.js v26.10.0 を復元
 
 ---
 

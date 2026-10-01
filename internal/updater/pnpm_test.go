@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -715,18 +716,28 @@ func TestPnpmUpdater_SelfUpdate(t *testing.T) {
 		name                string
 		currentVersion      string
 		latestVersion       string
+		updatedVersion      string
+		updatedVersionErr   error
 		opts                UpdateOptions
 		updateErr           error
+		nvmShimMode         bool
+		nvmShimModeErr      error
+		nvmInstallErr       error
+		nvmReshimErr        error
 		wantUpdates         int
 		wantMessageContains string
 		wantErrContains     string
 		wantUpdateCalls     int
+		wantNvmCommands     []string
+		wantVersionCalls    int
+		wantModeCalls       int
 	}{
 		{
 			name:                "更新なし",
 			currentVersion:      "12.8.1",
 			latestVersion:       "12.8.1",
 			wantMessageContains: "最新です",
+			wantVersionCalls:    1,
 		},
 		{
 			name:                "DryRun は自己更新コマンドを実行しない",
@@ -734,6 +745,7 @@ func TestPnpmUpdater_SelfUpdate(t *testing.T) {
 			latestVersion:       "12.8.1",
 			opts:                UpdateOptions{DryRun: true},
 			wantMessageContains: "DryRun",
+			wantVersionCalls:    1,
 		},
 		{
 			name:                "pnpm self-update で本体を更新する",
@@ -742,6 +754,80 @@ func TestPnpmUpdater_SelfUpdate(t *testing.T) {
 			wantUpdates:         1,
 			wantMessageContains: "pnpm 本体を更新しました",
 			wantUpdateCalls:     1,
+			wantVersionCalls:    1,
+			wantModeCalls:       1,
+		},
+		{
+			name:                "NVM Shim では選択中 Node.js の pnpm を更新して reshim する",
+			currentVersion:      "12.4.2",
+			latestVersion:       "12.8.1",
+			updatedVersion:      "12.8.1",
+			nvmShimMode:         true,
+			wantUpdates:         1,
+			wantMessageContains: "pnpm 本体を更新しました",
+			wantNvmCommands:     []string{"npm install --global pnpm@12.8.1", "nvm reshim"},
+			wantVersionCalls:    2,
+			wantModeCalls:       1,
+		},
+		{
+			name:                "NVM Shim のグローバルインストール失敗は reshim せず返す",
+			currentVersion:      "12.4.2",
+			latestVersion:       "12.8.1",
+			nvmShimMode:         true,
+			nvmInstallErr:       errors.New("permission denied"),
+			wantMessageContains: "pnpm 本体の更新が可能です",
+			wantErrContains:     "npm install --global pnpm@12.8.1 の実行に失敗",
+			wantNvmCommands:     []string{"npm install --global pnpm@12.8.1"},
+			wantVersionCalls:    1,
+			wantModeCalls:       1,
+		},
+		{
+			name:                "NVM Shim の reshim 失敗を返す",
+			currentVersion:      "12.4.2",
+			latestVersion:       "12.8.1",
+			nvmShimMode:         true,
+			nvmReshimErr:        errors.New("reshim failed"),
+			wantMessageContains: "pnpm 本体の更新が可能です",
+			wantErrContains:     "nvm reshim の実行に失敗",
+			wantNvmCommands:     []string{"npm install --global pnpm@12.8.1", "nvm reshim"},
+			wantVersionCalls:    1,
+			wantModeCalls:       1,
+		},
+		{
+			name:                "NVM Shim 更新後のバージョン不一致はエラー",
+			currentVersion:      "12.4.2",
+			latestVersion:       "12.8.1",
+			updatedVersion:      "12.4.2",
+			nvmShimMode:         true,
+			wantMessageContains: "pnpm 本体の更新が可能です",
+			wantErrContains:     "pnpm の更新後バージョンが一致しません",
+			wantNvmCommands:     []string{"npm install --global pnpm@12.8.1", "nvm reshim"},
+			wantVersionCalls:    2,
+			wantModeCalls:       1,
+		},
+		{
+			name:                "NVM Shim 更新後のバージョン確認失敗を返す",
+			currentVersion:      "12.4.2",
+			latestVersion:       "12.8.1",
+			updatedVersionErr:   errors.New("pnpm command failed"),
+			nvmShimMode:         true,
+			wantMessageContains: "pnpm 本体の更新が可能です",
+			wantErrContains:     "NVM for Windows Shim 更新後の pnpm バージョン確認に失敗",
+			wantNvmCommands:     []string{"npm install --global pnpm@12.8.1", "nvm reshim"},
+			wantVersionCalls:    2,
+			wantModeCalls:       1,
+		},
+		{
+			name:                "NVM Shim 更新後のバージョン解析失敗を返す",
+			currentVersion:      "12.4.2",
+			latestVersion:       "12.8.1",
+			updatedVersion:      "not-a-version",
+			nvmShimMode:         true,
+			wantMessageContains: "pnpm 本体の更新が可能です",
+			wantErrContains:     "NVM for Windows Shim 更新後の pnpm バージョン解析に失敗",
+			wantNvmCommands:     []string{"npm install --global pnpm@12.8.1", "nvm reshim"},
+			wantVersionCalls:    2,
+			wantModeCalls:       1,
 		},
 		{
 			name:                "自己更新失敗をコマンドの文脈付きで返す",
@@ -752,16 +838,43 @@ func TestPnpmUpdater_SelfUpdate(t *testing.T) {
 			wantMessageContains: "pnpm 本体の更新が可能です",
 			wantErrContains:     "pnpm self-update の実行に失敗",
 			wantUpdateCalls:     1,
+			wantVersionCalls:    1,
+			wantModeCalls:       1,
+		},
+		{
+			name:                "NVM Shim の検出失敗は pnpm self-update にフォールバックしない",
+			currentVersion:      "12.7.0",
+			latestVersion:       "12.8.1",
+			nvmShimModeErr:      errors.New("mode unavailable"),
+			wantMessageContains: "pnpm 本体の更新が可能です",
+			wantErrContains:     "NVM for Windows の動作モード確認に失敗",
+			wantVersionCalls:    1,
+			wantModeCalls:       1,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			updateCalls := 0
+			var (
+				updateCalls  int
+				versionCalls int
+				modeCalls    int
+				nvmCommands  []string
+			)
+
 			updater := &PnpmUpdater{
 				runSelfUpdateOutputStep: func(_ context.Context, args ...string) ([]byte, error) {
 					if strings.HasSuffix(strings.Join(args, " "), "--version") {
-						return []byte(tc.currentVersion), nil
+						versionCalls++
+						if versionCalls == 1 {
+							return []byte(tc.currentVersion), nil
+						}
+
+						if tc.updatedVersionErr != nil {
+							return nil, tc.updatedVersionErr
+						}
+
+						return []byte(tc.updatedVersion), nil
 					}
 
 					assert.Equal(t, pnpmSelfUpdateArgs("view", "pnpm", "version", "--json"), args)
@@ -775,10 +888,27 @@ func TestPnpmUpdater_SelfUpdate(t *testing.T) {
 
 					return tc.updateErr
 				},
+				detectNvmShimModeStep: func(context.Context) (bool, error) {
+					modeCalls++
+
+					return tc.nvmShimMode, tc.nvmShimModeErr
+				},
+				runNvmCommandStep: func(_ context.Context, name string, args ...string) error {
+					nvmCommands = append(nvmCommands, strings.Join(append([]string{name}, args...), " "))
+
+					if len(nvmCommands) == 1 {
+						return tc.nvmInstallErr
+					}
+
+					return tc.nvmReshimErr
+				},
 			}
 
 			got, err := updater.SelfUpdate(context.Background(), tc.opts)
 			assert.Equal(t, tc.wantUpdateCalls, updateCalls)
+			assert.Equal(t, tc.wantNvmCommands, nvmCommands)
+			assert.Equal(t, tc.wantVersionCalls, versionCalls)
+			assert.Equal(t, tc.wantModeCalls, modeCalls)
 
 			if tc.wantErrContains != "" {
 				if assert.Error(t, err) {
@@ -798,6 +928,189 @@ func TestPnpmUpdater_SelfUpdate(t *testing.T) {
 			assert.Contains(t, got.Message, tc.wantMessageContains)
 		})
 	}
+}
+
+func TestDetectNvmWindowsShimModeWith(t *testing.T) {
+	tests := []struct {
+		name          string
+		goos          string
+		lookupErr     error
+		versionOutput string
+		versionErr    error
+		modeOutput    string
+		modeErr       error
+		wantShim      bool
+		wantErr       string
+		wantCalls     []string
+	}{
+		{
+			name: "Windows 以外では NVM を検索しない",
+			goos: "linux",
+		},
+		{
+			name:      "NVM が PATH にない場合は通常経路を使う",
+			goos:      windowsOS,
+			lookupErr: exec.ErrNotFound,
+		},
+		{
+			name:      "NVM の検索失敗を返す",
+			goos:      windowsOS,
+			lookupErr: errors.New("permission denied"),
+			wantErr:   "nvm コマンドの検索に失敗",
+		},
+		{
+			name:          "NVM version の実行失敗を返す",
+			goos:          windowsOS,
+			versionOutput: "access denied",
+			versionErr:    errors.New("exit status 1"),
+			wantErr:       "nvm version の実行に失敗",
+			wantCalls:     []string{"C:/nvm/nvm.exe version"},
+		},
+		{
+			name:      "NVM version の解析不能な出力を返す",
+			goos:      windowsOS,
+			wantErr:   "nvm version の出力を解析できません",
+			wantCalls: []string{"C:/nvm/nvm.exe version"},
+		},
+		{
+			name:          "NVM version の数値オーバーフローを返す",
+			goos:          windowsOS,
+			versionOutput: strings.Repeat("9", 100) + ".0.0",
+			wantErr:       "nvm version の出力を解析できません",
+			wantCalls:     []string{"C:/nvm/nvm.exe version"},
+		},
+		{
+			name:          "NVM v1 は Shim mode の設定を問い合わせない",
+			goos:          windowsOS,
+			versionOutput: "1.1.12",
+			wantCalls:     []string{"C:/nvm/nvm.exe version"},
+		},
+		{
+			name:          "NVM config get mode の実行失敗を返す",
+			goos:          windowsOS,
+			versionOutput: "2.0.0",
+			modeOutput:    "access denied",
+			modeErr:       errors.New("exit status 1"),
+			wantErr:       "nvm config get mode の実行に失敗",
+			wantCalls: []string{
+				"C:/nvm/nvm.exe version",
+				"C:/nvm/nvm.exe config get mode",
+			},
+		},
+		{
+			name:          "NVM v2 Shim mode を検出する",
+			goos:          windowsOS,
+			versionOutput: "2.0.0",
+			modeOutput:    "SHIM\n",
+			wantShim:      true,
+			wantCalls: []string{
+				"C:/nvm/nvm.exe version",
+				"C:/nvm/nvm.exe config get mode",
+			},
+		},
+		{
+			name:          "NVM v2 Link mode は通常経路を使う",
+			goos:          windowsOS,
+			versionOutput: "2.0.0",
+			modeOutput:    "link\n",
+			wantCalls: []string{
+				"C:/nvm/nvm.exe version",
+				"C:/nvm/nvm.exe config get mode",
+			},
+		},
+		{
+			name:          "NVM の未知の mode を返す",
+			goos:          windowsOS,
+			versionOutput: "2.0.0",
+			modeOutput:    "unknown",
+			wantErr:       "nvm config get mode の出力を解析できません",
+			wantCalls: []string{
+				"C:/nvm/nvm.exe version",
+				"C:/nvm/nvm.exe config get mode",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls []string
+
+			lookup := func(name string) (string, error) {
+				assert.Equal(t, "nvm", name)
+
+				return "C:/nvm/nvm.exe", tc.lookupErr
+			}
+			run := func(_ context.Context, name string, args ...string) ([]byte, error) {
+				calls = append(calls, strings.Join(append([]string{name}, args...), " "))
+				if len(args) == 1 {
+					return []byte(tc.versionOutput), tc.versionErr
+				}
+
+				return []byte(tc.modeOutput), tc.modeErr
+			}
+
+			got, err := detectNvmWindowsShimModeWith(context.Background(), tc.goos, lookup, run)
+			assert.Equal(t, tc.wantShim, got)
+			assert.Equal(t, tc.wantCalls, calls)
+
+			if tc.wantErr != "" {
+				if assert.Error(t, err) {
+					assert.Contains(t, err.Error(), tc.wantErr)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestPnpmUpdater_DetectNvmShimModeWithoutNvm(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+
+	got, err := (&PnpmUpdater{}).detectNvmShimMode(context.Background())
+
+	assert.NoError(t, err)
+	assert.False(t, got)
+}
+
+func TestPnpmUpdater_RunNvmCommand(t *testing.T) {
+	command, args := pnpmNoOpCommandForTest(t)
+
+	t.Run("実行可能なコマンドを実行する", func(t *testing.T) {
+		err := (&PnpmUpdater{}).runNvmCommand(context.Background(), command, args...)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("起動できないコマンドのエラーを返す", func(t *testing.T) {
+		missingExecutable := filepath.Join(t.TempDir(), "missing-command")
+		err := (&PnpmUpdater{}).runNvmCommand(context.Background(), missingExecutable)
+
+		assert.Error(t, err)
+	})
+}
+
+func TestRunPnpmNvmCommandOutput(t *testing.T) {
+	command, args := pnpmNoOpCommandForTest(t)
+
+	_, err := runPnpmNvmCommandOutput(context.Background(), command, args...)
+
+	assert.NoError(t, err)
+}
+
+func pnpmNoOpCommandForTest(t *testing.T) (command string, args []string) {
+	t.Helper()
+
+	if runtime.GOOS == windowsOS {
+		command := os.Getenv("ComSpec")
+		if !assert.NotEmpty(t, command) {
+			return "", nil
+		}
+
+		return command, []string{"/c", "exit", "0"}
+	}
+
+	return "true", nil
 }
 
 func TestComparePnpmVersions(t *testing.T) {
@@ -852,7 +1165,15 @@ func TestPnpmUpdater_SelfUpdate_DisablesCorepackProjectSpec(t *testing.T) {
 	t.Setenv("PATH", commandDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("COREPACK_ENABLE_PROJECT_SPEC", "1")
 
-	result, err := (&PnpmUpdater{}).SelfUpdate(context.Background(), UpdateOptions{})
+	result, err := (&PnpmUpdater{
+		detectNvmShimModeStep: func(context.Context) (bool, error) {
+			return false, nil
+		},
+		runNvmCommandStep: func(context.Context, string, ...string) error {
+			t.Fatal("Corepack のテストで NVM コマンドは実行しない")
+			return nil
+		},
+	}).SelfUpdate(context.Background(), UpdateOptions{})
 	if !assert.NoError(t, err) {
 		return
 	}
