@@ -4,6 +4,19 @@
 
 > 過去の完了タスク履歴は [docs/archive/tasks_v0.2.3.md](docs/archive/tasks_v0.2.3.md) を参照してください。
 
+## v0.10.1 リリース準備
+
+- [x] PR #125 を main にマージし、Issue #122 がクローズしたことを確認
+- [x] `task check` / `go build ./...` / `go run ./cmd/dsx --help` 通過（PR CI を含む）
+- [x] MSIX 署名用 GitHub Secrets の登録を確認
+- [x] CHANGELOG.md を v0.10.1 として更新
+- [x] README.md の最新バージョン表記を v0.10.1 に更新
+- [x] `task release:check` / `task snapshot` 通過
+- [ ] リリース準備 PR を作成・レビュー後にマージ
+- [ ] `v0.10.1` タグ発行・push。GitHub Actions で GitHub Release と MSIX を公開
+
+---
+
 ## v0.10.0 リリース準備
 
 - [x] PR #121 を main にマージ

@@ -6,9 +6,11 @@
 
 ## [Unreleased]
 
+## [v0.10.1] - 2026-10-01
+
 ### Fixed
 
-- NVM for Windows v2 Shim mode では `pnpm self-update` がプロジェクトの `packageManager` pin だけを更新するため、選択中 Node.js のグローバル pnpm を更新して `nvm reshim` し、更新後の版を検証するよう修正
+- NVM for Windows v2 Shim mode では `pnpm self-update` がプロジェクトの `packageManager` pin だけを更新するため、選択中 Node.js のグローバル pnpm を更新して `nvm reshim` し、更新後の版を検証するよう修正（#122）
 
 ## [v0.10.0] - 2026-10-01
 
@@ -439,8 +441,9 @@
 
 ---
 
+[v0.10.1]: https://github.com/scottlz0310/dsx/compare/v0.10.0...v0.10.1
 [v0.10.0]: https://github.com/scottlz0310/dsx/compare/v0.9.0...v0.10.0
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.10.1...HEAD
 [v0.9.0]: https://github.com/scottlz0310/dsx/compare/v0.8.1...v0.9.0
 [v0.8.1]: https://github.com/scottlz0310/dsx/compare/v0.8.0...v0.8.1
 [v0.8.0]: https://github.com/scottlz0310/dsx/compare/v0.7.0...v0.8.0
