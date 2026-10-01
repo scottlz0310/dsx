@@ -12,8 +12,8 @@
 - [x] CHANGELOG.md を v0.10.1 として更新
 - [x] README.md の最新バージョン表記を v0.10.1 に更新
 - [x] `task release:check` / `task snapshot` 通過
-- [ ] リリース準備 PR を作成・レビュー後にマージ
-- [ ] `v0.10.1` タグ発行・push。GitHub Actions で GitHub Release と MSIX を公開
+- [x] リリース準備 PR #127 を作成し、レビュー後にマージ
+- [x] `v0.10.1` タグを push。Release workflow #36820719995 が成功し、GitHub Release と署名済み MSIX を公開
 
 ---
 
