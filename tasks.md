@@ -53,6 +53,7 @@
 
 - [x] NVM for Windows v2 Shim mode は選択中 Node.js の npm global で pnpm を更新し、`nvm reshim` 後に版を確認
 - [x] Shim 判定・npm global 更新・reshim・更新後バージョン確認の成功 / 失敗系を table-driven tests で検証
+- [x] PR レビュー対応: NVM v2 / Shim 判定と更新後バージョン確認の失敗経路を追加し、pnpm updater のカバレッジを確認
 - [x] 実機確認: NVM for Windows v2.0.0、Node.js v24.21.0、pnpm 12.4.2 → 12.8.1。`node -v` / `process.execPath` / `npm root -g` は更新前後で同一の NVM Node.js を指す
 - [x] 実機確認: `package.json` / `pnpm-lock.yaml` の SHA-256 は前後一致。project pin は pnpm 12.4.2 のまま、pin を無効にした pnpm と npm global 一覧は 12.8.1
 - [x] standalone pnpm 12.8.1 と global package inventory / lockfile hash に変化がないことを確認

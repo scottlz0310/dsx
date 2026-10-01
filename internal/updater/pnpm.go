@@ -20,6 +20,8 @@ type pnpmSelfUpdateOutputRunner func(context.Context, ...string) ([]byte, error)
 type pnpmSelfUpdateRunner func(context.Context, ...string) error
 type pnpmNvmShimModeChecker func(context.Context) (bool, error)
 type pnpmNvmCommandRunner func(context.Context, string, ...string) error
+type pnpmExecutableLookup func(string) (string, error)
+type pnpmNvmCommandOutputRunner func(context.Context, string, ...string) ([]byte, error)
 
 // PnpmUpdater は pnpm グローバルパッケージマネージャの実装です。
 type PnpmUpdater struct {
@@ -271,11 +273,15 @@ func (p *PnpmUpdater) detectNvmShimMode(ctx context.Context) (bool, error) {
 }
 
 func detectNvmWindowsShimMode(ctx context.Context) (bool, error) {
-	if runtime.GOOS != windowsOS {
+	return detectNvmWindowsShimModeWith(ctx, runtime.GOOS, exec.LookPath, runPnpmNvmCommandOutput)
+}
+
+func detectNvmWindowsShimModeWith(ctx context.Context, goos string, lookup pnpmExecutableLookup, run pnpmNvmCommandOutputRunner) (bool, error) {
+	if goos != windowsOS {
 		return false, nil
 	}
 
-	nvmPath, err := exec.LookPath("nvm")
+	nvmPath, err := lookup("nvm")
 	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
 			return false, nil
@@ -284,7 +290,7 @@ func detectNvmWindowsShimMode(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("nvm コマンドの検索に失敗: %w", err)
 	}
 
-	versionOutput, err := exec.CommandContext(ctx, nvmPath, "version").CombinedOutput()
+	versionOutput, err := run(ctx, nvmPath, "version")
 	if err != nil {
 		return false, fmt.Errorf("nvm version の実行に失敗: %w", buildCommandOutputErr(err, versionOutput))
 	}
@@ -303,7 +309,7 @@ func detectNvmWindowsShimMode(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	modeOutput, err := exec.CommandContext(ctx, nvmPath, "config", "get", "mode").CombinedOutput()
+	modeOutput, err := run(ctx, nvmPath, "config", "get", "mode")
 	if err != nil {
 		return false, fmt.Errorf("nvm config get mode の実行に失敗: %w", buildCommandOutputErr(err, modeOutput))
 	}
@@ -316,6 +322,10 @@ func detectNvmWindowsShimMode(ctx context.Context) (bool, error) {
 	default:
 		return false, fmt.Errorf("nvm config get mode の出力を解析できません: %q", string(modeOutput))
 	}
+}
+
+func runPnpmNvmCommandOutput(ctx context.Context, name string, args ...string) ([]byte, error) {
+	return exec.CommandContext(ctx, name, args...).CombinedOutput()
 }
 
 func (p *PnpmUpdater) runNvmShimSelfUpdate(ctx context.Context, version string) error {
