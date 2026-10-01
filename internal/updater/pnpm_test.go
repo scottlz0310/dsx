@@ -715,18 +715,27 @@ func TestPnpmUpdater_SelfUpdate(t *testing.T) {
 		name                string
 		currentVersion      string
 		latestVersion       string
+		updatedVersion      string
 		opts                UpdateOptions
 		updateErr           error
+		nvmShimMode         bool
+		nvmShimModeErr      error
+		nvmInstallErr       error
+		nvmReshimErr        error
 		wantUpdates         int
 		wantMessageContains string
 		wantErrContains     string
 		wantUpdateCalls     int
+		wantNvmCommands     []string
+		wantVersionCalls    int
+		wantModeCalls       int
 	}{
 		{
 			name:                "更新なし",
 			currentVersion:      "12.8.1",
 			latestVersion:       "12.8.1",
 			wantMessageContains: "最新です",
+			wantVersionCalls:    1,
 		},
 		{
 			name:                "DryRun は自己更新コマンドを実行しない",
@@ -734,6 +743,7 @@ func TestPnpmUpdater_SelfUpdate(t *testing.T) {
 			latestVersion:       "12.8.1",
 			opts:                UpdateOptions{DryRun: true},
 			wantMessageContains: "DryRun",
+			wantVersionCalls:    1,
 		},
 		{
 			name:                "pnpm self-update で本体を更新する",
@@ -742,6 +752,56 @@ func TestPnpmUpdater_SelfUpdate(t *testing.T) {
 			wantUpdates:         1,
 			wantMessageContains: "pnpm 本体を更新しました",
 			wantUpdateCalls:     1,
+			wantVersionCalls:    1,
+			wantModeCalls:       1,
+		},
+		{
+			name:                "NVM Shim では選択中 Node.js の pnpm を更新して reshim する",
+			currentVersion:      "12.4.2",
+			latestVersion:       "12.8.1",
+			updatedVersion:      "12.8.1",
+			nvmShimMode:         true,
+			wantUpdates:         1,
+			wantMessageContains: "pnpm 本体を更新しました",
+			wantNvmCommands:     []string{"npm install --global pnpm@12.8.1", "nvm reshim"},
+			wantVersionCalls:    2,
+			wantModeCalls:       1,
+		},
+		{
+			name:                "NVM Shim のグローバルインストール失敗は reshim せず返す",
+			currentVersion:      "12.4.2",
+			latestVersion:       "12.8.1",
+			nvmShimMode:         true,
+			nvmInstallErr:       errors.New("permission denied"),
+			wantMessageContains: "pnpm 本体の更新が可能です",
+			wantErrContains:     "npm install --global pnpm@12.8.1 の実行に失敗",
+			wantNvmCommands:     []string{"npm install --global pnpm@12.8.1"},
+			wantVersionCalls:    1,
+			wantModeCalls:       1,
+		},
+		{
+			name:                "NVM Shim の reshim 失敗を返す",
+			currentVersion:      "12.4.2",
+			latestVersion:       "12.8.1",
+			nvmShimMode:         true,
+			nvmReshimErr:        errors.New("reshim failed"),
+			wantMessageContains: "pnpm 本体の更新が可能です",
+			wantErrContains:     "nvm reshim の実行に失敗",
+			wantNvmCommands:     []string{"npm install --global pnpm@12.8.1", "nvm reshim"},
+			wantVersionCalls:    1,
+			wantModeCalls:       1,
+		},
+		{
+			name:                "NVM Shim 更新後のバージョン不一致はエラー",
+			currentVersion:      "12.4.2",
+			latestVersion:       "12.8.1",
+			updatedVersion:      "12.4.2",
+			nvmShimMode:         true,
+			wantMessageContains: "pnpm 本体の更新が可能です",
+			wantErrContains:     "pnpm の更新後バージョンが一致しません",
+			wantNvmCommands:     []string{"npm install --global pnpm@12.8.1", "nvm reshim"},
+			wantVersionCalls:    2,
+			wantModeCalls:       1,
 		},
 		{
 			name:                "自己更新失敗をコマンドの文脈付きで返す",
@@ -752,16 +812,39 @@ func TestPnpmUpdater_SelfUpdate(t *testing.T) {
 			wantMessageContains: "pnpm 本体の更新が可能です",
 			wantErrContains:     "pnpm self-update の実行に失敗",
 			wantUpdateCalls:     1,
+			wantVersionCalls:    1,
+			wantModeCalls:       1,
+		},
+		{
+			name:                "NVM Shim の検出失敗は pnpm self-update にフォールバックしない",
+			currentVersion:      "12.7.0",
+			latestVersion:       "12.8.1",
+			nvmShimModeErr:      errors.New("mode unavailable"),
+			wantMessageContains: "pnpm 本体の更新が可能です",
+			wantErrContains:     "NVM for Windows の動作モード確認に失敗",
+			wantVersionCalls:    1,
+			wantModeCalls:       1,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			updateCalls := 0
+			var (
+				updateCalls  int
+				versionCalls int
+				modeCalls    int
+				nvmCommands  []string
+			)
+
 			updater := &PnpmUpdater{
 				runSelfUpdateOutputStep: func(_ context.Context, args ...string) ([]byte, error) {
 					if strings.HasSuffix(strings.Join(args, " "), "--version") {
-						return []byte(tc.currentVersion), nil
+						versionCalls++
+						if versionCalls == 1 {
+							return []byte(tc.currentVersion), nil
+						}
+
+						return []byte(tc.updatedVersion), nil
 					}
 
 					assert.Equal(t, pnpmSelfUpdateArgs("view", "pnpm", "version", "--json"), args)
@@ -775,10 +858,27 @@ func TestPnpmUpdater_SelfUpdate(t *testing.T) {
 
 					return tc.updateErr
 				},
+				detectNvmShimModeStep: func(context.Context) (bool, error) {
+					modeCalls++
+
+					return tc.nvmShimMode, tc.nvmShimModeErr
+				},
+				runNvmCommandStep: func(_ context.Context, name string, args ...string) error {
+					nvmCommands = append(nvmCommands, strings.Join(append([]string{name}, args...), " "))
+
+					if len(nvmCommands) == 1 {
+						return tc.nvmInstallErr
+					}
+
+					return tc.nvmReshimErr
+				},
 			}
 
 			got, err := updater.SelfUpdate(context.Background(), tc.opts)
 			assert.Equal(t, tc.wantUpdateCalls, updateCalls)
+			assert.Equal(t, tc.wantNvmCommands, nvmCommands)
+			assert.Equal(t, tc.wantVersionCalls, versionCalls)
+			assert.Equal(t, tc.wantModeCalls, modeCalls)
 
 			if tc.wantErrContains != "" {
 				if assert.Error(t, err) {
@@ -852,7 +952,15 @@ func TestPnpmUpdater_SelfUpdate_DisablesCorepackProjectSpec(t *testing.T) {
 	t.Setenv("PATH", commandDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("COREPACK_ENABLE_PROJECT_SPEC", "1")
 
-	result, err := (&PnpmUpdater{}).SelfUpdate(context.Background(), UpdateOptions{})
+	result, err := (&PnpmUpdater{
+		detectNvmShimModeStep: func(context.Context) (bool, error) {
+			return false, nil
+		},
+		runNvmCommandStep: func(context.Context, string, ...string) error {
+			t.Fatal("Corepack のテストで NVM コマンドは実行しない")
+			return nil
+		},
+	}).SelfUpdate(context.Background(), UpdateOptions{})
 	if !assert.NoError(t, err) {
 		return
 	}
