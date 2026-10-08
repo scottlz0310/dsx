@@ -8,8 +8,9 @@
 
 - [x] Go 1.27.2 更新に伴う `golangci-lint` の export data version 不整合エラーを特定
 - [x] `.github/workflows/ci.yml` の `golangci-lint` を `v2.14.0` に更新
-- [x] `lefthook.yml` の pre-push lint も `v2.14.0` に揃える
-- [x] `renovate.json` にインラインツールの Custom Regex Manager を設定し、`renovate-config-validator` で検証
+- [x] `lefthook.yml` の pre-push lint を `task lint` に委譲する
+- [x] Taskfile の gitleaks インストールバージョンを CI と同じ `v8.30.1` に揃える
+- [x] 共有 Go プリセットの regex manager が workflow 内 Go CLI ツールを検出することを検証
 - [ ] PR を作成し、レビューサイクルを完了して main にマージ
 - [ ] PR #129 を main と同期させて CI パスを確認
 

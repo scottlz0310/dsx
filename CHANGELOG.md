@@ -8,7 +8,7 @@
 
 ### Changed
 
-- CI ワークフローと pre-push フックの `golangci-lint` を `v2.14.0` に揃え、Go 1.27.2 の package export data version 5 に対応
+- CI ワークフローの `golangci-lint` を `v2.14.0` に更新し、Go 1.27.2 の package export data version 5 に対応。pre-push フックは `task lint` に委譲し、ローカルの gitleaks も CI と同じ `v8.30.1` に更新
 - GitHub Actions 内の Go CLI ツール更新ルールを共有 Renovate プリセットに集約し、`renovate.json` のローカル `customManagers` を削除 (#131)
 
 ## [v0.10.1] - 2026-10-01
