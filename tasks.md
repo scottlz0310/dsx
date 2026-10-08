@@ -21,7 +21,7 @@
 - [x] `renovate-config#273` の対応が共有 Go プリセットにマージ済みであることを確認
 - [x] `renovate.json` からローカル `customManagers` を削除し、`golangci-lint` と `gitleaks` が共有設定の対象になることを確認
 - [x] `pnpm dlx --package renovate renovate-config-validator` で設定を検証
-- [ ] PR のレビューサイクルを完了して main にマージ
+- [x] PR #133 のレビューサイクルを完了して main にマージ
 
 ---
 
