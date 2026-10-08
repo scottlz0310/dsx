@@ -8,9 +8,20 @@
 
 - [x] Go 1.27.2 更新に伴う `golangci-lint` の export data version 不整合エラーを特定
 - [x] `.github/workflows/ci.yml` の `golangci-lint` を `v2.14.0` に更新
-- [x] `renovate.json` にインラインツールの Custom Regex Manager を設定し、`renovate-config-validator` で検証
+- [x] `lefthook.yml` の pre-push lint を `task lint` に委譲する
+- [x] Taskfile の gitleaks インストールバージョンを CI と同じ `v8.30.1` に揃える
+- [x] 共有 Go プリセットの regex manager が workflow 内 Go CLI ツールを検出することを検証
 - [ ] PR を作成し、レビューサイクルを完了して main にマージ
 - [ ] PR #129 を main と同期させて CI パスを確認
+
+---
+
+## Issue #131: Renovate 設定を共有プリセットに集約
+
+- [x] `renovate-config#273` の対応が共有 Go プリセットにマージ済みであることを確認
+- [x] `renovate.json` からローカル `customManagers` を削除し、`golangci-lint` と `gitleaks` が共有設定の対象になることを確認
+- [x] `pnpm dlx --package renovate renovate-config-validator` で設定を検証
+- [ ] PR のレビューサイクルを完了して main にマージ
 
 ---
 

@@ -521,6 +521,8 @@ task snapshot       # スナップショットビルド（ローカル検証用�
 
 `task release:check` / `task snapshot` は `goreleaser` コマンドが必要です。未導入の場合は上記の `go install` で事前に追加してください。
 
+依存更新には [共有 Renovate 設定](https://github.com/scottlz0310/renovate-config) を使用します。`renovate.json` は共有プリセットの継承を基本とし、リポジトリ固有のルールだけを追加します。
+
 ### リリース手順
 
 `v*` タグをプッシュすると GitHub Actions で自動リリースされます。

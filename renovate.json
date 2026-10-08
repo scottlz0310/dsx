@@ -5,15 +5,5 @@
     "github>scottlz0310/renovate-config//presets/languages/go",
     "github>scottlz0310/renovate-config//presets/options/schedule",
     "github>scottlz0310/renovate-config//presets/options/security"
-  ],
-  "customManagers": [
-    {
-      "customType": "regex",
-      "description": "GitHub Actions ワークフロー内のインライン Go CLI ツール (golangci-lint, gitleaks 等) を自動更新",
-      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
-      "matchStrings": [
-        "# renovate: datasource=(?<datasource>[a-z-]+?) depName=(?<depName>[^\\s]+?)(?: versioning=(?<versioning>[a-z-]+?))?\\s+(?:run:\\s+)?(?:go run|go install)\\s+.*?@(?<currentValue>v?[0-9.]+)"
-      ]
-    }
   ]
 }
