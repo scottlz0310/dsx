@@ -26,6 +26,7 @@ jobs:
           cache: true
 
       - name: Install gitleaks
+        # renovate: datasource=github-releases depName=zricethezav/gitleaks
         run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
 
       - name: Run gitleaks
@@ -45,7 +46,8 @@ jobs:
           cache: true
 
       - name: Run golangci-lint
-        run: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2 run ./cmd/... ./internal/...
+        # renovate: datasource=github-releases depName=golangci/golangci-lint
+        run: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run ./cmd/... ./internal/...
 
   test:
     name: Test
