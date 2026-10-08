@@ -6,6 +6,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- CI ワークフローの `golangci-lint` を `v2.14.0` に更新し、Go 1.27.2 の package export data version 5 に対応
+- `renovate.json` に GitHub Actions 内のインライン Go CLI ツール（`golangci-lint`, `gitleaks`）を自動更新する Custom Regex Manager を追加
+
 ## [v0.10.1] - 2026-10-01
 
 ### Fixed

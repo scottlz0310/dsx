@@ -4,6 +4,16 @@
 
 > 過去の完了タスク履歴は [docs/archive/tasks_v0.2.3.md](docs/archive/tasks_v0.2.3.md) を参照してください。
 
+## CI 保守: golangci-lint 更新と Renovate 自動追従
+
+- [x] Go 1.27.2 更新に伴う `golangci-lint` の export data version 不整合エラーを特定
+- [x] `.github/workflows/ci.yml` の `golangci-lint` を `v2.14.0` に更新
+- [x] `renovate.json` にインラインツールの Custom Regex Manager を設定し、`renovate-config-validator` で検証
+- [ ] PR を作成し、レビューサイクルを完了して main にマージ
+- [ ] PR #129 を main と同期させて CI パスを確認
+
+---
+
 ## v0.10.1 リリース準備
 
 - [x] PR #125 を main にマージし、Issue #122 がクローズしたことを確認
