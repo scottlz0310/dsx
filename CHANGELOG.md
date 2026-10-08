@@ -8,8 +8,8 @@
 
 ### Changed
 
-- CI ワークフローの `golangci-lint` を `v2.14.0` に更新し、Go 1.27.2 の package export data version 5 に対応
-- `renovate.json` に GitHub Actions 内のインライン Go CLI ツール（`golangci-lint`, `gitleaks`）を自動更新する Custom Regex Manager を追加
+- CI ワークフローと pre-push フックの `golangci-lint` を `v2.14.0` に揃え、Go 1.27.2 の package export data version 5 に対応
+- GitHub Actions 内の Go CLI ツール更新ルールを共有 Renovate プリセットに集約し、`renovate.json` のローカル `customManagers` を削除 (#131)
 
 ## [v0.10.1] - 2026-10-01
 
