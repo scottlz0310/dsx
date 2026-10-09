@@ -31,8 +31,8 @@ dsx は、開発環境の運用作業を統合・一元化するためのクロ�
 [Releases ページ](https://github.com/scottlz0310/dsx/releases) からお使いの OS 向けのバイナリをダウンロードして PATH に配置してください。
 
 ```bash
-# 例: Linux amd64（v0.10.1 の場合）
-curl -Lo dsx.tar.gz https://github.com/scottlz0310/dsx/releases/download/v0.10.1/dsx_0.10.1_linux_amd64.tar.gz
+# 例: Linux amd64（v0.10.2 の場合）
+curl -Lo dsx.tar.gz https://github.com/scottlz0310/dsx/releases/download/v0.10.2/dsx_0.10.2_linux_amd64.tar.gz
 tar xzf dsx.tar.gz
 sudo mv dsx /usr/local/bin/
 ```
@@ -175,7 +175,7 @@ Remove-Item -Force (Get-Command dsx).Source
 
 ### メインコマンド
 ```
-dsx --version      # バージョン表示（現在: v0.10.1）
+dsx --version      # バージョン表示（現在: v0.10.2）
 dsx run           # 日次の統合タスクを実行（Bitwarden解錠→環境変数読込→更新処理）
 dsx run -n        # ドライラン（sys/repo に伝播）
 dsx run --tui     # TUI 進捗表示を有効化（sys/repo に伝播）
@@ -555,7 +555,7 @@ task lint
 
 ## 📅 ステータス
 
-現在 **v0.10.1（安定版）** です。
+現在 **v0.10.2（安定版）** です。
 詳細なロードマップについては [docs/Implementation_Plan.md](docs/Implementation_Plan.md) を参照してください。
 
 ## 📄 ライセンス

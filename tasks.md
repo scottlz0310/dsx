@@ -11,8 +11,8 @@
 - [x] `lefthook.yml` の pre-push lint を `task lint` に委譲する
 - [x] Taskfile の gitleaks インストールバージョンを CI と同じ `v8.30.1` に揃える
 - [x] 共有 Go プリセットの regex manager が workflow 内 Go CLI ツールを検出することを検証
-- [ ] PR を作成し、レビューサイクルを完了して main にマージ
-- [ ] PR #129 を main と同期させて CI パスを確認
+- [x] PR #130 / #133 を作成し、レビューサイクルを完了して main にマージ
+- [x] PR #129 の CI パスと main へのマージを確認
 
 ---
 
@@ -22,6 +22,19 @@
 - [x] `renovate.json` からローカル `customManagers` を削除し、`golangci-lint` と `gitleaks` が共有設定の対象になることを確認
 - [x] `pnpm dlx --package renovate renovate-config-validator` で設定を検証
 - [x] PR #133 のレビューサイクルを完了して main にマージ
+
+---
+
+## v0.10.2 リリース準備
+
+- [x] PR #129 / #130 / #132 / #133 / #134 の main へのマージを確認
+- [x] MSIX 署名用 GitHub Secrets の登録を確認
+- [x] CHANGELOG.md を v0.10.2 として更新（x/text セキュリティ更新・Go 更新・CI 保守）
+- [x] README.md の最新バージョン表記を v0.10.2 に更新
+- [x] `task check` / `go build ./...` / `go run ./cmd/dsx --help` を検証
+- [x] `task release:check` / `task snapshot` を検証
+
+準備 PR のレビュー・マージとタグ発行・Release workflow・署名済み MSIX 公開の結果は、リリース作業のハンドオフに記録する。
 
 ---
 
