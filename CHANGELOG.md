@@ -6,8 +6,15 @@
 
 ## [Unreleased]
 
+## [v0.10.2] - 2026-10-09
+
+### Security
+
+- 間接依存の `golang.org/x/text` を `v0.39.0` から `v0.41.0` に更新し、`secure/precis` の細工された入力による panic（GO-2026-6629 / CVE-2026-56851）の修正版を取り込む (#132)
+
 ### Changed
 
+- Go のビルドバージョンを `1.27.1` から `1.27.2` に更新 (#129)
 - CI ワークフローの `golangci-lint` を `v2.14.0` に更新し、Go 1.27.2 の package export data version 5 に対応。pre-push フックは `task lint` に委譲し、ローカルの gitleaks も CI と同じ `v8.30.1` に更新
 - GitHub Actions 内の Go CLI ツール更新ルールを共有 Renovate プリセットに集約し、`renovate.json` のローカル `customManagers` を削除 (#131)
 
