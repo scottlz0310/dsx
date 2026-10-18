@@ -38,7 +38,8 @@ var runCmd = &cobra.Command{
   4. システム更新
   5. リポジトリ同期
 
-フラグ（--dry-run, --tui/--no-tui, --jobs）は sys update / repo update に伝播されます。`,
+フラグ（--dry-run, --tui/--no-tui, --jobs）は sys update / repo update に伝播されます。
+--root は repo update のみに伝播され、指定時は設定ファイルの repo.root を上書きします。`,
 	RunE: runDaily,
 }
 
@@ -50,6 +51,9 @@ func init() {
 	runCmd.Flags().BoolVar(&runTUI, "tui", false, "Bubble Tea の進捗UIを表示（sys/repo に伝播）")
 	runCmd.Flags().BoolVar(&runNoTUI, "no-tui", false, "TUI 進捗表示を無効化（sys/repo に伝播）")
 	runCmd.Flags().StringVar(&runLogFile, "log-file", "", "ジョブ実行ログをファイルに保存（sys/repo に伝播）")
+	// runRepoUpdate は渡された cmd の Changed("root") と repoRootOverride で root を解決するため、
+	// repo update と同じ変数に束ねるだけで run からも伝播する。
+	runCmd.Flags().StringVar(&repoRootOverride, "root", "", "リポジトリ更新対象のルートディレクトリ（指定時は設定を上書き、repo update のみに伝播）")
 }
 
 // propagateRunFlags は run コマンドのフラグを sys/repo のグローバルフラグ変数に伝播します。

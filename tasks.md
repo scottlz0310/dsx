@@ -4,6 +4,15 @@
 
 > 過去の完了タスク履歴は [docs/archive/tasks_v0.2.3.md](docs/archive/tasks_v0.2.3.md) を参照してください。
 
+## Issue #137: dsx run に --root を追加
+
+- [x] `dsx run --root` を追加し、`repo update` にのみ伝播（設定の `repo.root` を上書き）
+- [x] 指定あり／なしの伝播テストを追加
+- [x] `--root` 指定の dry-run で対象が絞られることを実機確認
+- [ ] PR を作成してレビューサイクルを完了し main にマージ
+
+---
+
 ## CI 保守: golangci-lint 更新と Renovate 自動追従
 
 - [x] Go 1.27.2 更新に伴う `golangci-lint` の export data version 不整合エラーを特定
