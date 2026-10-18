@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-18
+
 ### Added
 
 - `dsx run` に `--root` を追加。指定時は設定ファイルの `repo.root` を上書きして `repo update` にのみ伝播する。未指定時の挙動は従来どおり（#137）
@@ -463,7 +465,8 @@
 
 [v0.10.1]: https://github.com/scottlz0310/dsx/compare/v0.10.0...v0.10.1
 [v0.10.0]: https://github.com/scottlz0310/dsx/compare/v0.9.0...v0.10.0
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.10.2...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/scottlz0310/dsx/compare/v0.10.2...v0.11.0
 [v0.10.2]: https://github.com/scottlz0310/dsx/compare/v0.10.1...v0.10.2
 [v0.9.0]: https://github.com/scottlz0310/dsx/compare/v0.8.1...v0.9.0
 [v0.8.1]: https://github.com/scottlz0310/dsx/compare/v0.8.0...v0.8.1
