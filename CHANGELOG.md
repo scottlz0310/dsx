@@ -10,6 +10,10 @@
 
 - `dsx run` に `--root` を追加。指定時は設定ファイルの `repo.root` を上書きして `repo update` にのみ伝播する。未指定時の挙動は従来どおり（#137）
 
+### Changed
+
+- リリースを release-automate（`scottlz0310/release-automate` v2.1.0）に移行。Actions の Prepare Release で `chore(release): vX.Y.Z` の PR を作り、squash マージすると、draft Release の作成、GoReleaser のビルドと署名済み MSIX の添付、Release から再取得した成果物の検証、公開までを自動で行う。Release ノートは本ファイルの該当節を使う。タグの手動 push は不要になった
+
 ## [v0.10.2] - 2026-10-09
 
 ### Security

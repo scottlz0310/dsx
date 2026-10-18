@@ -1,0 +1,43 @@
+name: Prepare Release
+
+# リリース準備 PR（`chore(release): vX.Y.Z`）を作る。手動起動だけで動く。
+# release-automate が、Bot（GitHub App）名義で CHANGELOG.md の [Unreleased] を
+# リリースの版の見出しに確定した PR を出す。dsx の版はビルド時にタグから埋め込むため、版ファイルは更新しない。
+# この PR を squash マージすると、release.yml が動く（タグ、draft Release、成果物の添付と検証、公開）。
+# 手順は CONTRIBUTING.md の「リリースプロセス」を参照。
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_version:
+        description: "リリースする安定版（例: 0.11.0）。MAJOR.MINOR.PATCH の形式のみ"
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      # MSIX の版は数値 4 要素で、プレリリース版を持てない（Build-Msix.ps1 も受け付けない）。
+      # release-automate は rc などの版も通すため、ここで止める。
+      - name: 安定版の形式を確認
+        env:
+          TARGET_VERSION: ${{ inputs.target_version }}
+        run: |
+          if ! [[ "$TARGET_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::target_version は MAJOR.MINOR.PATCH の形式で指定してください（先頭に v は付けない）: $TARGET_VERSION"
+            exit 1
+          fi
+
+  prepare:
+    needs: validate
+    uses: scottlz0310/release-automate/.github/workflows/reusable-prepare-release.yml@3b5092d9f1a7ed9f29fb33f6e598d1e8534bb8cf # v2.1.0
+    secrets:
+      RELEASE_BOT_APP_ID: ${{ secrets.RELEASE_BOT_APP_ID }}
+      RELEASE_BOT_PRIVATE_KEY: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+    with:
+      target_version: ${{ inputs.target_version }}
+      bump_strategy: none

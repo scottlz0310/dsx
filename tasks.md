@@ -9,7 +9,20 @@
 - [x] `dsx run --root` を追加し、`repo update` にのみ伝播（設定の `repo.root` を上書き）
 - [x] 指定あり／なしの伝播テストを追加
 - [x] `--root` 指定の dry-run で対象が絞られることを実機確認
-- [ ] PR を作成してレビューサイクルを完了し main にマージ
+- [x] PR #138 のレビューサイクルを完了して main にマージ
+
+---
+
+## Issue #139: release-automate の導入
+
+- [x] v0.10.0 / v0.10.1 の Release ノートを v0.10.2 と同じ構成に整理
+- [x] `prepare-release.yml` を追加（`bump_strategy: none`、安定版のみ）
+- [x] `release.yml` を draft → テスト → ビルド → MSIX → 添付 → 検証 → 公開 の流れに作り直す（起点を main への push に変更）
+- [x] `.goreleaser.yml` から `release` / `changelog` を外し、`--skip=publish` で実行
+- [x] `scripts/attach-release-assets.sh` / `scripts/verify-release-assets.sh` を追加
+- [x] CONTRIBUTING / README / CHANGELOG を更新
+- [ ] PR を作成してレビューサイクルを完了し main にマージ（PR 上の dry-run の成功を確認）
+- [ ] v0.11.0 を Prepare Release から切り、draft → 公開まで完走することを確認
 
 ---
 
