@@ -175,7 +175,7 @@ Remove-Item -Force (Get-Command dsx).Source
 
 ### メインコマンド
 ```
-dsx --version      # バージョン表示（現在: v0.10.2）
+dsx --version      # バージョン表示
 dsx run           # 日次の統合タスクを実行（Bitwarden解錠→環境変数読込→更新処理）
 dsx run -n        # ドライラン（sys/repo に伝播）
 dsx run --root ~/src  # repo update の対象 root を一時的に上書き（sys には影響しない）
@@ -526,12 +526,14 @@ task snapshot       # スナップショットビルド（ローカル検証用�
 
 ### リリース手順
 
-`v*` タグをプッシュすると GitHub Actions で自動リリースされます。
+リリースは [release-automate](https://github.com/scottlz0310/release-automate) で自動化しています。タグの手動作成・push はしません。
 
-```bash
-git tag vX.Y.Z
-git push origin vX.Y.Z
-```
+1. `CHANGELOG.md` の `[Unreleased]` に変更内容を書いておく（この内容がそのまま Release ノートになります）。
+2. Actions の **Prepare Release** を起動し、`target_version`（例: `0.11.0`）を入力する。Bot が `chore(release): vX.Y.Z` の PR を作ります。
+3. PR を確認して **Squash and merge** する。
+4. **Release** workflow が、タグと draft Release を作り、GoReleaser のビルド・署名済み MSIX・checksum を添付し、Release から再取得して検証したうえで公開します。
+
+失敗したときは、新しいタグを切らず、同じ実行で「Re-run failed jobs」を使います。
 
 ### Windows で `task lint` が gofmt で落ちる場合
 

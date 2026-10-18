@@ -233,11 +233,14 @@ PR 提出前に確認してください。
 
 ## リリースプロセス
 
-1. `CHANGELOG.md` と `README.md` のバージョン記載を更新
-2. `release/vX.Y.Z` ブランチを作成してリリース PR を開く
-3. リリース PR を `main` にマージ
-4. `vX.Y.Z` タグを作成・プッシュ
-5. GitHub Actions + GoReleaser が自動でリリースアーティファクトを公開
+リリースは [release-automate](https://github.com/scottlz0310/release-automate) の reusable workflow で自動化しています。
+
+1. `CHANGELOG.md` の `[Unreleased]` に変更内容を書く（Release ノートにそのまま使われるため、利用者向けの文で書く）
+2. Actions の **Prepare Release** を起動して `target_version`（例: `0.11.0`、安定版のみ）を入力する。Bot 名義で `chore(release): vX.Y.Z` の PR が作られる
+3. PR を確認して **Squash and merge** する（コミットメッセージの `chore(release):` が Release workflow の起動条件）
+4. **Release** workflow が、タグと draft Release の作成 → GoReleaser のビルドと署名済み MSIX の生成 → 成果物の添付 → Release から再取得して検証 → 公開 を行う
+
+タグの手動作成・push は不要です（GITHUB_TOKEN で作られたタグは `push: tags` の workflow を起動しません）。失敗時は新しいタグを切らず、同じ実行で「Re-run failed jobs」を使います。公開済みの Release は再実行でも変更されません。
 
 ## 参考ドキュメント
 

@@ -1,22 +1,52 @@
 name: Release
 
+# リリース準備 PR（prepare-release.yml が作る `chore(release): vX.Y.Z`）を squash マージすると動く。
+# release-automate が draft の Release とタグを作り、続けて次の順に進む。
+#   draft → テスト・ビルド（GoReleaser）・MSIX → 成果物の添付 → Release から再取得して検証 → 公開
+# リリース準備 PR 以外の main への push では、draft ジョブが skip され、後続のジョブも動かない。
+# PR では公開権限を使わず、GoReleaser のスナップショットビルドと成果物の構造だけを検証する（MSIX は CI の MSIX Package が検証する）。
+#
+# release-automate のタグは GITHUB_TOKEN で作られ、`push: tags` の別のワークフローを起動しない。
+# そのためタグの push ではなく、main への push を起点にする。
+#
+# 失敗したときは、同じ実行で「Re-run failed jobs」を使う（新しいタグを切らない）。
+# 公開済みの Release は再実行でも変更されない。
+
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - .goreleaser.yml
+      - scripts/attach-release-assets.sh
+      - scripts/verify-release-assets.sh
 
-permissions:
-  contents: write
+permissions: {}
 
 jobs:
+  draft:
+    if: github.event_name == 'push'
+    # `chore(release):` で始まるコミット以外は、release-automate 側の条件で skip される。
+    uses: scottlz0310/release-automate/.github/workflows/reusable-publish-release.yml@3b5092d9f1a7ed9f29fb33f6e598d1e8534bb8cf # v2.1.0
+    permissions:
+      contents: write
+    with:
+      draft: true
+
   test:
+    needs: draft
+    if: ${{ !cancelled() && needs.draft.outputs.release_state == 'draft' }}
     name: Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          ref: ${{ format('refs/tags/{0}', needs.draft.outputs.tag_name) }}
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -27,15 +57,27 @@ jobs:
       - name: Run tests
         run: go test -race ./...
 
-  release:
-    name: Release
-    needs: test
+  build:
+    needs: draft
+    if: ${{ !cancelled() && (github.event_name == 'pull_request' || needs.draft.outputs.release_state == 'draft') }}
+    name: Build (GoReleaser)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      TARGET_SHA: ${{ needs.draft.outputs.target_sha }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
+          # GoReleaser はタグから版を決めるため、push ではタグを checkout する
+          ref: ${{ github.event_name == 'push' && format('refs/tags/{0}', needs.draft.outputs.tag_name) || '' }}
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify tag points to release commit
+        if: github.event_name == 'push'
+        run: test "$(git rev-parse HEAD)" = "$TARGET_SHA"
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -43,35 +85,52 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # 公開は release-automate の draft と、後段の attach ジョブが担う。GoReleaser はビルドと checksum だけを行う。
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          args: ${{ github.event_name == 'push' && 'release --clean --skip=publish' || 'release --snapshot --clean' }}
+
+      - name: Upload archives
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist-archives
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
+          if-no-files-found: error
 
   msix:
+    needs: [draft, build]
+    # MSIX の版は数値 4 要素のみのため、prerelease タグは対象外（prepare-release.yml が安定版だけを通す）
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.draft.outputs.release_state == 'draft' }}
     name: MSIX
-    needs: release
-    # MSIX のバージョンは数値 4 要素のみのため、prerelease タグ（v1.2.3-alpha 等）は対象外
-    if: ${{ !contains(github.ref_name, '-') }}
     runs-on: windows-latest
+    permissions:
+      contents: read
     env:
-      TAG: ${{ github.ref_name }}
+      TAG: ${{ needs.draft.outputs.tag_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.draft.outputs.target_sha }}
+          persist-credentials: false
 
-      # goreleaser が発行した Windows バイナリをそのままパッケージ化し、配布物の出所を 1 つに保つ
-      - name: Download Windows binary from release
+      - name: Download archives
+        uses: actions/download-artifact@v8
+        with:
+          name: dist-archives
+          path: ${{ runner.temp }}/archives
+
+      # GoReleaser が作った Windows バイナリをそのままパッケージ化し、配布物の出所を 1 つに保つ
+      - name: Extract Windows binary
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           $zip = "dsx_$($env:TAG.TrimStart('v'))_windows_amd64.zip"
-          gh release download $env:TAG --pattern $zip --dir "$env:RUNNER_TEMP\release"
-          Expand-Archive "$env:RUNNER_TEMP\release\$zip" -DestinationPath "$env:RUNNER_TEMP\bin"
+          Expand-Archive "$env:RUNNER_TEMP\archives\$zip" -DestinationPath "$env:RUNNER_TEMP\bin"
 
       - name: Restore signing certificate
         shell: pwsh
@@ -96,10 +155,163 @@ jobs:
         shell: pwsh
         run: Copy-Item -LiteralPath "scripts/install.ps1" -Destination "$env:RUNNER_TEMP\msix\install.ps1"
 
-      - name: Upload MSIX assets to release
-        shell: pwsh
+      - name: Upload MSIX assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist-msix
+          path: ${{ runner.temp }}/msix/
+          if-no-files-found: error
+
+  attach:
+    needs: [draft, test, build, msix]
+    if: ${{ !cancelled() && needs.draft.outputs.release_state == 'draft' && needs.test.result == 'success' && needs.build.result == 'success' && needs.msix.result == 'success' }}
+    name: Attach assets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.draft.outputs.tag_name }}
+      TARGET_SHA: ${{ needs.draft.outputs.target_sha }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.draft.outputs.target_sha }}
+          persist-credentials: false
+
+      - name: Download built assets
+        uses: actions/download-artifact@v8
+        with:
+          pattern: dist-*
+          path: assets
+          merge-multiple: true
+
+      - name: Attach assets to draft Release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: sh scripts/attach-release-assets.sh "$TAG" "$TARGET_SHA" assets
+
+  # draft Release の asset 取得には write 権限が必要なため、公開経路の収集だけ write を使い、
+  # 成果物を実行する verify ジョブには read 権限だけを渡す。
+  collect:
+    needs: [draft, attach]
+    if: ${{ !cancelled() && needs.attach.result == 'success' }}
+    name: Collect release assets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    env:
+      TAG: ${{ needs.draft.outputs.tag_name }}
+    steps:
+      - name: Download assets from draft Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release download "$TAG" --dir assets
+
+      - id: version
+        run: echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-assets
+          path: assets/
+          if-no-files-found: error
+
+  collect-dry-run:
+    needs: build
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.build.result == 'success' }}
+    name: Collect snapshot assets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist-archives
+          path: assets
+
+      # スナップショットの版は GoReleaser が決めるため、アーカイブ名から取り出す
+      - id: version
         run: |
-          $files = Get-ChildItem "$env:RUNNER_TEMP\msix" | ForEach-Object FullName
-          gh release upload $env:TAG @files
+          archive=$(ls assets/dsx_*_linux_amd64.tar.gz)
+          version=${archive#assets/dsx_}
+          echo "version=${version%_linux_amd64.tar.gz}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-assets
+          path: assets/
+          if-no-files-found: error
+
+  verify-linux:
+    needs: [collect, collect-dry-run]
+    if: ${{ !cancelled() && (needs.collect.result == 'success' || needs.collect-dry-run.result == 'success') }}
+    name: Verify (Linux)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.collect.outputs.version || needs.collect-dry-run.outputs.version }}
+      EVENT_NAME: ${{ github.event_name }}
+    steps:
+      - name: Checkout verify script
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/verify-release-assets.sh
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-assets
+          path: assets
+
+      - name: Verify assets and run binary
+        run: |
+          # push では MSIX 一式も揃っていることを確認する
+          if [ "$EVENT_NAME" = push ]; then
+            sh scripts/verify-release-assets.sh assets "$VERSION" --with-msix
+          else
+            sh scripts/verify-release-assets.sh assets "$VERSION"
+          fi
+
+  verify-windows:
+    needs: [collect, collect-dry-run]
+    if: ${{ !cancelled() && (needs.collect.result == 'success' || needs.collect-dry-run.result == 'success') }}
+    name: Verify (Windows)
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.collect.outputs.version || needs.collect-dry-run.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-assets
+          path: assets
+
+      - name: Run Windows binary
+        shell: pwsh
+        run: |
+          Expand-Archive "assets/dsx_${env:VERSION}_windows_amd64.zip" -DestinationPath bin
+          $out = & ./bin/dsx.exe --version
+          if ($LASTEXITCODE -ne 0 -or $out -notmatch [regex]::Escape($env:VERSION)) {
+            throw "dsx.exe --version の出力が想定と異なります（期待する版: $env:VERSION、実際: $out）"
+          }
+          Write-Host $out
+
+  finalize:
+    needs: [draft, verify-linux, verify-windows]
+    if: ${{ !cancelled() && needs.draft.outputs.release_state == 'draft' && needs.verify-linux.result == 'success' && needs.verify-windows.result == 'success' }}
+    uses: scottlz0310/release-automate/.github/workflows/reusable-finalize-release.yml@3b5092d9f1a7ed9f29fb33f6e598d1e8534bb8cf # v2.1.0
+    permissions:
+      contents: write
+    with:
+      tag_name: ${{ needs.draft.outputs.tag_name }}
+      target_sha: ${{ needs.draft.outputs.target_sha }}

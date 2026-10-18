@@ -37,13 +37,7 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# Release の作成・本文・公開は release-automate（.github/workflows/release.yml）が担う。
+# GoReleaser はビルドとアーカイブ・checksum の生成だけを行い、`--skip=publish` で実行する。
 changelog:
-  use: github-native
-
-release:
-  github:
-    owner: scottlz0310
-    name: dsx
-  draft: false
-  prerelease: auto
-  name_template: "v{{ .Version }}"
+  disable: true

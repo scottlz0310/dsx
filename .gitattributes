@@ -4,3 +4,5 @@
 *.go   text eol=lf
 go.mod text eol=lf
 go.sum text eol=lf
+# CRLF のシェルスクリプトは Linux 上で実行できないため、Windows のチェックアウトでも LF に固定する。
+*.sh   text eol=lf
