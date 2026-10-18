@@ -21,8 +21,9 @@
 - [x] `.goreleaser.yml` から `release` / `changelog` を外し、`--skip=publish` で実行
 - [x] `scripts/attach-release-assets.sh` / `scripts/verify-release-assets.sh` を追加
 - [x] CONTRIBUTING / README / CHANGELOG を更新
-- [ ] PR を作成してレビューサイクルを完了し main にマージ（PR 上の dry-run の成功を確認）
-- [ ] v0.11.0 を Prepare Release から切り、draft → 公開まで完走することを確認
+- [x] MSIX 一式の公開前検証を追加（生成時の `checksums-msix.txt` 照合、`Test-ReleaseMsix.ps1` による Identity・署名・署名者の検証、拒否ケースの Pester 固定）
+- [x] PR #140 のレビューサイクルを完了して main にマージ（PR 上の dry-run の成功を確認）
+- [x] v0.11.0 を Prepare Release（PR #141）から切り、draft → 添付 → 検証 → 公開まで完走することを確認
 
 ---
 
