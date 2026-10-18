@@ -178,6 +178,7 @@ Remove-Item -Force (Get-Command dsx).Source
 dsx --version      # バージョン表示（現在: v0.10.2）
 dsx run           # 日次の統合タスクを実行（Bitwarden解錠→環境変数読込→更新処理）
 dsx run -n        # ドライラン（sys/repo に伝播）
+dsx run --root ~/src  # repo update の対象 root を一時的に上書き（sys には影響しない）
 dsx run --tui     # TUI 進捗表示を有効化（sys/repo に伝播）
 dsx doctor        # 依存ツール（git, bw等）と環境設定の診断
 ```

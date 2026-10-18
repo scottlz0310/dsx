@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `dsx run` に `--root` を追加。指定時は設定ファイルの `repo.root` を上書きして `repo update` にのみ伝播する。未指定時の挙動は従来どおり（#137）
+
 ## [v0.10.2] - 2026-10-09
 
 ### Security

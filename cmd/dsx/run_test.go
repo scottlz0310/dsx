@@ -504,3 +504,81 @@ func TestRunDaily_ConflictingTUIFlags(t *testing.T) {
 		t.Errorf("runDaily() error = %q, want substring about conflicting flags", err.Error())
 	}
 }
+
+func TestRunDaily_RootFlagReachesRepoUpdate(t *testing.T) {
+	originalSysUpdate := runSysUpdateStep
+	originalRepoUpdate := runRepoUpdateStep
+	rootFlag := runCmd.Flags().Lookup("root")
+
+	if rootFlag == nil {
+		t.Fatal("run コマンドに --root フラグが登録されていません")
+	}
+
+	t.Cleanup(func() {
+		runSysUpdateStep = originalSysUpdate
+		runRepoUpdateStep = originalRepoUpdate
+
+		resetRootFlag(t)
+	})
+
+	testCases := []struct {
+		name        string
+		root        string
+		wantChanged bool
+		wantRoot    string
+	}{
+		{name: "指定あり", root: "/tmp/workspace", wantChanged: true, wantRoot: "/tmp/workspace"},
+		{name: "指定なし", root: "", wantChanged: false, wantRoot: ""},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			testutil.SetTestHome(t, t.TempDir())
+
+			resetRootFlag(t)
+
+			if tt.wantChanged {
+				if err := runCmd.Flags().Set("root", tt.root); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			runSysUpdateStep = func(*cobra.Command, []string) error { return nil }
+
+			called := false
+			runRepoUpdateStep = func(cmd *cobra.Command, _ []string) error {
+				called = true
+
+				if got := cmd.Flags().Changed("root"); got != tt.wantChanged {
+					t.Errorf("Changed(root) = %v, want %v", got, tt.wantChanged)
+				}
+
+				if repoRootOverride != tt.wantRoot {
+					t.Errorf("repoRootOverride = %q, want %q", repoRootOverride, tt.wantRoot)
+				}
+
+				return nil
+			}
+
+			if err := runDaily(runCmd, nil); err != nil {
+				t.Fatalf("runDaily() error = %v", err)
+			}
+
+			if !called {
+				t.Fatal("repo update step が呼ばれていません")
+			}
+		})
+	}
+}
+
+func resetRootFlag(t *testing.T) {
+	t.Helper()
+
+	flag := runCmd.Flags().Lookup("root")
+
+	if err := flag.Value.Set(""); err != nil {
+		t.Fatal(err)
+	}
+
+	flag.Changed = false
+}
