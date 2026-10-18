@@ -37,7 +37,9 @@ jobs:
   test:
     needs: draft
     if: ${{ !cancelled() && needs.draft.outputs.release_state == 'draft' }}
-    name: Test
+    # ci.yml の必須チェック `Test` と同名にしない。PR ではこのジョブが skip されるため、
+    # 同名だと (app, name) ごとの最新 run が skipped に置き換わり、必須チェックの成功を確認できなくなる。
+    name: Release Test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -154,6 +156,17 @@ jobs:
       - name: Add installer script
         shell: pwsh
         run: Copy-Item -LiteralPath "scripts/install.ps1" -Destination "$env:RUNNER_TEMP\msix\install.ps1"
+
+      # 生成した直後の checksum を記録する。attach → 再取得の間で MSIX 一式が壊れたり差し替わったりしたら、
+      # verify-release-assets.sh が検出する。sha256sum -c が読める形式（"<hash>  <name>"、LF）で書く。
+      - name: Record MSIX checksums
+        shell: pwsh
+        run: |
+          Set-Location "$env:RUNNER_TEMP\msix"
+          $lines = foreach ($name in "dsx_x64.msix", "dsx.appinstaller", "dsx.cer", "install.ps1") {
+            "{0}  {1}" -f (Get-FileHash -Algorithm SHA256 -LiteralPath $name).Hash.ToLowerInvariant(), $name
+          }
+          [IO.File]::WriteAllText("$PWD\checksums-msix.txt", ($lines -join "`n") + "`n", [Text.UTF8Encoding]::new($false))
 
       - name: Upload MSIX assets
         uses: actions/upload-artifact@v7
@@ -291,10 +304,23 @@ jobs:
     env:
       VERSION: ${{ needs.collect.outputs.version || needs.collect-dry-run.outputs.version }}
     steps:
+      - name: Checkout verify script
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/Test-ReleaseMsix.ps1
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
       - uses: actions/download-artifact@v8
         with:
           name: release-assets
           path: assets
+
+      # PR のスナップショットには MSIX が無い（MSIX は CI の MSIX Package が検証する）
+      - name: Verify MSIX package and signature
+        if: github.event_name == 'push'
+        shell: pwsh
+        run: ./scripts/Test-ReleaseMsix.ps1 -Dir assets -Version $env:VERSION
 
       - name: Run Windows binary
         shell: pwsh

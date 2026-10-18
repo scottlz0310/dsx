@@ -2,7 +2,8 @@
 # Usage: verify-release-assets.sh <asset-dir> <version> [--with-msix]
 # draft Release から再取得した asset が揃っていて改ざん・欠落がないことを確認する。
 #   - 全プラットフォームのアーカイブと checksums.txt があり、checksum が一致する
-#   - --with-msix: MSIX 一式（署名済み MSIX・App Installer・公開証明書・install.ps1）があり、版が一致する
+#   - --with-msix: MSIX 一式（署名済み MSIX・App Installer・公開証明書・install.ps1）があり、生成時に記録した
+#     checksums-msix.txt と一致し、App Installer の版が一致する。MSIX 本体の署名・Identity は Test-ReleaseMsix.ps1 が検証する
 #   - Linux x86_64 では、取り出したバイナリを実行して版を確認する
 # <version> は先頭に v を付けない（例: 0.11.0）。
 set -eu
@@ -44,9 +45,12 @@ done
 (cd "$dir" && sha256sum -c checksums.txt) || fail 'checksum が一致しません'
 
 if [ "$with_msix" = true ]; then
+    require_file checksums-msix.txt
     for file in dsx_x64.msix dsx.appinstaller dsx.cer install.ps1; do
         require_file "$file"
+        grep -q " $file\$" "$dir/checksums-msix.txt" || fail "checksums-msix.txt に記載がありません: $file"
     done
+    (cd "$dir" && sha256sum -c checksums-msix.txt) || fail "MSIX 一式の checksum が一致しません"
     grep -q "releases/download/v${version}/dsx_x64.msix" "$dir/dsx.appinstaller" ||
         fail "dsx.appinstaller の MSIX URL が v${version} を指していません"
     grep -q "Version=\"${version}.0\"" "$dir/dsx.appinstaller" ||
