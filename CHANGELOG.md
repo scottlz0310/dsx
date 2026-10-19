@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-19
+
 ### Changed
 
 - **破壊的変更**: `dsx run` から、Bitwarden のアンロック・`bw sync`・環境変数の読み込みを外した。処理順序は、システム更新 → リポジトリ同期の 2 つになる。日常の更新にシークレットは要らないため（`secrets.enabled=true` で未解錠でも、`bw` が PATH に無くても動く）。環境変数を `sys` / `repo` の子プロセスに渡したいときは、`dsx env run -- dsx run` で明示的に行う（#144）
@@ -471,7 +473,8 @@
 
 [v0.10.1]: https://github.com/scottlz0310/dsx/compare/v0.10.0...v0.10.1
 [v0.10.0]: https://github.com/scottlz0310/dsx/compare/v0.9.0...v0.10.0
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/scottlz0310/dsx/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/scottlz0310/dsx/compare/v0.10.2...v0.11.0
 [v0.10.2]: https://github.com/scottlz0310/dsx/compare/v0.10.1...v0.10.2
 [v0.9.0]: https://github.com/scottlz0310/dsx/compare/v0.8.1...v0.9.0
