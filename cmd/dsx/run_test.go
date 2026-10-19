@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/scottlz0310/dsx/internal/secret"
 	"github.com/scottlz0310/dsx/internal/testutil"
 	"github.com/spf13/cobra"
 )
@@ -34,23 +33,16 @@ func setupSecretsEnabledConfig(t *testing.T) {
 }
 
 func TestRunDaily(t *testing.T) {
-	originalUnlock := runUnlockStep
-	originalLoadEnv := runLoadEnvStep
 	originalSysUpdate := runSysUpdateStep
 	originalRepoUpdate := runRepoUpdateStep
 
 	t.Cleanup(func() {
-		runUnlockStep = originalUnlock
-		runLoadEnvStep = originalLoadEnv
 		runSysUpdateStep = originalSysUpdate
 		runRepoUpdateStep = originalRepoUpdate
 	})
 
 	testCases := []struct {
 		name          string
-		unlockErr     error
-		loadEnvStats  *secret.LoadStats
-		loadEnvErr    error
 		sysUpdateErr  error
 		repoUpdateErr error
 		wantErr       bool
@@ -58,67 +50,39 @@ func TestRunDaily(t *testing.T) {
 		wantCalls     []string
 	}{
 		{
-			name:         "全工程成功",
-			loadEnvStats: &secret.LoadStats{Loaded: 1},
-			wantCalls:    []string{"unlock", "load_env", "sys_update", "repo_update"},
-		},
-		{
-			name:         "環境変数読み込み失敗は継続",
-			loadEnvErr:   errors.New("load env failed"),
-			loadEnvStats: &secret.LoadStats{},
-			wantCalls:    []string{"unlock", "load_env", "sys_update", "repo_update"},
-		},
-		{
-			name:      "アンロック失敗でスキップして続行",
-			unlockErr: errors.New("unlock failed"),
-			// アンロック失敗時は secrets フェーズをスキップし、sys/repo 更新を続行する
-			wantCalls: []string{"unlock", "sys_update", "repo_update"},
+			name:      "全工程成功",
+			wantCalls: []string{"sys_update", "repo_update"},
 		},
 		{
 			name:          "sys更新失敗でもrepo続行",
-			loadEnvStats:  &secret.LoadStats{Loaded: 1},
 			sysUpdateErr:  errors.New("sys failed"),
 			wantErr:       true,
 			wantErrSubstr: "1 件のフェーズでエラーが発生しました",
-			wantCalls:     []string{"unlock", "load_env", "sys_update", "repo_update"},
+			wantCalls:     []string{"sys_update", "repo_update"},
 		},
 		{
 			name:          "repo同期失敗",
-			loadEnvStats:  &secret.LoadStats{Loaded: 1},
 			repoUpdateErr: errors.New("repo failed"),
 			wantErr:       true,
 			wantErrSubstr: "1 件のフェーズでエラーが発生しました",
-			wantCalls:     []string{"unlock", "load_env", "sys_update", "repo_update"},
+			wantCalls:     []string{"sys_update", "repo_update"},
 		},
 		{
 			name:          "sys・repo両方失敗",
-			loadEnvStats:  &secret.LoadStats{Loaded: 1},
 			sysUpdateErr:  errors.New("sys failed"),
 			repoUpdateErr: errors.New("repo failed"),
 			wantErr:       true,
 			wantErrSubstr: "2 件のフェーズでエラーが発生しました",
-			wantCalls:     []string{"unlock", "load_env", "sys_update", "repo_update"},
+			wantCalls:     []string{"sys_update", "repo_update"},
 		},
 	}
 
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			setupSecretsEnabledConfig(t)
-			t.Setenv("GPAT", "dummy-token")
-			t.Setenv("DSX_ENV_LOADED", "")
+			testutil.SetTestHome(t, t.TempDir())
 
-			calls := make([]string, 0, 4)
-
-			runUnlockStep = func() error {
-				calls = append(calls, "unlock")
-				return tc.unlockErr
-			}
-
-			runLoadEnvStep = func() (*secret.LoadStats, error) {
-				calls = append(calls, "load_env")
-				return tc.loadEnvStats, tc.loadEnvErr
-			}
+			calls := make([]string, 0, 2)
 
 			runSysUpdateStep = func(*cobra.Command, []string) error {
 				calls = append(calls, "sys_update")
@@ -150,7 +114,9 @@ func TestRunDaily(t *testing.T) {
 	}
 }
 
-func TestRunDaily_SecretsDisabled(t *testing.T) {
+// secrets.enabled=true でも、未解錠（BW_SESSION 未設定）かつ bw が PATH に無い環境で、
+// run がシークレットに触れず、sys と repo だけを実行して成功することを確認する（#144）。
+func TestRunDaily_DoesNotTouchSecrets(t *testing.T) {
 	originalSysUpdate := runSysUpdateStep
 	originalRepoUpdate := runRepoUpdateStep
 
@@ -159,8 +125,9 @@ func TestRunDaily_SecretsDisabled(t *testing.T) {
 		runRepoUpdateStep = originalRepoUpdate
 	})
 
-	// secrets.enabled=false のデフォルト設定を使う（設定ファイルなしの一時HOME）
-	testutil.SetTestHome(t, t.TempDir())
+	setupSecretsEnabledConfig(t)
+	t.Setenv("BW_SESSION", "")
+	t.Setenv("PATH", t.TempDir())
 
 	calls := make([]string, 0, 2)
 
@@ -174,65 +141,24 @@ func TestRunDaily_SecretsDisabled(t *testing.T) {
 		return nil
 	}
 
-	err := runDaily(&cobra.Command{Use: "run"}, nil)
-	if err != nil {
-		t.Fatalf("runDaily() unexpected error: %v", err)
+	var runErr error
+
+	stdout := captureStdout(t, func() {
+		runErr = runDaily(&cobra.Command{Use: "run"}, nil)
+	})
+	if runErr != nil {
+		t.Fatalf("runDaily() unexpected error: %v", runErr)
 	}
 
-	// secrets が無効なので unlock/load_env は呼ばれない
 	want := []string{"sys_update", "repo_update"}
 	if !reflect.DeepEqual(calls, want) {
 		t.Fatalf("runDaily() calls = %#v, want %#v", calls, want)
 	}
-}
 
-func TestRunDaily_EnvAlreadyLoaded(t *testing.T) {
-	originalUnlock := runUnlockStep
-	originalLoadEnv := runLoadEnvStep
-	originalSysUpdate := runSysUpdateStep
-	originalRepoUpdate := runRepoUpdateStep
-
-	t.Cleanup(func() {
-		runUnlockStep = originalUnlock
-		runLoadEnvStep = originalLoadEnv
-		runSysUpdateStep = originalSysUpdate
-		runRepoUpdateStep = originalRepoUpdate
-	})
-
-	setupSecretsEnabledConfig(t)
-	t.Setenv("DSX_ENV_LOADED", "1")
-
-	calls := make([]string, 0, 4)
-
-	runUnlockStep = func() error {
-		calls = append(calls, "unlock")
-		return nil
-	}
-
-	runLoadEnvStep = func() (*secret.LoadStats, error) {
-		calls = append(calls, "load_env")
-		return &secret.LoadStats{Loaded: 1}, nil
-	}
-
-	runSysUpdateStep = func(*cobra.Command, []string) error {
-		calls = append(calls, "sys_update")
-		return nil
-	}
-
-	runRepoUpdateStep = func(*cobra.Command, []string) error {
-		calls = append(calls, "repo_update")
-		return nil
-	}
-
-	err := runDaily(&cobra.Command{Use: "run"}, nil)
-	if err != nil {
-		t.Fatalf("runDaily() unexpected error: %v", err)
-	}
-
-	// DSX_ENV_LOADED=1 の場合、load_env はスキップされる
-	want := []string{"unlock", "sys_update", "repo_update"}
-	if !reflect.DeepEqual(calls, want) {
-		t.Fatalf("runDaily() calls = %#v, want %#v", calls, want)
+	for _, forbidden := range []string{"アンロック", "シークレット", "Bitwarden"} {
+		if strings.Contains(stdout, forbidden) {
+			t.Errorf("runDaily() の出力に %q が含まれています: %q", forbidden, stdout)
+		}
 	}
 }
 

@@ -13,6 +13,18 @@
 
 ---
 
+## Issue #144: run は sys と repo だけ、シークレットは env だけ
+
+- [x] `dsx run` から Bitwarden のアンロック・`bw sync`・環境変数の読み込みを外す（処理順序は sys → repo。`Long` と README も更新）
+- [x] シェル関数 `dsx-sys` / `dsx-repo` / `dsx-run` が `dsx-env` を先に呼ばないようにする（bash / zsh / PowerShell）
+- [x] `dsx doctor` が `BW_SESSION` 未設定を失敗にしない（情報として表示）
+- [x] テスト（`run`: 未解錠・`bw` なしで sys → repo だけが実行される / `doctor`: 未設定でも失敗しない / シェル関数の生成物）を更新・追加し、旧実装で失敗することを確認
+- [ ] PR のレビューサイクルを完了して main にマージ
+- [ ] 後続: `internal/secret` の `Unlock` / `Sync` / `LoadEnv` と補助関数（`run` からしか使われていなかった）の整理を、別 Issue で検討する
+- [ ] 次のリリース（マイナー版）で公開し、Arbor 側（scottlz0310/arbor#328 の再評価、dsx の最低版の引き上げ）へ伝える
+
+---
+
 ## Issue #139: release-automate の導入
 
 - [x] v0.10.0 / v0.10.1 の Release ノートを v0.10.2 と同じ構成に整理

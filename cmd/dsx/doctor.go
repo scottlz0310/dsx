@@ -90,11 +90,9 @@ func runDoctor() {
 			printResult(true, "bw (Bitwarden CLI)")
 		}
 
-		// BW_SESSION
+		// BW_SESSION は dsx env を使うときだけ要る。日常の更新（run / sys / repo）では未設定が正常のため、失敗にしない。
 		if os.Getenv("BW_SESSION") == "" {
-			printResult(false, "環境変数 BW_SESSION が設定されていません (ロック解除が必要です)")
-
-			allPassed = false
+			printInfo("環境変数 BW_SESSION は未設定です (dsx env を使うときに必要です)")
 		} else {
 			printResult(true, "環境変数 BW_SESSION が設定されています")
 		}
@@ -123,6 +121,10 @@ func printResult(ok bool, message string) {
 	} else {
 		color.Red("  ❌ %s", message)
 	}
+}
+
+func printInfo(message string) {
+	color.Cyan("  ℹ️  %s", message)
 }
 
 func buildDoctorConfigStatusMessage(configExists bool, configPath string) string {
