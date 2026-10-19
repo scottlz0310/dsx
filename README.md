@@ -24,7 +24,7 @@ dsx は、開発環境の運用作業を統合・一元化するためのクロ�
 - Go 1.26 以上
 - `git`
 - `gh` (GitHub CLI, `repo` 系運用時に推奨)
-- `bw` (Bitwarden CLI, `env` / `run` 運用時に推奨)
+- `bw` (Bitwarden CLI, `env` 運用時に推奨)
 
 ### インストール方法（推奨: GitHub Releases）
 
@@ -109,9 +109,11 @@ type dsx-run
 ```
 
 - `dsx-env`: Bitwarden を自動アンロックし、`env:` 項目を現在のシェルへ読み込み（1コマンドで完結）
-- `dsx-sys`: `dsx-env` → `dsx sys update`（システム更新）
-- `dsx-repo`: `dsx-env` → `dsx repo update`（リポジトリ更新）
-- `dsx-run`: `dsx-env` → `dsx run`（全部実行）
+- `dsx-sys`: `dsx sys update`（システム更新）
+- `dsx-repo`: `dsx repo update`（リポジトリ更新）
+- `dsx-run`: `dsx run`（全部実行）
+
+`dsx-sys` / `dsx-repo` / `dsx-run` は Bitwarden をアンロックしません。シークレットが要るときだけ、先に `dsx-env` を実行してください。
 
 `dsx` バイナリの配置先を変更した場合は、`dsx config init` を再実行してシェル連携スクリプトを再生成してください。
 
@@ -176,7 +178,7 @@ Remove-Item -Force (Get-Command dsx).Source
 ### メインコマンド
 ```
 dsx --version      # バージョン表示
-dsx run           # 日次の統合タスクを実行（Bitwarden解錠→環境変数読込→更新処理）
+dsx run           # 日次の統合タスクを実行（システム更新→リポジトリ更新。Bitwarden は使わない）
 dsx run -n        # ドライラン（sys/repo に伝播）
 dsx run --root ~/src  # repo update の対象 root を一時的に上書き（sys には影響しない）
 dsx run --tui     # TUI 進捗表示を有効化（sys/repo に伝播）
@@ -363,22 +365,14 @@ dsx repo branch-clean --dry-run --no-fetch
 
 非TTY環境（CIやリダイレクト実行）では、`--tui` / `ui.tui=true` による TUI 指定は通常表示へ自動フォールバックします。
 
-### 3. `run` の環境変数注入セクション確認
+### 3. `run` の確認
 
 ```bash
-# シェル連携が有効なことを確認
-source ~/.bashrc
-type dev-sync
-
-# dsx run の先頭ジョブ（Bitwarden unlock / 環境変数注入）を確認
-dev-sync
-# もしくはサブプロセス実行のみを確認
-dsx run
+dsx run -n
 ```
 
-`dev-sync` は最初に Bitwarden のアンロックと環境変数注入を実行し、親シェルにも環境変数を反映したうえで `dsx run` を実行します。
-`dsx run` 単体で実行した場合は、サブプロセス内のみ環境変数が注入されます。
-`dsx run` では続けて `sys update` と `repo update` を順次実行します。
+`dsx run` は `sys update` と `repo update` を順次実行します。Bitwarden のアンロックと環境変数の読み込みは行いません（未解錠でも、`bw` が無くても動きます）。
+シークレット（環境変数）が必要なときだけ、`dsx env` を使います。`dsx run` に環境変数を渡すなら `dsx env run -- dsx run` です。
 `--dry-run` / `--tui` / `--no-tui` / `--jobs` / `--log-file` フラグは `sys update` / `repo update` に伝播されます。
 システム更新が失敗してもリポジトリ同期は続行し、全フェーズ完了後にエラーをまとめて報告します。
 
@@ -471,7 +465,8 @@ dsx env run go test ./...
 - コマンドの終了コードを保持
 - 親シェルに影響を与えない
 
-**注意**: `dsx run` 単体では親シェルに環境変数は反映されません。親シェルでも利用したい場合は `eval "$(dsx env export)"` または `dsx-env` 関数（シェル統合）を使用してください。
+**注意**: `dsx run` は環境変数を読み込みません（Bitwarden に触れません）。環境変数を渡して実行するなら `dsx env run -- dsx run`、親シェルに反映するなら `eval "$(dsx env export)"` または `dsx-env` 関数（シェル統合）を使用してください。
+
 ## 🛠 開発
 
 ### 前提条件

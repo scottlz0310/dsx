@@ -1051,25 +1051,20 @@ dsx-env() {
     return 1
   fi
   eval "$env_output" || return 1
-  export DSX_ENV_LOADED=1
 }
 
-# システム更新（環境変数注入 → sys update）
+# システム更新（Bitwarden は不要。シークレットが要るときは dsx-env を先に実行する）
 dsx-sys() {
-  dsx-env || return 1
   "$DSX_PATH" sys update "$@"
 }
 
-# リポジトリ更新（環境変数注入 → repo update）
+# リポジトリ更新（Bitwarden は不要）
 dsx-repo() {
-  dsx-env || return 1
   "$DSX_PATH" repo update "$@"
 }
 
-# 全部実行（環境変数注入 → dsx run）
+# 全部実行（システム更新 → リポジトリ更新。Bitwarden は不要）
 dsx-run() {
-  dsx-env || return 1
-  echo "🚀 dsx run を実行します..."
   "$DSX_PATH" run "$@"
 }
 
@@ -1144,25 +1139,20 @@ dsx-env() {
     return 1
   fi
   eval "$env_output" || return 1
-  export DSX_ENV_LOADED=1
 }
 
-# システム更新（環境変数注入 → sys update）
+# システム更新（Bitwarden は不要。シークレットが要るときは dsx-env を先に実行する）
 dsx-sys() {
-  dsx-env || return 1
   "$DSX_PATH" sys update "$@"
 }
 
-# リポジトリ更新（環境変数注入 → repo update）
+# リポジトリ更新（Bitwarden は不要）
 dsx-repo() {
-  dsx-env || return 1
   "$DSX_PATH" repo update "$@"
 }
 
-# 全部実行（環境変数注入 → dsx run）
+# 全部実行（システム更新 → リポジトリ更新。Bitwarden は不要）
 dsx-run() {
-  dsx-env || return 1
-  echo "🚀 dsx run を実行します..."
   "$DSX_PATH" run "$@"
 }
 `, exePath)
@@ -1257,28 +1247,23 @@ function dsx-env {
     return $false
   }
 
-  $env:DSX_ENV_LOADED = "1"
   return $true
 }
 
-# システム更新（環境変数注入 → sys update）
+# システム更新（Bitwarden は不要。シークレットが要るときは dsx-env を先に実行する）
 function dsx-sys {
-  if (-not (dsx-env)) { return 1 }
   & $DSX_PATH sys update @args
   return $LASTEXITCODE
 }
 
-# リポジトリ更新（環境変数注入 → repo update）
+# リポジトリ更新（Bitwarden は不要）
 function dsx-repo {
-  if (-not (dsx-env)) { return 1 }
   & $DSX_PATH repo update @args
   return $LASTEXITCODE
 }
 
-# 全部実行（環境変数注入 → dsx run）
+# 全部実行（システム更新 → リポジトリ更新。Bitwarden は不要）
 function dsx-run {
-  if (-not (dsx-env)) { return 1 }
-  Write-Host "🚀 dsx run を実行します..." -ForegroundColor Cyan
   & $DSX_PATH run @args
   return $LASTEXITCODE
 }

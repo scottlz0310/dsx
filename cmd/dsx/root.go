@@ -24,7 +24,7 @@ var rootCmd = &cobra.Command{
 	Long: `dsx は開発環境の運用作業を統合する CLI ツールです。
 
 日次運用:
-  dsx run           Bitwarden解錠→環境変数読込→システム更新を実行
+  dsx run           システム更新→リポジトリ同期を実行（Bitwarden は使わない）
 
 システム更新:
   dsx sys update    パッケージマネージャで一括更新

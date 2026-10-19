@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **破壊的変更**: `dsx run` から、Bitwarden のアンロック・`bw sync`・環境変数の読み込みを外した。処理順序は、システム更新 → リポジトリ同期の 2 つになる。日常の更新にシークレットは要らないため（`secrets.enabled=true` で未解錠でも、`bw` が PATH に無くても動く）。環境変数を `sys` / `repo` の子プロセスに渡したいときは、`dsx env run -- dsx run` で明示的に行う（#144）
+- シェル関数 `dsx-sys` / `dsx-repo` / `dsx-run` が、先に `dsx-env`（アンロックと環境変数の注入）を呼ばなくなった。`dsx-env` / `dsx-unlock` は、シークレットが要るときの入口として、そのまま残る。`dsx config init` で `init.*` を再生成すると反映される。`dsx-env` が設定していた `DSX_ENV_LOADED` は、`run` が読まなくなったため、設定しない（#144）
+- `dsx doctor`: `secrets.enabled=true` で `BW_SESSION` が未設定のとき、失敗（終了コード 1）にせず、情報として表示する。`bw` コマンドの有無の確認は、これまでどおり（#144）
+
 ## [0.11.0] - 2026-10-18
 
 ### Added
