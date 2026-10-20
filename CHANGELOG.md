@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **`tasks.md` を廃止**: 未完了作業の管理を、repo 外のハンドオフに一本化し、`tasks.md` を削除した。完了済みの履歴は git の履歴（`git log -- tasks.md`）と `docs/archive/tasks_v0.2.3.md` に残る。`AGENTS.md`・`CONTRIBUTING.md`・`.github/copilot-instructions.md` の参照を直した。
+
 ## [0.13.0] - 2026-10-20
 
 ### Added
