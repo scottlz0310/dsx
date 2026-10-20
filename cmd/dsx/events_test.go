@@ -549,8 +549,8 @@ func TestRun_EventsFile_PhaseFailureKeepsCause(t *testing.T) {
 		t.Errorf("ok = %v, want false", summary["ok"])
 	}
 
-	issues, _ := summary["issues"].([]any)
-	if len(issues) != 1 {
+	issues, ok := summary["issues"].([]any)
+	if !ok || len(issues) != 1 {
 		t.Fatalf("issues = %v, want 1 件", summary["issues"])
 	}
 
