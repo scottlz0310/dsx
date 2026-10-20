@@ -14,8 +14,9 @@
 - [x] キャンセル・タイムアウトで開始しなかったジョブを `skipped`（cancelled）として漏れなく記録（逐次・並列・TUI・マネージャ本体更新）
 - [x] テスト: 結果の分類（表駆動）、警告だけの実行が終了コード 0 で要約に載ること、`run` の共有ストリーム、書き込み失敗の伝播
 - [x] README に終了コードの意味、`docs/Events_Schema.md` にスキーマを記載
-- [ ] PR のレビューサイクルを完了して main にマージ
-- [ ] リリース（次の版）後、arbor#341 に、スキーマ版 1 と最低版を伝える
+- [x] PR #154 のレビューサイクルを完了して main にマージ（`36de41a`。thread-owl 2 ラウンド: blocking 1 件＝`run` の段階の失敗原因が要約から失われる → `kind=phase` で記録して APPROVED）
+- [ ] v0.13.0 を Prepare Release から切り、draft → 添付 → 検証 → 公開まで自動で完走することを確認
+- [ ] 公開後、arbor#341 に、スキーマ版 1・最低版 v0.13.0・`docs/Events_Schema.md` を伝える
 - 後続（#152 の対象外）: TUI の廃止、Arbor への sidecar での同梱、`dsx env unlock --password-env`
 
 ---

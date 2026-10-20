@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-20
+
 ### Added
 
 - **機械可読なイベント出力（`--events-file`）と終了時の要約（#152）**: `dsx run` / `dsx sys update` / `dsx repo update` に `--events-file <パス>` を追加した。マネージャ・リポジトリごとの開始と結果、警告、終了時の要約（更新・失敗・スキップ・警告の件数と理由）を、スキーマ版つきの JSON Lines でファイルに書き出す。未インストールのマネージャのスキップのような、ログを読まないと気づけないことを、テキストの解析なしに取得できる（Arbor の受け入れ側は arbor#341）。人が読む標準出力・標準エラーは変えない。`dsx run` では sys と repo が 1 つのファイルを共有する。スキーマと終了コードの意味は [docs/Events_Schema.md](docs/Events_Schema.md) と README に記載した。
@@ -486,7 +488,8 @@
 
 [v0.10.1]: https://github.com/scottlz0310/dsx/compare/v0.10.0...v0.10.1
 [v0.10.0]: https://github.com/scottlz0310/dsx/compare/v0.9.0...v0.10.0
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/scottlz0310/dsx/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/scottlz0310/dsx/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/scottlz0310/dsx/compare/v0.10.2...v0.11.0
 [v0.10.2]: https://github.com/scottlz0310/dsx/compare/v0.10.1...v0.10.2
