@@ -11,32 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// captureStderrは標準エラー出力をキャプチャするテストヘルパーです。
-func captureStderr(t *testing.T, f func()) string {
-	t.Helper()
-
-	old := os.Stderr
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	os.Stderr = w
-
-	f()
-
-	closeErr := w.Close()
-	require.NoError(t, closeErr)
-
-	os.Stderr = old
-
-	var buf bytes.Buffer
-
-	_, copyErr := io.Copy(&buf, r)
-	require.NoError(t, copyErr)
-
-	return buf.String()
-}
-
 // captureStderrWithErrorは関数の戻り値も取得するstderrキャプチャヘルパーです。
 func captureStderrWithError(t *testing.T, f func() error) (string, error) {
 	t.Helper()
@@ -196,342 +170,91 @@ func TestGetCustomFieldValue(t *testing.T) {
 	}
 }
 
-func TestGetEnvValue(t *testing.T) {
+func TestBuildEnvMapFromItems(t *testing.T) {
 	tests := []struct {
 		name     string
-		item     *BitwardenItem
-		expected string
+		items    []BitwardenItem
+		expected map[string]string
 	}{
-		// 正常系: カスタムフィールドから値を取得
 		{
 			name: "カスタムフィールドvalueから取得",
-			item: &BitwardenItem{
-				Name: "env:TEST_VAR",
-				Fields: []BitwardenCustomField{
-					{Name: "value", Value: "custom_field_value"},
-				},
+			items: []BitwardenItem{
+				{Name: "env:TEST_VAR", Fields: []BitwardenCustomField{{Name: "value", Value: "custom_field_value"}}},
 			},
-			expected: "custom_field_value",
+			expected: map[string]string{"TEST_VAR": "custom_field_value"},
 		},
-		// 正常系: login.password をフォールバック
 		{
 			name: "login.passwordからフォールバック取得",
-			item: &BitwardenItem{
-				Name:   "env:TEST_VAR",
-				Fields: []BitwardenCustomField{},
-				Login: &BitwardenLogin{
-					Username: "user",
-					Secret:   "password123",
-				},
+			items: []BitwardenItem{
+				{Name: "env:TEST_VAR", Login: &BitwardenLogin{Username: "user", Secret: "password123"}},
 			},
-			expected: "password123",
+			expected: map[string]string{"TEST_VAR": "password123"},
 		},
 		{
 			name: "login.passwordの前後空白をトリム",
-			item: &BitwardenItem{
-				Name: "env:TEST_VAR",
-				Login: &BitwardenLogin{
-					Secret: "  spaced_password  ",
-				},
+			items: []BitwardenItem{
+				{Name: "env:TEST_VAR", Login: &BitwardenLogin{Secret: "  spaced_password  "}},
 			},
-			expected: "spaced_password",
+			expected: map[string]string{"TEST_VAR": "spaced_password"},
 		},
-		// カスタムフィールドが優先される
 		{
 			name: "カスタムフィールドがlogin.passwordより優先",
-			item: &BitwardenItem{
-				Name: "env:TEST_VAR",
-				Fields: []BitwardenCustomField{
-					{Name: "value", Value: "field_value"},
-				},
-				Login: &BitwardenLogin{
-					Secret: "login_password",
-				},
-			},
-			expected: "field_value",
-		},
-
-		// 境界値・エッジケース
-		{
-			name: "どちらも空の場合",
-			item: &BitwardenItem{
-				Name:   "env:TEST_VAR",
-				Fields: []BitwardenCustomField{},
-				Login:  nil,
-			},
-			expected: "",
-		},
-		{
-			name: "login.passwordが空文字列",
-			item: &BitwardenItem{
-				Name:   "env:TEST_VAR",
-				Fields: []BitwardenCustomField{},
-				Login: &BitwardenLogin{
-					Secret: "",
-				},
-			},
-			expected: "",
-		},
-		{
-			name: "login.passwordが空白のみ",
-			item: &BitwardenItem{
-				Name:   "env:TEST_VAR",
-				Fields: []BitwardenCustomField{},
-				Login: &BitwardenLogin{
-					Secret: "   ",
-				},
-			},
-			expected: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := getEnvValue(tt.item)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestProcessEnvItem(t *testing.T) {
-	tests := []struct {
-		name           string
-		item           *BitwardenItem
-		expectedStats  LoadStats
-		expectedEnvVar string // 設定される環境変数の期待値（空ならスキップ）
-		expectedErr    bool
-		checkStderr    string // stderrに含まれるべき文字列
-	}{
-		// 正常系
-		{
-			name: "有効な環境変数を設定",
-			item: &BitwardenItem{
-				Name: "env:VALID_VAR",
-				Fields: []BitwardenCustomField{
-					{Name: "value", Value: "test_value"},
-				},
-			},
-			expectedStats:  LoadStats{Loaded: 1},
-			expectedEnvVar: "test_value",
-			checkStderr:    "VALID_VAR を注入しました",
-		},
-
-		// エラーパス: 無効な変数名
-		{
-			name: "無効な変数名（数字で始まる）をスキップ",
-			item: &BitwardenItem{
-				Name: "env:123INVALID",
-				Fields: []BitwardenCustomField{
-					{Name: "value", Value: "test_value"},
-				},
-			},
-			expectedStats:  LoadStats{Invalid: 1},
-			expectedEnvVar: "",
-			checkStderr:    "無効な環境変数名をスキップ",
-		},
-
-		// エラーパス: valueフィールドがない
-		{
-			name: "valueフィールドがない",
-			item: &BitwardenItem{
-				Name:   "env:NO_VALUE_VAR",
-				Fields: []BitwardenCustomField{},
-				Login:  nil,
-			},
-			expectedStats:  LoadStats{Missing: 1},
-			expectedEnvVar: "",
-			checkStderr:    "'value' カスタムフィールドがありません",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			stats := &LoadStats{}
-
-			// 環境変数をクリーンアップ
-			varName := ""
-			if len(tt.item.Name) > 4 {
-				varName = tt.item.Name[4:] // "env:" プレフィックスを除去
-			}
-
-			if varName != "" {
-				t.Setenv(varName, "") // t.Setenvは自動でクリーンアップされる
-			}
-
-			stderr := captureStderr(t, func() {
-				err := processEnvItem(tt.item, stats)
-				if tt.expectedErr {
-					assert.Error(t, err)
-				} else {
-					assert.NoError(t, err)
-				}
-			})
-
-			// 統計の検証
-			assert.Equal(t, tt.expectedStats.Loaded, stats.Loaded, "Loaded count mismatch")
-			assert.Equal(t, tt.expectedStats.Missing, stats.Missing, "Missing count mismatch")
-			assert.Equal(t, tt.expectedStats.Invalid, stats.Invalid, "Invalid count mismatch")
-
-			// 環境変数の検証
-			if tt.expectedEnvVar != "" && varName != "" {
-				actual := os.Getenv(varName)
-				assert.Equal(t, tt.expectedEnvVar, actual, "Environment variable value mismatch")
-			}
-
-			// stderrの検証
-			if tt.checkStderr != "" {
-				assert.Contains(t, stderr, tt.checkStderr, "Expected stderr to contain: %s", tt.checkStderr)
-			}
-		})
-	}
-}
-
-func TestProcessEnvItems(t *testing.T) {
-	tests := []struct {
-		name          string
-		items         []BitwardenItem
-		expectedStats LoadStats
-	}{
-		{
-			name:          "空のアイテムリスト",
-			items:         []BitwardenItem{},
-			expectedStats: LoadStats{},
-		},
-		{
-			name: "env:プレフィックスのないアイテムをスキップ",
 			items: []BitwardenItem{
-				{Name: "not_env:VAR", Fields: []BitwardenCustomField{{Name: "value", Value: "val"}}},
-				{Name: "OTHER_ITEM", Fields: []BitwardenCustomField{{Name: "value", Value: "val"}}},
+				{
+					Name:   "env:TEST_VAR",
+					Fields: []BitwardenCustomField{{Name: "value", Value: "field_value"}},
+					Login:  &BitwardenLogin{Secret: "login_password"},
+				},
 			},
-			expectedStats: LoadStats{},
+			expected: map[string]string{"TEST_VAR": "field_value"},
 		},
 		{
-			name: "複数の有効なアイテムを処理",
+			name: "フィールド名の大文字小文字を区別しない",
 			items: []BitwardenItem{
-				{Name: "env:VAR1", Fields: []BitwardenCustomField{{Name: "value", Value: "val1"}}},
-				{Name: "env:VAR2", Fields: []BitwardenCustomField{{Name: "value", Value: "val2"}}},
+				{Name: "env:TEST_VAR", Fields: []BitwardenCustomField{{Name: "VALUE", Value: "upper"}}},
 			},
-			expectedStats: LoadStats{Loaded: 2},
+			expected: map[string]string{"TEST_VAR": "upper"},
 		},
 		{
-			name: "混合ケース（有効と無効）",
+			name:     "値がどちらも無い項目は除外",
+			items:    []BitwardenItem{{Name: "env:TEST_VAR", Login: nil}},
+			expected: map[string]string{},
+		},
+		{
+			name:     "login.passwordが空文字列の項目は除外",
+			items:    []BitwardenItem{{Name: "env:TEST_VAR", Login: &BitwardenLogin{Secret: ""}}},
+			expected: map[string]string{},
+		},
+		{
+			name:     "login.passwordが空白のみの項目は除外",
+			items:    []BitwardenItem{{Name: "env:TEST_VAR", Login: &BitwardenLogin{Secret: "   "}}},
+			expected: map[string]string{},
+		},
+		{
+			name: "env: プレフィックスの無い項目は除外",
 			items: []BitwardenItem{
-				{Name: "env:VALID", Fields: []BitwardenCustomField{{Name: "value", Value: "val"}}},
-				{Name: "env:123INVALID", Fields: []BitwardenCustomField{{Name: "value", Value: "val"}}},
-				{Name: "not_env:SKIP", Fields: []BitwardenCustomField{{Name: "value", Value: "val"}}},
-				{Name: "env:NO_VALUE"},
+				{Name: "TEST_VAR", Fields: []BitwardenCustomField{{Name: "value", Value: "v"}}},
 			},
-			expectedStats: LoadStats{Loaded: 1, Invalid: 1, Missing: 1},
+			expected: map[string]string{},
+		},
+		{
+			name: "無効な変数名の項目は除外し、有効な項目は残す",
+			items: []BitwardenItem{
+				{Name: "env:1INVALID", Fields: []BitwardenCustomField{{Name: "value", Value: "x"}}},
+				{Name: "env:VALID_VAR", Fields: []BitwardenCustomField{{Name: "value", Value: "y"}}},
+			},
+			expected: map[string]string{"VALID_VAR": "y"},
+		},
+		{
+			name:     "項目が無い",
+			items:    nil,
+			expected: map[string]string{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			stats := &LoadStats{}
-
-			// 環境変数をクリーンアップ（t.Setenvは自動でクリーンアップされる）
-			for i := range tt.items {
-				if len(tt.items[i].Name) > 4 && tt.items[i].Name[:4] == "env:" {
-					t.Setenv(tt.items[i].Name[4:], "")
-				}
-			}
-
-			err := processEnvItems(tt.items, stats)
-			require.NoError(t, err)
-
-			assert.Equal(t, tt.expectedStats.Loaded, stats.Loaded, "Loaded count mismatch")
-			assert.Equal(t, tt.expectedStats.Missing, stats.Missing, "Missing count mismatch")
-			assert.Equal(t, tt.expectedStats.Invalid, stats.Invalid, "Invalid count mismatch")
-		})
-	}
-}
-
-func TestPrintLoadStats(t *testing.T) {
-	tests := []struct {
-		name         string
-		stats        *LoadStats
-		expectError  bool
-		errorMessage string
-		checkStderr  []string // stderrに含まれるべき文字列のリスト
-	}{
-		// エラーケース: 何も読み込まれていない
-		{
-			name:         "すべてゼロの場合エラー",
-			stats:        &LoadStats{Loaded: 0, Missing: 0, Invalid: 0},
-			expectError:  true,
-			errorMessage: "bitwarden に env: 項目が見つかりません",
-		},
-
-		// 正常系: 読み込み成功のみ
-		{
-			name:        "読み込み成功のみ",
-			stats:       &LoadStats{Loaded: 5, Missing: 0, Invalid: 0},
-			expectError: false,
-			checkStderr: []string{"5 個の環境変数を読み込みました"},
-		},
-
-		// 正常系: 欠損フィールドあり
-		{
-			name:        "欠損フィールドあり",
-			stats:       &LoadStats{Loaded: 3, Missing: 2, Invalid: 0},
-			expectError: false,
-			checkStderr: []string{
-				"3 個の環境変数を読み込みました",
-				"2 個の項目で value フィールドが見つかりませんでした",
-			},
-		},
-
-		// 正常系: 無効な変数名あり
-		{
-			name:        "無効な変数名あり",
-			stats:       &LoadStats{Loaded: 1, Missing: 0, Invalid: 3},
-			expectError: false,
-			checkStderr: []string{
-				"1 個の環境変数を読み込みました",
-				"3 個の項目で無効な環境変数名がありました",
-			},
-		},
-
-		// 正常系: すべて混在
-		{
-			name:        "すべて混在",
-			stats:       &LoadStats{Loaded: 2, Missing: 1, Invalid: 1},
-			expectError: false,
-			checkStderr: []string{
-				"2 個の環境変数を読み込みました",
-				"1 個の項目で value フィールドが見つかりませんでした",
-				"1 個の項目で無効な環境変数名がありました",
-			},
-		},
-
-		// エッジケース: Loaded が 0 だが Missing/Invalid がある
-		{
-			name:        "Loadedゼロだが他に値あり",
-			stats:       &LoadStats{Loaded: 0, Missing: 1, Invalid: 0},
-			expectError: false,
-			checkStderr: []string{
-				"0 個の環境変数を読み込みました",
-				"1 個の項目で value フィールドが見つかりませんでした",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			stderr, err := captureStderrWithError(t, func() error {
-				return printLoadStats(tt.stats)
-			})
-
-			if tt.expectError {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errorMessage)
-			} else {
-				assert.NoError(t, err)
-
-				for _, expected := range tt.checkStderr {
-					assert.Contains(t, stderr, expected, "stderr should contain: %s", expected)
-				}
-			}
+			assert.Equal(t, tt.expected, buildEnvMapFromItems(tt.items))
 		})
 	}
 }
