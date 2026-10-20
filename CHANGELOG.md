@@ -8,6 +8,7 @@
 
 ### Changed
 
+- **`internal/secret` の未使用のヘルパーの削除**: どこからも呼ばれていなかった `GetShellName`（シェル判定のデバッグ用）と `GetShellExecutable`、およびそれだけを検査していたテストを削除した。`dsx env export` のシェル判定（`DetectShell`）は変えない。挙動の変更はない。
 - **`internal/secret` の整理（#148）**: `dsx run` から Bitwarden を外した（#144）ことで呼び出し元がなくなった `Unlock` と `LoadEnv`（および `LoadStats`・`checkBitwardenPrerequisites`・`fetchBitwardenEnvItems`・`processEnvItems`・`processEnvItem`・`getEnvValue`・`printLoadStats`）と、それだけを検査していたテストを削除した。`dsx env` の挙動は変えない（`Sync`・`UnlockGetToken`・`EnsureBitwardenSession`・`GetEnvVars` は残す）。
 - テスト: `getEnvValue` のテストの観点（`value` フィールド優先・`login.password` へのフォールバックと trim・空の値の除外）を、`dsx env` が実際に使う `buildEnvMapFromItems` のテスト（`TestBuildEnvMapFromItems`）へ移した。
 
