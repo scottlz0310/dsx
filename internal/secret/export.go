@@ -3,7 +3,6 @@ package secret
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -116,29 +115,4 @@ func formatPowerShellExport(key, value string) string {
 	// PowerShellでは単一引用符内で '' が単一引用符のエスケープ
 	escapedValue := strings.ReplaceAll(value, "'", "''")
 	return fmt.Sprintf("$env:%s = '%s'", key, escapedValue)
-}
-
-// GetShellName はシェル判定用のデバッグ情報を返します。
-func GetShellName() string {
-	shellType := DetectShell()
-	return string(shellType)
-}
-
-// GetShellExecutable は現在のシェルの実行ファイルパスを返します。
-func GetShellExecutable() string {
-	if runtime.GOOS == goosWindows || os.Getenv("PSModulePath") != "" {
-		// PowerShell Core (pwsh) の存在を確認
-		if _, err := exec.LookPath("pwsh"); err == nil {
-			return "pwsh"
-		}
-
-		return string(ShellPowerShell)
-	}
-
-	shell := os.Getenv("SHELL")
-	if shell != "" {
-		return shell
-	}
-
-	return "/bin/sh"
 }

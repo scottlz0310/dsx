@@ -21,6 +21,7 @@
 - [x] テスト（`run`: 未解錠・`bw` なしで sys → repo だけが実行される / `doctor`: 未設定でも失敗しない / シェル関数の生成物）を更新・追加し、旧実装で失敗することを確認
 - [x] PR #145 のレビューサイクルを完了して main にマージ（thread-owl: APPROVED。non-blocking の指摘 1 件＝ルートヘルプの説明を同じ PR で対応）
 - [x] 後続: `internal/secret` の `Unlock` / `LoadEnv` と補助関数（`run` からしか使われていなかった）の整理（#148。`dsx env` の挙動は変えない。`getEnvValue` のテストの観点は `buildEnvMapFromItems` へ移した）
+- [x] 後続: `internal/secret` の未使用のヘルパー `GetShellName` / `GetShellExecutable`（`deadcode` が検出。#148 のときに、範囲外として残した）の削除。`deadcode` に残るのは、ほかのパッケージの未使用の候補（`parseSemverCore` / `compareSemverCore`・`config.Get`・`tui.RunJobProgress`・`updater.DefaultGoTargets` / `ListInstalledGoTools`・`detectColumnPositions`）で、テストからだけ使われているものが含まれるため、個別に確認してから判断する
 - [x] v0.12.0 を Prepare Release（PR #146）から切り、draft → 添付 → 検証 → 公開まで自動で完走することを確認（2026-10-20。成果物 11 点、draft の取り残しなし）
 - [x] Arbor 側（scottlz0310/arbor#328 の再評価、`daily_refresh` が要求する dsx の最低版を v0.12.0 へ引き上げ）へ伝える（Arbor v0.5.0 で追従済み。#328 は不要としてクローズ、`daily_refresh` の最低版は v0.12.0、Bitwarden の UI を削除。arbor#336）
 
