@@ -18,6 +18,8 @@ var (
 	runTUI     bool
 	runNoTUI   bool
 	runLogFile string
+	// runEventsFile は機械可読なイベント（JSON Lines）の出力先です。sys と repo は同じファイルを共有し、要約は 1 つになります。
+	runEventsFile string
 )
 
 // runCmd は日次処理を実行するコマンドの定義です
@@ -47,6 +49,7 @@ func init() {
 	runCmd.Flags().BoolVar(&runTUI, "tui", false, "Bubble Tea の進捗UIを表示（sys/repo に伝播）")
 	runCmd.Flags().BoolVar(&runNoTUI, "no-tui", false, "TUI 進捗表示を無効化（sys/repo に伝播）")
 	runCmd.Flags().StringVar(&runLogFile, "log-file", "", "ジョブ実行ログをファイルに保存（sys/repo に伝播）")
+	runCmd.Flags().StringVar(&runEventsFile, "events-file", "", "機械可読なイベント（JSON Lines）と終了時の要約をファイルに保存（sys/repo で共有し、要約は 1 つ）")
 	// runRepoUpdate は渡された cmd の Changed("root") と repoRootOverride で root を解決するため、
 	// repo update と同じ変数に束ねるだけで run からも伝播する。
 	runCmd.Flags().StringVar(&repoRootOverride, "root", "", "リポジトリ更新対象のルートディレクトリ（指定時は設定を上書き、repo update のみに伝播）")
@@ -80,7 +83,18 @@ func propagateRunFlags(cmd *cobra.Command) {
 	}
 }
 
-func runDaily(cmd *cobra.Command, args []string) error {
+func runDaily(cmd *cobra.Command, args []string) (err error) {
+	finishEvents, err := beginEvents("run", runEventsFile)
+	if err != nil {
+		return err
+	}
+
+	defer func() { finishEvents(err) }()
+
+	return runDailyBody(cmd)
+}
+
+func runDailyBody(cmd *cobra.Command) error {
 	defer printSelfUpdateNoticeAtEnd()
 
 	fmt.Println("🚀 開発環境の同期を開始します...")

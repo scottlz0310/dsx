@@ -182,6 +182,7 @@ dsx run           # 日次の統合タスクを実行（システム更新→リ
 dsx run -n        # ドライラン（sys/repo に伝播）
 dsx run --root ~/src  # repo update の対象 root を一時的に上書き（sys には影響しない）
 dsx run --tui     # TUI 進捗表示を有効化（sys/repo に伝播）
+dsx run --events-file events.jsonl  # 機械可読なイベントと要約（sys/repo で 1 つのファイルを共有）
 dsx doctor        # 依存ツール（git, bw等）と環境設定の診断
 ```
 
@@ -193,6 +194,7 @@ dsx sys update -j 4 # 4並列で更新
 dsx sys update --tui # Bubble Teaで進捗を表示
 dsx sys update --no-tui # TUIを無効化（設定より優先）
 dsx sys update --log-file sys.log  # 実行ログをファイルに保存
+dsx sys update --events-file events.jsonl  # 機械可読なイベント（JSON Lines）と要約をファイルに保存
 dsx sys list      # 利用可能なパッケージマネージャを一覧表示
 dsx sys discover              # インストール済み Go バイナリを検出し go.targets 追加候補を表示
 dsx sys discover --manager go # Go バイナリのみスキャン
@@ -231,6 +233,7 @@ dsx repo update -n    # ドライラン（計画のみ表示）
 dsx repo update --tui # Bubble Teaで進捗を表示
 dsx repo update --no-tui # TUIを無効化（設定より優先）
 dsx repo update --log-file update.log  # 実行ログをファイルに保存
+dsx repo update --events-file events.jsonl  # 機械可読なイベント（JSON Lines）と要約をファイルに保存
 dsx repo update --submodule      # submodule更新を強制有効化（設定値を上書き）
 dsx repo update --no-submodule   # submodule更新を強制無効化（設定値を上書き）
 dsx repo list         # 管理下リポジトリの一覧と状態を表示（Ahead/Behind を含む）
@@ -313,6 +316,15 @@ dsx config show       # 現在の設定を表示（YAML）
 dsx config validate   # 設定内容を検証
 dsx config uninstall  # シェル設定からdsxを削除
 ```
+
+### 終了コードと機械可読なイベント出力
+
+| 終了コード | 条件 |
+|---|---|
+| `0` | 失敗がない。警告と、未インストールのマネージャ・pull を実行しなかったリポジトリのスキップは `0` |
+| `1` | 更新に失敗したものがある、キャンセルまたはタイムアウトで完了していない、または設定・root などの致命的なエラー |
+
+警告やスキップに気づけるよう、`--events-file <パス>` で、ジョブごとの結果と終了時の要約（更新・失敗・スキップ・警告の件数と理由）を JSON Lines で書き出せます。人が読む出力は変わりません。スキーマ（版つき）は [docs/Events_Schema.md](docs/Events_Schema.md) を参照してください。
 
 ## 📋 リリース方針（v0.9.0）
 

@@ -6,7 +6,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- **機械可読なイベント出力（`--events-file`）と終了時の要約（#152）**: `dsx run` / `dsx sys update` / `dsx repo update` に `--events-file <パス>` を追加した。マネージャ・リポジトリごとの開始と結果、警告、終了時の要約（更新・失敗・スキップ・警告の件数と理由）を、スキーマ版つきの JSON Lines でファイルに書き出す。未インストールのマネージャのスキップのような、ログを読まないと気づけないことを、テキストの解析なしに取得できる（Arbor の受け入れ側は arbor#341）。人が読む標準出力・標準エラーは変えない。`dsx run` では sys と repo が 1 つのファイルを共有する。スキーマと終了コードの意味は [docs/Events_Schema.md](docs/Events_Schema.md) と README に記載した。
+- `updater.EnableWarning`: `GetEnabled` の警告を、利用不可と未知のマネージャ名に分けて取り出せる型にした（メッセージは変えない）。
+
 ### Changed
+
+- 終了コードの意味を文書化した（README）。挙動は変えない: 失敗・キャンセル・致命的なエラーは `1`、警告と、未インストールのマネージャや pull を実行しなかったリポジトリのスキップだけなら `0`。
 
 - **`internal/secret` の未使用のヘルパーの削除**: どこからも呼ばれていなかった `GetShellName`（シェル判定のデバッグ用）と `GetShellExecutable`、およびそれだけを検査していたテストを削除した。`dsx env export` のシェル判定（`DetectShell`）は変えない。挙動の変更はない。
 - **`internal/secret` の整理（#148）**: `dsx run` から Bitwarden を外した（#144）ことで呼び出し元がなくなった `Unlock` と `LoadEnv`（および `LoadStats`・`checkBitwardenPrerequisites`・`fetchBitwardenEnvItems`・`processEnvItems`・`processEnvItem`・`getEnvValue`・`printLoadStats`）と、それだけを検査していたテストを削除した。`dsx env` の挙動は変えない（`Sync`・`UnlockGetToken`・`EnsureBitwardenSession`・`GetEnvVars` は残す）。

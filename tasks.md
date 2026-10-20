@@ -4,6 +4,22 @@
 
 > 過去の完了タスク履歴は [docs/archive/tasks_v0.2.3.md](docs/archive/tasks_v0.2.3.md) を参照してください。
 
+## Issue #152: 機械可読なイベント出力（JSON Lines）と終了時の要約
+
+方針（合意済み）: 出力先は `--events-file <パス>`（標準出力に混ぜない）。終了コードは、失敗のみ 1、警告・スキップは 0（現状の挙動を文書化）。
+
+- [x] `internal/event`: 版つきスキーマ（start / job_started / job_finished / warning / summary）と、nil 安全な `Stream`。スキーマを golden テストで固定
+- [x] `dsx sys update` / `repo update` / `run` に `--events-file` を追加（`run` は sys・repo で 1 つのストリームを共有し、要約は 1 つ）
+- [x] 利用不可のマネージャ（`updater.EnableWarning`）、未知のマネージャ、pull スキップ、リポジトリの警告、設定の読み込み失敗、GitHub のレート制限を、イベントと要約に載せる
+- [x] キャンセル・タイムアウトで開始しなかったジョブを `skipped`（cancelled）として漏れなく記録（逐次・並列・TUI・マネージャ本体更新）
+- [x] テスト: 結果の分類（表駆動）、警告だけの実行が終了コード 0 で要約に載ること、`run` の共有ストリーム、書き込み失敗の伝播
+- [x] README に終了コードの意味、`docs/Events_Schema.md` にスキーマを記載
+- [ ] PR のレビューサイクルを完了して main にマージ
+- [ ] リリース（次の版）後、arbor#341 に、スキーマ版 1 と最低版を伝える
+- 後続（#152 の対象外）: TUI の廃止、Arbor への sidecar での同梱、`dsx env unlock --password-env`
+
+---
+
 ## Issue #137: dsx run に --root を追加
 
 - [x] `dsx run --root` を追加し、`repo update` にのみ伝播（設定の `repo.root` を上書き）

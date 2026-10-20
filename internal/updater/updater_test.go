@@ -268,6 +268,12 @@ func TestGetEnabled(t *testing.T) {
 		assert.Contains(t, err.Error(), "unknown")
 		assert.Len(t, result, 1)
 		assert.Equal(t, "apt", result[0].Name())
+
+		// 機械可読なイベント出力のため、マネージャ名を構造化して取り出せる
+		var warning *EnableWarning
+		require.ErrorAs(t, err, &warning)
+		assert.Equal(t, []string{"brew"}, warning.Unavailable)
+		assert.Equal(t, []string{"unknown"}, warning.NotFound)
 	})
 
 	t.Run("設定の適用", func(t *testing.T) {
