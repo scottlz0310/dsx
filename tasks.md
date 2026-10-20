@@ -22,7 +22,7 @@
 - [x] PR #145 のレビューサイクルを完了して main にマージ（thread-owl: APPROVED。non-blocking の指摘 1 件＝ルートヘルプの説明を同じ PR で対応）
 - [x] 後続: `internal/secret` の `Unlock` / `LoadEnv` と補助関数（`run` からしか使われていなかった）の整理（#148。`dsx env` の挙動は変えない。`getEnvValue` のテストの観点は `buildEnvMapFromItems` へ移した）
 - [x] v0.12.0 を Prepare Release（PR #146）から切り、draft → 添付 → 検証 → 公開まで自動で完走することを確認（2026-10-20。成果物 11 点、draft の取り残しなし）
-- [ ] Arbor 側（scottlz0310/arbor#328 の再評価、`daily_refresh` が要求する dsx の最低版を v0.12.0 へ引き上げ）へ伝える
+- [x] Arbor 側（scottlz0310/arbor#328 の再評価、`daily_refresh` が要求する dsx の最低版を v0.12.0 へ引き上げ）へ伝える（Arbor v0.5.0 で追従済み。#328 は不要としてクローズ、`daily_refresh` の最低版は v0.12.0、Bitwarden の UI を削除。arbor#336）
 
 ---
 
