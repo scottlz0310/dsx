@@ -150,7 +150,10 @@ func runRepoUpdate(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	defer func() { finishEvents(err) }()
+	defer func() {
+		recordPhaseFailure("repo", err)
+		finishEvents(err)
+	}()
 
 	activeEvents.SetPhase("repo")
 

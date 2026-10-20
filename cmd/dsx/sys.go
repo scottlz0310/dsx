@@ -97,7 +97,10 @@ func runSysUpdate(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	defer func() { finishEvents(err) }()
+	defer func() {
+		recordPhaseFailure("sys", err)
+		finishEvents(err)
+	}()
 
 	activeEvents.SetPhase("sys")
 

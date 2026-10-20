@@ -37,6 +37,8 @@ const (
 	KindManagerSelfUpdate Kind = "manager_self_update"
 	// KindRepo はリポジトリの更新です。
 	KindRepo Kind = "repo"
+	// KindPhase は sys・repo の段階そのものの失敗です（root が不正、設定エラーなど。個々のジョブより前に失敗した原因が入ります）。
+	KindPhase Kind = "phase"
 )
 
 // Status はジョブの結果です。

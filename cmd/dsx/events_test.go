@@ -529,3 +529,37 @@ func TestBeginEvents(t *testing.T) {
 		}
 	})
 }
+
+// TestRun_EventsFile_PhaseFailureKeepsCause は、run のフェーズ開始前の失敗（root が存在しない等）の
+// 具体的な原因が、件数だけのエラーに丸められず、summary の issues に残ることを確認します。
+func TestRun_EventsFile_PhaseFailureKeepsCause(t *testing.T) {
+	resetEventsFlags(t)
+	setupEmptyConfig(t)
+
+	missingRoot := filepath.Join(t.TempDir(), "no-such-root")
+	eventsPath := filepath.Join(t.TempDir(), "events.jsonl")
+
+	_, _, err := executeRootCommand(t, "run", "--root", missingRoot, "--events-file", eventsPath)
+	if err == nil {
+		t.Fatal("存在しない root の run はエラーになるはずが nil")
+	}
+
+	summary := readSummary(t, eventsPath)
+	if summary["ok"] != false {
+		t.Errorf("ok = %v, want false", summary["ok"])
+	}
+
+	issues, _ := summary["issues"].([]any)
+	if len(issues) != 1 {
+		t.Fatalf("issues = %v, want 1 件", summary["issues"])
+	}
+
+	if evString(issues[0], "kind") != "phase" || evString(issues[0], "name") != "repo" || evString(issues[0], "status") != "failed" || evString(issues[0], "phase") != "repo" {
+		t.Errorf("issue = %v, want phase=repo kind=phase name=repo status=failed", issues[0])
+	}
+
+	reason := evString(issues[0], "reason")
+	if !strings.Contains(reason, missingRoot) || strings.Contains(reason, "件のフェーズ") {
+		t.Errorf("reason = %q, 具体的な原因（root のパス）を含み、件数だけのメッセージではないはず", reason)
+	}
+}

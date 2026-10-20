@@ -40,7 +40,7 @@
 | フィールド | 説明 |
 |---|---|
 | `phase` | `sys` / `repo` |
-| `kind` | `manager`（パッケージマネージャの更新）/ `manager_self_update`（マネージャ本体の更新）/ `repo`（リポジトリの更新） |
+| `kind` | `manager`（パッケージマネージャの更新）/ `manager_self_update`（マネージャ本体の更新）/ `repo`（リポジトリの更新） / `phase`（sys・repo の段階そのものの失敗。root が不正など、個々のジョブより前に失敗した原因が `reason` に入る。`job_started` は無く、`name` は `sys` / `repo`） |
 | `name` | マネージャ名（`go`・`npm` など）またはリポジトリの表示名 |
 
 ### `job_finished`

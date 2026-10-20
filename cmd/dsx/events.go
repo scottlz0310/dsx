@@ -131,3 +131,14 @@ func managerNames(updaters []updater.Updater) []string {
 
 	return names
 }
+
+// recordPhaseFailure は sys・repo の段階が返したエラーを、failed（または cancelled）のイベントにします。
+// run は段階のエラーを件数だけのエラーにまとめるため、個々のジョブより前に失敗した原因
+// （root が不正など）を、ここで具体的な理由のまま残します。
+func recordPhaseFailure(phase string, err error) {
+	if err == nil {
+		return
+	}
+
+	activeEvents.JobFinished(event.KindPhase, phase, failedJobResult(err))
+}
