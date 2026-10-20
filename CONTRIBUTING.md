@@ -247,7 +247,7 @@ PR 提出前に確認してください。
 - `docs/Implementation_Plan.md` — ロードマップ・アーキテクチャ設計
 - `docs/Dev_Tools.md` — 開発補助スクリプト（branch-chk 等）
 - `docs/Legacy_Migration_Analysis.md` — 旧ツールからの移行要件
-- `tasks.md` — タスク進捗管理
+- ハンドオフ `~/Dropbox/src/arbor-dsx/handoff/dsx.md`（repo 外）— 未完了作業・進捗管理（旧 `tasks.md` は廃止）
 - `CHANGELOG.md` — 変更履歴
 
 ## 問い合わせ

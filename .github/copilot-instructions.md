@@ -85,5 +85,5 @@ internal/
 
 - `docs/Implementation_Plan.md` — ロードマップ・アーキテクチャ設計
 - `docs/Legacy_Migration_Analysis.md` — 旧ツール（sysup, Setup-Repository）からの移行要件
-- `tasks.md` — タスク進捗管理（完了時にチェックを更新）
+- ハンドオフ `~/Dropbox/src/arbor-dsx/handoff/dsx.md`（repo 外）— 未完了作業・進捗管理（旧 `tasks.md` は廃止。完了時に更新）
 - `CHANGELOG.md` — 変更履歴（機能追加・修正時に更新）
