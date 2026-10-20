@@ -5,7 +5,6 @@ package updater
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -212,20 +211,34 @@ func GetEnabled(cfg *config.SysConfig) ([]Updater, error) {
 	return result, nil
 }
 
+// EnableWarning は GetEnabled が、指定されたマネージャの一部を有効化できなかったときの警告です。
+// 有効化できたマネージャは、GetEnabled の戻り値にそのまま含まれます。
+type EnableWarning struct {
+	// Unavailable は未インストールまたは利用不可のためスキップしたマネージャ名です。
+	Unavailable []string
+	// NotFound は dsx に存在しないマネージャ名です。
+	NotFound []string
+}
+
+// Error は人が読む警告メッセージを返します。
+func (w *EnableWarning) Error() string {
+	parts := make([]string, 0, 2)
+
+	if len(w.Unavailable) > 0 {
+		parts = append(parts, fmt.Sprintf("未インストールまたは利用不可のためスキップ: %v", w.Unavailable))
+	}
+
+	if len(w.NotFound) > 0 {
+		parts = append(parts, fmt.Sprintf("未知のマネージャが指定されています: %v", w.NotFound))
+	}
+
+	return strings.Join(parts, " / ")
+}
+
 func buildEnableWarning(notFound, unavailable []string) error {
 	if len(notFound) == 0 && len(unavailable) == 0 {
 		return nil
 	}
 
-	parts := make([]string, 0, 2)
-
-	if len(unavailable) > 0 {
-		parts = append(parts, fmt.Sprintf("未インストールまたは利用不可のためスキップ: %v", unavailable))
-	}
-
-	if len(notFound) > 0 {
-		parts = append(parts, fmt.Sprintf("未知のマネージャが指定されています: %v", notFound))
-	}
-
-	return errors.New(strings.Join(parts, " / "))
+	return &EnableWarning{Unavailable: unavailable, NotFound: notFound}
 }

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/scottlz0310/dsx/internal/config"
+	"github.com/scottlz0310/dsx/internal/event"
 	repomgr "github.com/scottlz0310/dsx/internal/repo"
 	"github.com/scottlz0310/dsx/internal/runner"
 	"github.com/spf13/cobra"
@@ -31,6 +32,8 @@ var (
 	repoUpdateTUI         bool
 	repoUpdateNoTUI       bool
 	repoUpdateLogFile     string
+	// repoUpdateEventsFile は機械可読なイベント（JSON Lines）の出力先です。run からは伝播せず、run が開始した出力を共有します。
+	repoUpdateEventsFile string
 )
 
 var (
@@ -98,6 +101,7 @@ func init() {
 	repoUpdateCmd.Flags().BoolVar(&repoUpdateTUI, "tui", false, "Bubble Tea の進捗UIを表示（既定値は config.yaml の ui.tui）")
 	repoUpdateCmd.Flags().BoolVar(&repoUpdateNoTUI, "no-tui", false, "TUI 進捗表示を無効化（設定より優先）")
 	repoUpdateCmd.Flags().StringVar(&repoUpdateLogFile, "log-file", "", "ジョブ実行ログをファイルに保存")
+	repoUpdateCmd.Flags().StringVar(&repoUpdateEventsFile, "events-file", "", "機械可読なイベント（JSON Lines）と終了時の要約をファイルに保存")
 }
 
 func runRepoList(cmd *cobra.Command, args []string) error {
@@ -140,7 +144,23 @@ func runRepoList(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runRepoUpdate(cmd *cobra.Command, args []string) error {
+func runRepoUpdate(cmd *cobra.Command, args []string) (err error) {
+	finishEvents, err := beginEvents("repo update", repoUpdateEventsFile)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		recordPhaseFailure("repo", err)
+		finishEvents(err)
+	}()
+
+	activeEvents.SetPhase("repo")
+
+	return runRepoUpdateBody(cmd)
+}
+
+func runRepoUpdateBody(cmd *cobra.Command) error {
 	cfg, configExists, configPath := loadRepoConfig()
 
 	root := cfg.Repo.Root
@@ -205,6 +225,7 @@ func runRepoUpdate(cmd *cobra.Command, args []string) error {
 
 	execJobs, getPullSkipped := buildRepoUpdateJobs(root, repoPaths, opts, useTUI)
 	summary := runJobsWithOptionalTUI(ctx, "repo update 進捗", jobs, execJobs, useTUI, repoUpdateLogFile)
+	skipUnstartedRepos(execJobs)
 
 	// TUI 使用時は TUI 側で完了サマリーを表示済みのため、テキストサマリーは非 TUI 時のみ出力
 	// pull スキップ一覧は TUI モードでも表示する
@@ -241,6 +262,7 @@ func loadRepoConfig() (cfg *config.Config, configExists bool, configPath string)
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "⚠️  設定ファイルの読み込みに失敗（デフォルト設定を使用）: %v\n", err)
+		activeEvents.Warn(event.CategoryConfigFallback, "", fmt.Sprintf("設定ファイルの読み込みに失敗（デフォルト設定を使用）: %v", err))
 
 		cfg = config.Default()
 	}
@@ -322,7 +344,10 @@ func buildRepoUpdateJobs(root string, repoPaths []string, opts repomgr.UpdateOpt
 		execJobs = append(execJobs, runner.Job{
 			Name: repoName,
 			Run: func(jobCtx context.Context) error {
+				activeEvents.JobStarted(event.KindRepo, repoName)
+
 				updateResult, updateErr := repomgr.Update(jobCtx, repoPath, opts)
+				recordRepoUpdate(repoName, updateResult, updateErr)
 
 				if updateErr == nil && updateResult != nil && len(updateResult.SkippedMessages) > 0 {
 					pullSkippedMu.Lock()
@@ -354,6 +379,29 @@ func buildRepoUpdateJobs(root string, repoPaths []string, opts repomgr.UpdateOpt
 	}
 
 	return execJobs, getPullSkipped
+}
+
+// recordRepoUpdate はリポジトリ 1 件の更新結果を、ジョブの完了と警告のイベントにします。
+func recordRepoUpdate(repoName string, result *repomgr.UpdateResult, updateErr error) {
+	activeEvents.JobFinished(event.KindRepo, repoName, repoJobResult(result, updateErr))
+
+	if result == nil {
+		return
+	}
+
+	for _, warning := range result.Warnings {
+		activeEvents.Warn(event.CategoryRepoWarning, repoName, warning)
+	}
+}
+
+// skipUnstartedRepos はキャンセルやタイムアウトで開始しなかったリポジトリを skipped として記録します。
+func skipUnstartedRepos(jobs []runner.Job) {
+	names := make([]string, 0, len(jobs))
+	for _, job := range jobs {
+		names = append(names, job.Name)
+	}
+
+	activeEvents.SkipUnstarted(event.KindRepo, names, event.CodeCancelled, "キャンセルまたはタイムアウトにより実行されませんでした")
 }
 
 func buildRepoJobDisplayName(root, repoPath string) string {
@@ -553,8 +601,10 @@ func bootstrapReposFromGitHub(ctx context.Context, root string, cfg *config.Conf
 	if err != nil {
 		if isGitHubRateLimitError(err) {
 			fmt.Fprintf(os.Stderr, "⚠️  GitHub のレート制限によりリポジトリ一覧の取得をスキップします: %v\n", err)
+			activeEvents.Warn(event.CategoryGitHubRateLimit, owner, fmt.Sprintf("GitHub のレート制限によりリポジトリ一覧の取得をスキップしました: %v", err))
 			fmt.Fprintln(os.Stderr, "📝 GitHub からの補完は行わず、ローカルに存在するリポジトリのみ更新を継続します。")
 			fmt.Println()
+
 			return bootstrapResult{}, nil
 		}
 

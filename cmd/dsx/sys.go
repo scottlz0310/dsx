@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/scottlz0310/dsx/internal/config"
+	"github.com/scottlz0310/dsx/internal/event"
 	"github.com/scottlz0310/dsx/internal/runner"
 	"github.com/scottlz0310/dsx/internal/updater"
 	"github.com/spf13/cobra"
@@ -24,6 +25,8 @@ var (
 	sysTUI     bool
 	sysNoTUI   bool
 	sysLogFile string
+	// sysEventsFile は機械可読なイベント（JSON Lines）の出力先です。run からは伝播せず、run が開始した出力を共有します。
+	sysEventsFile string
 )
 
 // sysCmd はシステム関連コマンドのルートです
@@ -85,9 +88,26 @@ func init() {
 	sysUpdateCmd.Flags().BoolVar(&sysTUI, "tui", false, "Bubble Tea の進捗UIを表示（既定値は config.yaml の ui.tui）")
 	sysUpdateCmd.Flags().BoolVar(&sysNoTUI, "no-tui", false, "TUI 進捗表示を無効化（設定より優先）")
 	sysUpdateCmd.Flags().StringVar(&sysLogFile, "log-file", "", "ジョブ実行ログをファイルに保存")
+	sysUpdateCmd.Flags().StringVar(&sysEventsFile, "events-file", "", "機械可読なイベント（JSON Lines）と終了時の要約をファイルに保存")
 }
 
-func runSysUpdate(cmd *cobra.Command, args []string) error {
+func runSysUpdate(cmd *cobra.Command, args []string) (err error) {
+	finishEvents, err := beginEvents("sys update", sysEventsFile)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		recordPhaseFailure("sys", err)
+		finishEvents(err)
+	}()
+
+	activeEvents.SetPhase("sys")
+
+	return runSysUpdateBody(cmd)
+}
+
+func runSysUpdateBody(cmd *cobra.Command) error {
 	defer printSelfUpdateNoticeAtEnd()
 
 	// 設定の読み込み
@@ -101,6 +121,7 @@ func runSysUpdate(cmd *cobra.Command, args []string) error {
 	enabledUpdaters, err := updater.GetEnabled(&cfg.Sys)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "⚠️  %v\n", err)
+		recordEnableWarning(err)
 	}
 
 	configureUpdaterRuntimeVersion(enabledUpdaters, version)
@@ -210,13 +231,15 @@ func runManagerSelfUpdatePhase(ctx context.Context, opts updater.UpdateOptions, 
 		case <-ctx.Done():
 			stats.Errors = append(stats.Errors, fmt.Errorf("マネージャ本体更新フェーズがタイムアウトまたはキャンセルされました"))
 
+			skipUnstartedSelfUpdates(targets)
+
 			return filterNormalUpdateUpdaters(updaters, skipNormalUpdate), stats
 		default:
 		}
 
 		printManagerSelfUpdateHeader(target.updater)
 
-		result, err := executeManagerSelfUpdate(ctx, target.self, opts)
+		result, err := trackManagerSelfUpdate(ctx, target, opts)
 		if err != nil {
 			recordManagerSelfUpdateError(target.updater, err, &stats)
 			fmt.Fprintf(os.Stderr, "❌ エラー: %v\n", err)
@@ -252,7 +275,7 @@ func runManagerSelfUpdatePhaseWithTUI(ctx context.Context, opts updater.UpdateOp
 		jobs = append(jobs, runner.Job{
 			Name: target.updater.Name() + "-self-update",
 			Run: func(jobCtx context.Context) error {
-				result, err := executeManagerSelfUpdate(jobCtx, target.self, opts)
+				result, err := trackManagerSelfUpdate(jobCtx, target, opts)
 				if err != nil {
 					if isContextCancellation(err) {
 						return err
@@ -279,6 +302,9 @@ func runManagerSelfUpdatePhaseWithTUI(ctx context.Context, opts updater.UpdateOp
 	}
 
 	summary := runManagerSelfUpdateJobs(ctx, "マネージャ本体更新 進捗", 1, jobs, true, sysLogFile)
+
+	skipUnstartedSelfUpdates(targets)
+
 	if summary.Skipped > 0 {
 		stats.Errors = append(stats.Errors, fmt.Errorf("キャンセルまたはタイムアウトによりマネージャ本体更新 %d 件をスキップしました", summary.Skipped))
 	}
@@ -299,6 +325,34 @@ func collectManagerSelfUpdateTargets(updaters []updater.Updater) []managerSelfUp
 	}
 
 	return targets
+}
+
+// trackManagerSelfUpdate はマネージャ本体更新を実行し、開始と結果をイベントに記録します。
+func trackManagerSelfUpdate(ctx context.Context, target managerSelfUpdateTarget, opts updater.UpdateOptions) (*updater.SelfUpdateResult, error) {
+	name := target.updater.Name()
+
+	activeEvents.JobStarted(event.KindManagerSelfUpdate, name)
+
+	result, err := executeManagerSelfUpdate(ctx, target.self, opts)
+
+	var updateResult *updater.UpdateResult
+	if result != nil {
+		updateResult = &result.UpdateResult
+	}
+
+	activeEvents.JobFinished(event.KindManagerSelfUpdate, name, updaterJobResult(updateResult, err))
+
+	return result, err
+}
+
+// skipUnstartedSelfUpdates はキャンセルやタイムアウトで開始しなかったマネージャ本体更新を skipped として記録します。
+func skipUnstartedSelfUpdates(targets []managerSelfUpdateTarget) {
+	names := make([]string, 0, len(targets))
+	for _, target := range targets {
+		names = append(names, target.updater.Name())
+	}
+
+	activeEvents.SkipUnstarted(event.KindManagerSelfUpdate, names, event.CodeCancelled, "キャンセルまたはタイムアウトにより実行されませんでした")
 }
 
 func executeManagerSelfUpdate(ctx context.Context, self updater.ManagerSelfUpdater, opts updater.UpdateOptions) (*updater.SelfUpdateResult, error) {
@@ -454,6 +508,7 @@ func loadSysUpdateConfig(cmd *cobra.Command) (*config.Config, updater.UpdateOpti
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "⚠️  設定ファイルの読み込みに失敗（デフォルト設定を使用）: %v\n", err)
+		activeEvents.Warn(event.CategoryConfigFallback, "", fmt.Sprintf("設定ファイルの読み込みに失敗（デフォルト設定を使用）: %v", err))
 
 		cfg = config.Default()
 	}
@@ -518,13 +573,18 @@ func executeUpdates(ctx context.Context, updaters []updater.Updater, opts update
 		case <-ctx.Done():
 			stats.Errors = append(stats.Errors, fmt.Errorf("タイムアウトまたはキャンセルされました"))
 
+			skipUnstartedUpdaters(updaters)
+
 			return stats
 		default:
 		}
 
 		printUpdaterHeader(u)
+		activeEvents.JobStarted(event.KindManager, u.Name())
 
 		result, err := u.Update(ctx, opts)
+		activeEvents.JobFinished(event.KindManager, u.Name(), updaterJobResult(result, err))
+
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ エラー: %v\n", err)
 			stats.Errors = append(stats.Errors, fmt.Errorf("%s: %w", u.Name(), err))
@@ -542,6 +602,11 @@ func executeUpdates(ctx context.Context, updaters []updater.Updater, opts update
 	}
 
 	return stats
+}
+
+// skipUnstartedUpdaters はキャンセルやタイムアウトで開始しなかったマネージャを skipped として記録します。
+func skipUnstartedUpdaters(updaters []updater.Updater) {
+	activeEvents.SkipUnstarted(event.KindManager, managerNames(updaters), event.CodeCancelled, "キャンセルまたはタイムアウトにより実行されませんでした")
 }
 
 func executeParallelUpdaters(ctx context.Context, updaters []updater.Updater, opts updater.UpdateOptions, jobs int, useTUI bool) updateStats {
@@ -573,6 +638,8 @@ func executeUpdatesParallel(ctx context.Context, updaters []updater.Updater, opt
 	execJobs := buildUpdaterJobs(updaters, opts, useTUI, &stats, &statsMu, &outputMu)
 	summary := runJobsWithOptionalTUI(ctx, "sys update 進捗", jobs, execJobs, useTUI, sysLogFile)
 
+	skipUnstartedUpdaters(updaters)
+
 	if summary.Skipped > 0 {
 		stats.Errors = append(stats.Errors, fmt.Errorf("キャンセルまたはタイムアウトにより %d 件をスキップしました", summary.Skipped))
 	}
@@ -599,8 +666,11 @@ func buildUpdaterJobs(updaters []updater.Updater, opts updater.UpdateOptions, us
 
 func runUpdaterJob(jobCtx context.Context, u updater.Updater, opts updater.UpdateOptions, useTUI bool, stats *updateStats, statsMu, outputMu *sync.Mutex) error {
 	printUpdaterHeaderIfNeeded(u, useTUI, outputMu)
+	activeEvents.JobStarted(event.KindManager, u.Name())
 
 	result, err := u.Update(jobCtx, opts)
+	activeEvents.JobFinished(event.KindManager, u.Name(), updaterJobResult(result, err))
+
 	if err != nil {
 		return handleUpdaterError(u, err, useTUI, stats, statsMu, outputMu)
 	}

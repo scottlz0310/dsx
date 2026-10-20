@@ -61,6 +61,11 @@ func resetGlobalFlags(t *testing.T) {
 	repoUpdateNoSubmodule = false
 	repoUpdateTUI = false
 	repoUpdateNoTUI = false
+
+	// イベント出力（--events-file）。残ると、次のテストが同じファイルを作ろうとして失敗する。
+	sysEventsFile = ""
+	repoUpdateEventsFile = ""
+	runEventsFile = ""
 }
 
 // executeRootCommand は rootCmd にコマンドライン引数を設定して実行する。
