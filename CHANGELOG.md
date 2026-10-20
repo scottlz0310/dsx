@@ -8,8 +8,8 @@
 
 ### Changed
 
-- **`internal/secret` ã®æ´çï¼#148ï¼**: `dsx run` ãã Bitwarden ãå¤ããï¼#144ï¼ãã¨ã§å¼ã³åºãåããªããªã£ã `Unlock` ã¨ `LoadEnv`ï¼ããã³ `LoadStats`ã»`checkBitwardenPrerequisites`ã»`fetchBitwardenEnvItems`ã»`processEnvItems`ã»`processEnvItem`ã»`getEnvValue`ã»`printLoadStats`ï¼ã¨ãããã ããæ¤æ»ãã¦ãããã¹ããåé¤ããã`dsx env` ã®æåã¯å¤ããªãï¼`Sync`ã»`UnlockGetToken`ã»`EnsureBitwardenSession`ã»`GetEnvVars` ã¯æ®ãï¼ã
-- ãã¹ã: `getEnvValue` ã®ãã¹ãã®è¦³ç¹ï¼`value` ãã£ã¼ã«ãåªåã»`login.password` ã¸ã®ãã©ã¼ã«ããã¯ã¨ trimã»ç©ºã®å¤ã®é¤å¤ï¼ãã`dsx env` ãå®éã«ä½¿ã `buildEnvMapFromItems` ã®ãã¹ãï¼`TestBuildEnvMapFromItems`ï¼ã¸ç§»ããã
+- **`internal/secret` の整理（#148）**: `dsx run` から Bitwarden を外した（#144）ことで呼び出し元がなくなった `Unlock` と `LoadEnv`（および `LoadStats`・`checkBitwardenPrerequisites`・`fetchBitwardenEnvItems`・`processEnvItems`・`processEnvItem`・`getEnvValue`・`printLoadStats`）と、それだけを検査していたテストを削除した。`dsx env` の挙動は変えない（`Sync`・`UnlockGetToken`・`EnsureBitwardenSession`・`GetEnvVars` は残す）。
+- テスト: `getEnvValue` のテストの観点（`value` フィールド優先・`login.password` へのフォールバックと trim・空の値の除外）を、`dsx env` が実際に使う `buildEnvMapFromItems` のテスト（`TestBuildEnvMapFromItems`）へ移した。
 
 ## [0.12.0] - 2026-10-19
 
