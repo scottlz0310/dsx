@@ -84,7 +84,7 @@ func init() {
 	sysUpdateCmd.Flags().BoolVarP(&sysDryRun, "dry-run", "n", false, "実際の更新は行わず、計画のみ表示")
 	sysUpdateCmd.Flags().BoolVarP(&sysVerbose, "verbose", "v", false, "詳細なログを出力")
 	sysUpdateCmd.Flags().IntVarP(&sysJobs, "jobs", "j", 0, "並列実行数（0以下の場合は設定値または1を使用）")
-	sysUpdateCmd.Flags().StringVarP(&sysTimeout, "timeout", "t", "10m", "全体のタイムアウト時間")
+	sysUpdateCmd.Flags().StringVarP(&sysTimeout, "timeout", "t", "10m", "全体のタイムアウト時間（未指定のときは config.yaml の control.timeout、それも無ければ 10m）")
 	sysUpdateCmd.Flags().BoolVar(&sysTUI, "tui", false, "Bubble Tea の進捗UIを表示（既定値は config.yaml の ui.tui）")
 	sysUpdateCmd.Flags().BoolVar(&sysNoTUI, "no-tui", false, "TUI 進捗表示を無効化（設定より優先）")
 	sysUpdateCmd.Flags().StringVar(&sysLogFile, "log-file", "", "ジョブ実行ログをファイルに保存")
@@ -114,7 +114,7 @@ func runSysUpdateBody(cmd *cobra.Command) error {
 	cfg, opts := loadSysUpdateConfig(cmd)
 
 	// コンテキストの作成（タイムアウト + キャンセル対応）
-	ctx, cancel := setupContext()
+	ctx, cancel := setupContext(resolveSysTimeout(cmd.Flags().Changed("timeout"), sysTimeout, cfg.Control.Timeout))
 	defer cancel()
 
 	// 有効なマネージャを取得
@@ -541,13 +541,26 @@ func loadSysUpdateConfig(cmd *cobra.Command) (*config.Config, updater.UpdateOpti
 	return cfg, opts
 }
 
-// setupContext はタイムアウトとシグナルハンドリング付きのコンテキストを作成します。
-func setupContext() (context.Context, context.CancelFunc) {
-	timeout, err := time.ParseDuration(sysTimeout)
-	if err != nil {
-		timeout = 10 * time.Minute
+// defaultSysTimeout は --timeout も control.timeout も有効でないときの、全体のタイムアウトです。
+const defaultSysTimeout = 10 * time.Minute
+
+// resolveSysTimeout は全体のタイムアウトを決めます。--timeout の明示が優先で、無ければ config.yaml の control.timeout、
+// どちらも解釈できなければ既定値（10m）です。repo の各コマンドと同じく control.timeout を尊重します。
+func resolveSysTimeout(flagChanged bool, flagValue, configValue string) time.Duration {
+	value := configValue
+	if flagChanged {
+		value = flagValue
 	}
 
+	if parsed, err := time.ParseDuration(value); err == nil {
+		return parsed
+	}
+
+	return defaultSysTimeout
+}
+
+// setupContext はタイムアウトとシグナルハンドリング付きのコンテキストを作成します。
+func setupContext(timeout time.Duration) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 	// Ctrl+C でキャンセル可能に
