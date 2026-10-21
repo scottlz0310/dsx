@@ -63,6 +63,8 @@ const (
 	CodeCancelled Code = "cancelled"
 	// CodePullSkipped は pull を実行しなかったことを表します（未コミットの変更、upstream なし等）。
 	CodePullSkipped Code = "pull_skipped"
+	// CodeInUse は更新対象が実行中で置き換えられないため、更新を見送ったことを表します（Windows の uv 本体更新等）。
+	CodeInUse Code = "in_use"
 )
 
 // 警告の分類（warning イベントの category フィールド）。

@@ -61,6 +61,9 @@ const (
 type SelfUpdateResult struct {
 	UpdateResult
 	Continuation SelfUpdateContinuation
+	// InUse は更新対象が実行中で置き換えられないため、更新を見送ったことを表します（失敗ではありません）。
+	// 見送った理由は Message に入ります。
+	InUse bool
 }
 
 // ShouldContinueNormalUpdate は通常更新フェーズへ進むべきかを返します。

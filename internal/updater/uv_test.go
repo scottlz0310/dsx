@@ -2,6 +2,7 @@ package updater
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -420,6 +421,112 @@ func TestUVUpdater_SelfUpdate(t *testing.T) {
 
 			if tc.msgContains != "" {
 				assert.Contains(t, got.Message, tc.msgContains)
+			}
+		})
+	}
+}
+
+// 実行中の uv / uvx がある場合は、`uv self update` を実行せずに見送る（Windows は実行中の exe を置き換えられない）。
+// 見送りが失敗ではないこと、実行しないこと（self_update_error なら実行すると失敗する）を固定する。
+func TestUVUpdater_SelfUpdate_InUse(t *testing.T) {
+	testCases := []struct {
+		name        string
+		mode        string
+		opts        UpdateOptions
+		listRunning func(dir string, names []string) ([]string, error)
+		wantInUse   bool
+		wantUpdated int
+		wantErr     string
+		wantMsg     []string
+	}{
+		{
+			name: "実行中なら更新を見送る（失敗にしない）",
+			mode: "self_update_error",
+			listRunning: func(string, []string) ([]string, error) {
+				return []string{"uvx.exe (PID 17992)", "uv.exe (PID 21000)"}, nil
+			},
+			wantInUse: true,
+			wantMsg:   []string{"uv / uvx が実行中", "v0.11.16 → v0.11.17", "uvx.exe (PID 17992), uv.exe (PID 21000)"},
+		},
+		{
+			name: "実行中でなければ更新する",
+			mode: "self_update_available",
+			listRunning: func(string, []string) ([]string, error) {
+				return nil, nil
+			},
+			wantUpdated: 1,
+			wantMsg:     []string{"uv 本体を更新しました"},
+		},
+		{
+			name: "DryRun は実行中かを調べない",
+			mode: "self_update_available",
+			opts: UpdateOptions{DryRun: true},
+			listRunning: func(string, []string) ([]string, error) {
+				return nil, errors.New("呼ばれてはいけない")
+			},
+			wantMsg: []string{"DryRun"},
+		},
+		{
+			name: "最新版なら実行中かを調べない",
+			mode: "self_latest",
+			listRunning: func(string, []string) ([]string, error) {
+				return nil, errors.New("呼ばれてはいけない")
+			},
+			wantMsg: []string{"最新"},
+		},
+		{
+			name: "実行中かを確認できないときはエラー（更新しない）",
+			mode: "self_update_available",
+			listRunning: func(string, []string) ([]string, error) {
+				return nil, errors.New("access denied")
+			},
+			wantErr: "uv の実行中のプロセスを確認できません: access denied",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			fakeDir := t.TempDir()
+			writeFakeUVCommand(t, fakeDir)
+
+			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+			t.Setenv("DSX_TEST_UV_MODE", tc.mode)
+
+			var gotDir string
+
+			u := &UVUpdater{listRunning: func(dir string, names []string) ([]string, error) {
+				gotDir = dir
+
+				assert.Equal(t, uvExecutableNames, names)
+
+				return tc.listRunning(dir, names)
+			}}
+
+			got, err := u.SelfUpdate(context.Background(), tc.opts)
+
+			if tc.wantErr != "" {
+				assert.EqualError(t, err, tc.wantErr)
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.wantInUse, got.InUse)
+			assert.Equal(t, ContinueNormalUpdate, got.Continuation)
+			assert.Equal(t, tc.wantUpdated, got.UpdatedCount)
+
+			for _, want := range tc.wantMsg {
+				assert.Contains(t, got.Message, want)
+			}
+
+			if gotDir != "" {
+				// 確認する場所は、更新で置き換える uv のあるディレクトリ。
+				wantDir, err := filepath.EvalSymlinks(fakeDir)
+				assert.NoError(t, err)
+
+				gotResolved, err := filepath.EvalSymlinks(gotDir)
+				assert.NoError(t, err)
+				assert.Equal(t, wantDir, gotResolved)
 			}
 		})
 	}

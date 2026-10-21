@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -13,7 +14,13 @@ import (
 )
 
 // UVUpdater は uv tool (Python CLI ツール) の実装です。
-type UVUpdater struct{}
+type UVUpdater struct {
+	// listRunning は dir にある names の実行ファイルで動作中のプロセスを返します。nil のときは実際のプロセスを調べます（テスト用に差し替え可能）。
+	listRunning func(dir string, names []string) ([]string, error)
+}
+
+// uvExecutableNames は `uv self update` が置き換える実行ファイルです。
+var uvExecutableNames = []string{"uv.exe", "uvx.exe", "uvw.exe"}
 
 var uvSelfUpdatePattern = regexp.MustCompile(`(?i)would update uv from v?(\S+) to v?(\S+)`)
 
@@ -118,6 +125,23 @@ func (u *UVUpdater) SelfUpdate(ctx context.Context, opts UpdateOptions) (*SelfUp
 		return result, nil
 	}
 
+	running, err := u.runningUVProcesses()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(running) > 0 {
+		result.InUse = true
+		result.Packages = checkResult.Packages
+		result.Message = fmt.Sprintf(
+			"uv / uvx が実行中のため uv 本体の更新を見送りました（%s）。実行中のプロセス: %s。終了してから再実行してください",
+			describeUVVersionChange(checkResult.Packages),
+			strings.Join(running, ", "),
+		)
+
+		return result, nil
+	}
+
 	cmd := exec.CommandContext(ctx, "uv", "self", "update")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -171,6 +195,40 @@ func (u *UVUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateResu
 	result.Message = fmt.Sprintf("%d 件のツールを確認・更新しました", result.UpdatedCount)
 
 	return result, nil
+}
+
+// runningUVProcesses は更新で置き換える uv の実行ファイルを使っているプロセスを返します。
+// Windows は実行中の実行ファイルを置き換えられず、`uv self update` が exit 2 で失敗するため、更新の前に確認します。
+// 例: `uvx windows-mcp serve` のように、他のツールが常駐させている uv / uvx。
+func (u *UVUpdater) runningUVProcesses() ([]string, error) {
+	list := u.listRunning
+	if list == nil {
+		list = listRunningExecutables
+	}
+
+	path, err := exec.LookPath("uv")
+	if err != nil {
+		return nil, fmt.Errorf("uv の場所を特定できません: %w", err)
+	}
+
+	if resolved, evalErr := filepath.EvalSymlinks(path); evalErr == nil {
+		path = resolved
+	}
+
+	running, err := list(filepath.Dir(path), uvExecutableNames)
+	if err != nil {
+		return nil, fmt.Errorf("uv の実行中のプロセスを確認できません: %w", err)
+	}
+
+	return running, nil
+}
+
+func describeUVVersionChange(packages []PackageInfo) string {
+	if len(packages) == 0 {
+		return "更新あり"
+	}
+
+	return fmt.Sprintf("v%s → v%s", packages[0].CurrentVersion, packages[0].NewVersion)
 }
 
 func (u *UVUpdater) runSelfUpdateDryRun(ctx context.Context) (string, error) {

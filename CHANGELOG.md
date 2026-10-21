@@ -6,6 +6,14 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Windows で `uv` / `uvx` が実行中のとき、`uv self update` が失敗していた**: Windows は実行中の exe を置き換えられないため、`uvx windows-mcp serve` のように他のツールが `uvx` を常駐させていると、`uv self update` が exit 2 で失敗し、Daily Refresh が毎回「失敗あり」になっていた。更新の前に、更新で置き換える `uv` と同じディレクトリの `uv.exe` / `uvx.exe` / `uvw.exe` が実行中かを確認し、実行中なら更新を見送る。表示は「実行中のため見送り（現在 → 更新可能、実行中のプロセス）」で、終了コードは 0。通常更新フェーズは継続する。実行中かを確認できないときは、更新せずにエラーにする。TUI の進捗画面は見送りを成功と同じ表示にするため、画面を閉じた後に見送りの理由を出力する。Unix 系は実行中でも置き換えられるため、確認しない。
+
+### Added
+
+- イベント出力に、`skipped` の理由コード `in_use`（更新対象が実行中で見送った）を追加した。終了コードには影響しない。スキーマの版は上げない（`code` の値の追加）。[docs/Events_Schema.md](docs/Events_Schema.md) に記載。
+
 ### Changed
 
 - **`tasks.md` を廃止**: 未完了作業の管理を、repo 外のハンドオフに一本化し、`tasks.md` を削除した。完了済みの履歴は git の履歴（`git log -- tasks.md`）と `docs/archive/tasks_v0.2.3.md` に残る。`AGENTS.md`・`CONTRIBUTING.md`・`.github/copilot-instructions.md` の参照を直した。
