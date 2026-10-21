@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/scottlz0310/dsx/internal/config"
 	"github.com/scottlz0310/dsx/internal/runner"
@@ -870,6 +871,33 @@ func TestRunManagerSelfUpdatePhaseWithTUI_InUseNotice(t *testing.T) {
 
 			if strings.Join(updaterNames(remaining), ",") != "uv" {
 				t.Errorf("remaining = %v, want [uv]（通常更新は継続）", updaterNames(remaining))
+			}
+		})
+	}
+}
+
+func TestResolveSysTimeout(t *testing.T) {
+	tests := []struct {
+		name         string
+		flagChanged  bool
+		flagValue    string
+		configValue  string
+		wantDuration time.Duration
+	}{
+		{name: "フラグ未指定なら control.timeout を使う", flagValue: "10m", configValue: "30m", wantDuration: 30 * time.Minute},
+		{name: "フラグ指定が control.timeout より優先", flagChanged: true, flagValue: "5m", configValue: "30m", wantDuration: 5 * time.Minute},
+		{name: "フラグを既定値と同じ値で明示しても、それを使う", flagChanged: true, flagValue: "10m", configValue: "30m", wantDuration: 10 * time.Minute},
+		{name: "control.timeout が空なら既定値", flagValue: "10m", configValue: "", wantDuration: defaultSysTimeout},
+		{name: "control.timeout が不正なら既定値", flagValue: "10m", configValue: "abc", wantDuration: defaultSysTimeout},
+		{name: "フラグが不正なら既定値（control.timeout へは落とさない）", flagChanged: true, flagValue: "abc", configValue: "30m", wantDuration: defaultSysTimeout},
+		{name: "秒単位も解釈する", flagValue: "10m", configValue: "90s", wantDuration: 90 * time.Second},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveSysTimeout(tt.flagChanged, tt.flagValue, tt.configValue)
+			if got != tt.wantDuration {
+				t.Errorf("resolveSysTimeout() = %v, want %v", got, tt.wantDuration)
 			}
 		})
 	}
