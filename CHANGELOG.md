@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-10-21
+
 ### Fixed
 
 - **Bun のグローバルパッケージが 1 つも無いとき、`bun` が失敗になっていた**: グローバルの `package.json` / lockfile は初回の `bun add -g` まで作られず、無い状態の `bun outdated -g` は `error: missing package.json, nothing outdated`（または `missing lockfile, nothing outdated`）で終了コード 1 になる。dsx はこれを更新の失敗として報告し、`dsx sys update` / `dsx run` が毎回「失敗あり」（終了コード 1）になっていた（bun 1.4.3、Ubuntu で確認）。「Bun のグローバルパッケージがありません」として成功扱い（更新 0 件）にする。それ以外の `bun outdated -g` の失敗（ネットワーク、ロックファイルの移行失敗など）は、従来どおり失敗にする。
@@ -500,13 +502,14 @@
 
 ---
 
-[v0.10.1]: https://github.com/scottlz0310/dsx/compare/v0.10.0...v0.10.1
-[v0.10.0]: https://github.com/scottlz0310/dsx/compare/v0.9.0...v0.10.0
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/scottlz0310/dsx/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/scottlz0310/dsx/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/scottlz0310/dsx/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/scottlz0310/dsx/compare/v0.10.2...v0.11.0
 [v0.10.2]: https://github.com/scottlz0310/dsx/compare/v0.10.1...v0.10.2
+[v0.10.1]: https://github.com/scottlz0310/dsx/compare/v0.10.0...v0.10.1
+[v0.10.0]: https://github.com/scottlz0310/dsx/compare/v0.9.0...v0.10.0
 [v0.9.0]: https://github.com/scottlz0310/dsx/compare/v0.8.1...v0.9.0
 [v0.8.1]: https://github.com/scottlz0310/dsx/compare/v0.8.0...v0.8.1
 [v0.8.0]: https://github.com/scottlz0310/dsx/compare/v0.7.0...v0.8.0
