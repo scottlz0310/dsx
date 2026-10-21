@@ -236,6 +236,7 @@ func TestBunUpdaterCheck(t *testing.T) {
 		output      string
 		runErr      error
 		wantCount   int
+		wantMessage string
 		wantErrText string
 	}{
 		{
@@ -244,7 +245,18 @@ func TestBunUpdaterCheck(t *testing.T) {
 			wantCount: 1,
 		},
 		{name: "更新なし", output: "bun outdated v1.3.14\n"},
+		{
+			name:        "グローバルの package.json が無い",
+			runErr:      errors.New("exit status 1: bun outdated v1.4.3\nerror: missing package.json, nothing outdated\nerror: failed to initialize bun install: MissingPackageJSON"),
+			wantMessage: bunNoGlobalPackagesMessage,
+		},
+		{
+			name:        "グローバルの lockfile が無い",
+			runErr:      errors.New("exit status 1: bun outdated v1.4.3\nerror: missing lockfile, nothing outdated\nnote: run 'bun install' first"),
+			wantMessage: bunNoGlobalPackagesMessage,
+		},
 		{name: "コマンド失敗", runErr: errors.New("network error"), wantErrText: "bun outdated -g の実行に失敗"},
+		{name: "ロックファイルの移行失敗は失敗のまま", runErr: errors.New("exit status 1: error: failed to migrate lockfile: InvalidNPMLockfile"), wantErrText: "bun outdated -g の実行に失敗"},
 		{name: "解析失敗", output: "invalid", wantErrText: "bun outdated -g の出力解析に失敗"},
 	}
 
@@ -277,6 +289,10 @@ func TestBunUpdaterCheck(t *testing.T) {
 
 			if got.AvailableUpdates != tt.wantCount {
 				t.Fatalf("AvailableUpdates = %d, want %d", got.AvailableUpdates, tt.wantCount)
+			}
+
+			if got.Message != tt.wantMessage {
+				t.Fatalf("Message = %q, want %q", got.Message, tt.wantMessage)
 			}
 		})
 	}
@@ -367,6 +383,32 @@ func TestBunUpdaterUpdate(t *testing.T) {
 				t.Fatalf("Message = %q, want contains %q", got.Message, tt.wantMessageText)
 			}
 		})
+	}
+}
+
+func TestBunUpdaterUpdateWithoutGlobalPackages(t *testing.T) {
+	t.Parallel()
+
+	updater := &BunUpdater{
+		runOutputStep: func(_ context.Context, _ ...string) ([]byte, error) {
+			return nil, errors.New("exit status 1: error: missing package.json, nothing outdated")
+		},
+		runInteractiveStep: func(_ context.Context, args ...string) error {
+			t.Fatalf("グローバルパッケージが無いのに bun %v を実行した", args)
+
+			return nil
+		},
+	}
+
+	for _, dryRun := range []bool{false, true} {
+		got, err := updater.Update(context.Background(), UpdateOptions{DryRun: dryRun})
+		if err != nil {
+			t.Fatalf("Update(DryRun=%v) error = %v", dryRun, err)
+		}
+
+		if got.Message != bunNoGlobalPackagesMessage || got.UpdatedCount != 0 {
+			t.Fatalf("Update(DryRun=%v) = %+v, want message %q and no updates", dryRun, got, bunNoGlobalPackagesMessage)
+		}
 	}
 }
 

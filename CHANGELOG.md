@@ -8,6 +8,7 @@
 
 ### Fixed
 
+- **Bun のグローバルパッケージが 1 つも無いとき、`bun` が失敗になっていた**: グローバルの `package.json` / lockfile は初回の `bun add -g` まで作られず、無い状態の `bun outdated -g` は `error: missing package.json, nothing outdated`（または `missing lockfile, nothing outdated`）で終了コード 1 になる。dsx はこれを更新の失敗として報告し、`dsx sys update` / `dsx run` が毎回「失敗あり」（終了コード 1）になっていた（bun 1.4.3、Ubuntu で確認）。「Bun のグローバルパッケージがありません」として成功扱い（更新 0 件）にする。それ以外の `bun outdated -g` の失敗（ネットワーク、ロックファイルの移行失敗など）は、従来どおり失敗にする。
 - **`dsx sys update` と `dsx run` が `control.timeout` を読んでいなかった**: 全体のタイムアウトは `--timeout`（既定 10m）だけで決まり、`config.yaml` の `control.timeout` は `repo` の各コマンドにしか効かなかった。winget のように時間のかかるマネージャがある環境で、設定を伸ばしても `sys` / `run` が 10m で打ち切られていた。`--timeout` を明示したときはそれを、無ければ `control.timeout` を、どちらも解釈できなければ 10m を使う。
 - **Windows で `uv` / `uvx` が実行中のとき、`uv self update` が失敗していた**: Windows は実行中の exe を置き換えられないため、`uvx windows-mcp serve` のように他のツールが `uvx` を常駐させていると、`uv self update` が exit 2 で失敗し、Daily Refresh が毎回「失敗あり」になっていた。更新の前に、更新で置き換える `uv` と同じディレクトリの `uv.exe` / `uvx.exe` / `uvw.exe` が実行中かを確認し、実行中なら更新を見送る。表示は「実行中のため見送り（現在 → 更新可能、実行中のプロセス）」で、終了コードは 0。通常更新フェーズは継続する。実行中かを確認できないときは、更新せずにエラーにする。TUI の進捗画面は見送りを成功と同じ表示にするため、画面を閉じた後に見送りの理由を出力する。Unix 系は実行中でも置き換えられるため、確認しない。
 
