@@ -22,6 +22,8 @@ const (
 	bunOwnerUnknown  bunInstallOwner = "unknown"
 )
 
+const bunNoGlobalPackagesMessage = "Bun のグローバルパッケージがありません"
+
 type bunInstallOwner string
 
 type bunReleaseFetcher func(context.Context, string) (latestVersion, releaseURL string, err error)
@@ -62,6 +64,10 @@ func (b *BunUpdater) Configure(config.ManagerConfig) error {
 func (b *BunUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	output, err := b.runOutput(ctx, "outdated", "-g")
 	if err != nil {
+		if isBunNoGlobalPackages(err) {
+			return &CheckResult{Message: bunNoGlobalPackagesMessage}, nil
+		}
+
 		return nil, fmt.Errorf("bun outdated -g の実行に失敗: %w", err)
 	}
 
@@ -76,6 +82,16 @@ func (b *BunUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	}, nil
 }
 
+// isBunNoGlobalPackages は、グローバルパッケージが 1 つも無いために `bun outdated -g` が失敗したかを返します。
+// グローバルの package.json / lockfile は初回の `bun add -g` まで作られず、無い状態の `bun outdated -g` は
+// 「nothing outdated」付きのエラーで終了コード 1 になります。更新対象が無いだけなので、失敗にはしません。
+func isBunNoGlobalPackages(err error) bool {
+	text := err.Error()
+
+	return strings.Contains(text, "missing package.json, nothing outdated") ||
+		strings.Contains(text, "missing lockfile, nothing outdated")
+}
+
 func (b *BunUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateResult, error) {
 	checkResult, err := b.Check(ctx)
 	if err != nil {
@@ -88,6 +104,9 @@ func (b *BunUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRes
 
 	if checkResult.AvailableUpdates == 0 {
 		result.Message = "すべての Bun グローバルパッケージは最新です"
+		if checkResult.Message != "" {
+			result.Message = checkResult.Message
+		}
 
 		return result, nil
 	}
