@@ -249,7 +249,7 @@ func runManagerSelfUpdatePhase(ctx context.Context, opts updater.UpdateOptions, 
 		}
 
 		if result.InUse {
-			fmt.Printf("⏭️  %s\n", result.Message)
+			fmt.Println("⏭️  " + result.Message)
 		} else {
 			printUpdaterResult(&result.UpdateResult)
 		}
@@ -271,6 +271,7 @@ func runManagerSelfUpdatePhaseWithTUI(ctx context.Context, opts updater.UpdateOp
 		stats            updateStats
 		statsMu          sync.Mutex
 		skipNormalUpdate = make(map[string]bool)
+		inUseNotices     []string
 	)
 
 	jobs := make([]runner.Job, 0, len(targets))
@@ -299,6 +300,10 @@ func runManagerSelfUpdatePhaseWithTUI(ctx context.Context, opts updater.UpdateOp
 				if !result.ShouldContinueNormalUpdate() {
 					skipNormalUpdate[target.updater.Name()] = true
 				}
+
+				if result.InUse {
+					inUseNotices = append(inUseNotices, formatSelfUpdateInUseNotice(target.updater.Name(), result.Message))
+				}
 				statsMu.Unlock()
 
 				return nil
@@ -308,6 +313,11 @@ func runManagerSelfUpdatePhaseWithTUI(ctx context.Context, opts updater.UpdateOp
 
 	summary := runManagerSelfUpdateJobs(ctx, "マネージャ本体更新 進捗", 1, jobs, true, sysLogFile)
 
+	// TUI の進捗画面は見送りを成功と同じ表示にするため、画面を閉じた後に、見送った理由を残す。
+	for _, notice := range inUseNotices {
+		fmt.Println(notice)
+	}
+
 	skipUnstartedSelfUpdates(targets)
 
 	if summary.Skipped > 0 {
@@ -315,6 +325,10 @@ func runManagerSelfUpdatePhaseWithTUI(ctx context.Context, opts updater.UpdateOp
 	}
 
 	return filterNormalUpdateUpdaters(updaters, skipNormalUpdate), stats
+}
+
+func formatSelfUpdateInUseNotice(name, message string) string {
+	return fmt.Sprintf("⏭️  %s 本体更新: %s", name, message)
 }
 
 func collectManagerSelfUpdateTargets(updaters []updater.Updater) []managerSelfUpdateTarget {

@@ -792,3 +792,85 @@ func TestPhaseRequiresSudo(t *testing.T) {
 		})
 	}
 }
+
+// TUI の進捗画面は見送りを成功と同じ表示にするため、画面を閉じた後に見送りの理由を標準出力へ残す。
+// 見送りは失敗ではなく、同じマネージャの通常更新も継続する。
+func TestRunManagerSelfUpdatePhaseWithTUI_InUseNotice(t *testing.T) {
+	previous := runManagerSelfUpdateJobs
+	t.Cleanup(func() {
+		runManagerSelfUpdateJobs = previous
+	})
+
+	runManagerSelfUpdateJobs = func(ctx context.Context, _ string, _ int, jobs []runner.Job, _ bool, _ string) runner.Summary {
+		summary := runner.Summary{Total: len(jobs), Results: make([]runner.Result, len(jobs))}
+
+		for i, job := range jobs {
+			if err := job.Run(ctx); err != nil {
+				summary.Results[i] = runner.Result{Name: job.Name, Status: runner.StatusFailed, Err: err}
+				summary.Failed++
+
+				continue
+			}
+
+			summary.Results[i] = runner.Result{Name: job.Name, Status: runner.StatusSuccess}
+			summary.Success++
+		}
+
+		return summary
+	}
+
+	tests := []struct {
+		name       string
+		result     *updater.SelfUpdateResult
+		wantNotice string
+	}{
+		{
+			name: "実行中で見送ったら、名前と理由を出力する",
+			result: &updater.SelfUpdateResult{
+				UpdateResult: updater.UpdateResult{Message: "uv / uvx が実行中のため見送り（v0.13.1 → v0.13.4）。実行中のプロセス: uvx.exe (PID 1)"},
+				Continuation: updater.ContinueNormalUpdate,
+				InUse:        true,
+			},
+			wantNotice: "⏭️  uv 本体更新: uv / uvx が実行中のため見送り（v0.13.1 → v0.13.4）。実行中のプロセス: uvx.exe (PID 1)",
+		},
+		{
+			name: "見送りでなければ何も出力しない",
+			result: &updater.SelfUpdateResult{
+				UpdateResult: updater.UpdateResult{UpdatedCount: 1, Message: "uv 本体を更新しました"},
+				Continuation: updater.ContinueNormalUpdate,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			selfUpdater := &selfUpdateStubUpdater{stubUpdater: stubUpdater{name: "uv"}, selfResult: tt.result}
+
+			var (
+				remaining []updater.Updater
+				stats     updateStats
+			)
+
+			out := captureStdout(t, func() {
+				remaining, stats = runManagerSelfUpdatePhaseWithTUI(
+					context.Background(),
+					updater.UpdateOptions{},
+					[]updater.Updater{selfUpdater},
+					[]managerSelfUpdateTarget{{updater: selfUpdater, self: selfUpdater}},
+				)
+			})
+
+			if strings.TrimSpace(out) != tt.wantNotice {
+				t.Errorf("出力 = %q, want %q", strings.TrimSpace(out), tt.wantNotice)
+			}
+
+			if stats.Failed != 0 || len(stats.Errors) != 0 {
+				t.Errorf("見送りは失敗ではない: Failed=%d Errors=%v", stats.Failed, stats.Errors)
+			}
+
+			if strings.Join(updaterNames(remaining), ",") != "uv" {
+				t.Errorf("remaining = %v, want [uv]（通常更新は継続）", updaterNames(remaining))
+			}
+		})
+	}
+}
