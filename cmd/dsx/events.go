@@ -96,6 +96,21 @@ func updaterJobResult(result *updater.UpdateResult, err error) event.JobResult {
 	return event.JobResult{Status: event.StatusSuccess, Updated: result.UpdatedCount}
 }
 
+// selfUpdateJobResult はマネージャ本体更新の結果をジョブ結果にします。
+// 実行中で更新を見送った場合は skipped（in_use）で、終了コードには影響しません。
+func selfUpdateJobResult(result *updater.SelfUpdateResult, err error) event.JobResult {
+	if err == nil && result != nil && result.InUse {
+		return event.JobResult{Status: event.StatusSkipped, Code: event.CodeInUse, Reason: result.Message}
+	}
+
+	var updateResult *updater.UpdateResult
+	if result != nil {
+		updateResult = &result.UpdateResult
+	}
+
+	return updaterJobResult(updateResult, err)
+}
+
 // repoJobResult はリポジトリの更新結果をジョブ結果にします。
 // pull を実行しなかったリポジトリは skipped（pull_skipped）で、終了コードには影響しません。
 func repoJobResult(result *repomgr.UpdateResult, err error) event.JobResult {

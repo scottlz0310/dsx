@@ -563,3 +563,55 @@ func TestRun_EventsFile_PhaseFailureKeepsCause(t *testing.T) {
 		t.Errorf("reason = %q, 具体的な原因（root のパス）を含み、件数だけのメッセージではないはず", reason)
 	}
 }
+
+func TestSelfUpdateJobResult(t *testing.T) {
+	tests := []struct {
+		name        string
+		result      *updater.SelfUpdateResult
+		err         error
+		wantStatus  event.Status
+		wantCode    event.Code
+		wantReason  string
+		wantUpdated int
+	}{
+		{name: "result が nil でエラーなしは成功", wantStatus: event.StatusSuccess},
+		{
+			name:        "更新件数が記録される",
+			result:      &updater.SelfUpdateResult{UpdateResult: updater.UpdateResult{UpdatedCount: 1}},
+			wantStatus:  event.StatusSuccess,
+			wantUpdated: 1,
+		},
+		{
+			name:       "実行中で見送ったらスキップ（終了コードに影響しない）",
+			result:     &updater.SelfUpdateResult{InUse: true, UpdateResult: updater.UpdateResult{Message: "uv / uvx が実行中のため見送り"}},
+			wantStatus: event.StatusSkipped, wantCode: event.CodeInUse, wantReason: "uv / uvx が実行中のため見送り",
+		},
+		{
+			name:       "見送りでもエラーがあれば失敗（エラーを隠さない）",
+			result:     &updater.SelfUpdateResult{InUse: true},
+			err:        errors.New("uv self update に失敗: exit status 2"),
+			wantStatus: event.StatusFailed, wantCode: event.CodeError, wantReason: "uv self update に失敗: exit status 2",
+		},
+		{
+			name:       "本体更新の失敗は失敗",
+			result:     &updater.SelfUpdateResult{},
+			err:        errors.New("exit status 2"),
+			wantStatus: event.StatusFailed, wantCode: event.CodeError, wantReason: "exit status 2",
+		},
+		{name: "キャンセルはスキップ（cancelled）", err: context.Canceled, wantStatus: event.StatusSkipped, wantCode: event.CodeCancelled},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := selfUpdateJobResult(tt.result, tt.err)
+
+			if got.Status != tt.wantStatus || got.Code != tt.wantCode || got.Updated != tt.wantUpdated {
+				t.Errorf("selfUpdateJobResult() = %+v, want status=%s code=%s updated=%d", got, tt.wantStatus, tt.wantCode, tt.wantUpdated)
+			}
+
+			if tt.wantReason != "" && got.Reason != tt.wantReason {
+				t.Errorf("Reason = %q, want %q", got.Reason, tt.wantReason)
+			}
+		})
+	}
+}

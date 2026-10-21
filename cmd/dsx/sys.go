@@ -248,7 +248,12 @@ func runManagerSelfUpdatePhase(ctx context.Context, opts updater.UpdateOptions, 
 			continue
 		}
 
-		printUpdaterResult(&result.UpdateResult)
+		if result.InUse {
+			fmt.Printf("⏭️  %s\n", result.Message)
+		} else {
+			printUpdaterResult(&result.UpdateResult)
+		}
+
 		fmt.Println()
 
 		mergeSelfUpdateResult(&stats, result)
@@ -335,12 +340,7 @@ func trackManagerSelfUpdate(ctx context.Context, target managerSelfUpdateTarget,
 
 	result, err := executeManagerSelfUpdate(ctx, target.self, opts)
 
-	var updateResult *updater.UpdateResult
-	if result != nil {
-		updateResult = &result.UpdateResult
-	}
-
-	activeEvents.JobFinished(event.KindManagerSelfUpdate, name, updaterJobResult(updateResult, err))
+	activeEvents.JobFinished(event.KindManagerSelfUpdate, name, selfUpdateJobResult(result, err))
 
 	return result, err
 }

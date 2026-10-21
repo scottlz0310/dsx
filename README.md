@@ -213,6 +213,7 @@ dsx sys discover --manager go # Go バイナリのみスキャン
 `sys update` は対応マネージャについて「マネージャ本体更新フェーズ」→「通常更新フェーズ」の順に実行します。
 たとえば `uv` は `uv self update` で uv 本体を確認・更新してから、通常更新フェーズで `uv tool upgrade --all` を実行します。
 `uv self update` が利用できないインストール経路では、uv 本体更新はスキップし、通常更新フェーズを継続します。
+Windows では、実行中の `uv.exe` / `uvx.exe` を置き換えられないため、`uvx` で常駐するツール（MCP サーバー等）が動いていると、uv 本体の更新は失敗にせずスキップし（`in_use`）、更新が残っていることとその版を表示します。終了コードは 0 です。実行中のプロセスを終了してから、`dsx sys update` を再実行してください。通常更新フェーズ（`uv tool upgrade --all`）は継続します。
 `bun` は Bun 管理のインストールでは `bun upgrade` で本体を更新してから、`bun update -g --latest` でグローバルパッケージを latest まで更新します。
 Homebrew / Scoop 管理下または所有元を安全に判定できない Bun は本体更新をスキップし、グローバルパッケージ更新のみ継続します。
 Bun updater は Homebrew / Scoop による本体更新との競合を避けるため、通常更新の並列フェーズより先に単独実行します。
