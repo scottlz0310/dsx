@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-10-23
+
 ### Fixed
 
 - **MSIX 版のインストールワンライナー実行時に BOM による構文エラーと証明書ストア解決失敗が起きていた**:
@@ -508,7 +510,8 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.13.2...HEAD
+[0.13.2]: https://github.com/scottlz0310/dsx/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/scottlz0310/dsx/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/scottlz0310/dsx/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/scottlz0310/dsx/compare/v0.11.0...v0.12.0
