@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **MSIX 版のインストールワンライナー実行時に BOM による構文エラーと証明書ストア解決失敗が起きていた**:
+  - `scripts/install.ps1` を `[Text.Encoding]::UTF8.GetString(...)` 経由で取得して `iex` に渡す際、スクリプトの UTF-8 BOM が先頭に残り `?#Requires` や `param` の構文エラーになっていた問題を、`InstallCommand` に `.TrimStart([char]0xFEFF)` を追加して解消した。
+  - Windows PowerShell 5.1 環境下で `Microsoft.PowerShell.Security` の読み込み失敗等により `Cert:\` プロバイダが解決できない場合でも、.NET 標準の `System.Security.Cryptography.X509Certificates.X509Store` を用いることで証明書の確認およびインポートが確実に完了するようにした。
+
 ## [0.13.1] - 2026-10-21
 
 ### Fixed

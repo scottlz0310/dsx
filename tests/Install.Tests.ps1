@@ -159,8 +159,8 @@ Describe "scripts/install.ps1" {
         $encoded = $harness.State.StartProcessArguments[4]
         $decoded = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($encoded))
         $decoded.Contains("C:\Users\O''Brien\dsx.cer") | Should -BeTrue
-        $decoded | Should -Match "Import-Certificate"
-        $decoded | Should -Match "Cert:\\LocalMachine\\TrustedPeople"
+        $decoded | Should -Match "X509Store"
+        $decoded | Should -Match "TrustedPeople"
     }
 
     It "管理者プロセスの失敗を証明書登録エラーとして伝播する" {
