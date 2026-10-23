@@ -29,6 +29,7 @@ func TestInstallCommand(t *testing.T) {
 	}{
 		{name: "Release の最新 install.ps1 を取得する", want: "https://github.com/scottlz0310/dsx/releases/latest/download/install.ps1"},
 		{name: "UTF-8 として明示的に復号する", want: "[Text.Encoding]::UTF8.GetString("},
+		{name: "BOM を除去する", want: ".TrimStart([char]0xFEFF)"},
 		{name: "バイト列を得るため iwr を使う", want: "iwr -UseBasicParsing"},
 	}
 

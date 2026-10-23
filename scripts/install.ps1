@@ -91,15 +91,19 @@ function Get-DsxTrustedCertificates {
         return @(& $CertificateStoreStep)
     }
 
-    $storePath = "Cert:\LocalMachine\TrustedPeople"
-    if (-not (Test-Path -LiteralPath $storePath)) {
-        throw "証明書ストアを解決できません: $storePath"
-    }
-
     try {
-        return @(Get-ChildItem -LiteralPath $storePath)
+        $store = New-Object System.Security.Cryptography.X509Certificates.X509Store(
+            [System.Security.Cryptography.X509Certificates.StoreName]::TrustedPeople,
+            [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
+        )
+        $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly)
+        try {
+            return @($store.Certificates)
+        } finally {
+            $store.Close()
+        }
     } catch {
-        throw "証明書ストアを読み込めませんでした（$storePath）: $($_.Exception.Message)"
+        throw "証明書ストアを読み込めませんでした（TrustedPeople）: $($_.Exception.Message)"
     }
 }
 
@@ -136,14 +140,22 @@ function New-DsxElevatedCertificateImportCommand {
 $ErrorActionPreference = "Stop"
 $certificatePath = '__DSX_CERTIFICATE_PATH__'
 $expectedThumbprint = '__DSX_THUMBPRINT__'
-$certStorePath = 'Cert:\LocalMachine\TrustedPeople'
-if (-not (Test-Path -LiteralPath $certStorePath)) {
-    throw "証明書ストアを解決できません: $certStorePath"
+
+$certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($certificatePath)
+$actualThumbprint = ($certificate.Thumbprint -replace "\s", "").ToUpperInvariant()
+if ($actualThumbprint -ne $expectedThumbprint) {
+    throw "インポート対象証明書の thumbprint が一致しません: $actualThumbprint (期待値: $expectedThumbprint)"
 }
-$imported = Import-Certificate -FilePath $certificatePath -CertStoreLocation $certStorePath
-$matching = @($imported | Where-Object { $_.Thumbprint -eq $expectedThumbprint })
-if ($matching.Count -eq 0) {
-    throw "証明書の信頼登録後に thumbprint を確認できません: $expectedThumbprint"
+
+$store = New-Object System.Security.Cryptography.X509Certificates.X509Store(
+    [System.Security.Cryptography.X509Certificates.StoreName]::TrustedPeople,
+    [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
+)
+$store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+try {
+    $store.Add($certificate)
+} finally {
+    $store.Close()
 }
 '@
 
