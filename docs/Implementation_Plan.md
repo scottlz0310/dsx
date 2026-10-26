@@ -138,3 +138,22 @@ secrets:
   - 進捗（第7弾）: NVM for Windows v2 Shim mode では選択 Node.js のグローバル pnpm を npm で更新し、`nvm reshim` と更新後の版確認を実施。Issue #122 の実機確認でプロジェクト pin / lockfile の不変と standalone 版への影響がないことを確認
   - 残件（第7弾以降）: 統合テスト
 - [ ] リリース/CI（GoReleaser/GitHub Actions/E2E）
+
+## 6. グローバルツールのスナップショット（#91）
+
+### Phase 1: 構成の保存
+
+- `dsx sys snapshot --output dsx-tools.yaml` で、Go / npm / pnpm / pipx / uv / Cargo / RubyGems / winget の一覧を保存する。
+- `Updater` の必須契約を変えず、任意の `SnapshotProvider` を追加する。各マネージャは一覧の取得・解析を担当し、中央処理は利用可否判定・集約・エラー集計、`internal/snapshot` は共通スキーマの検証・ソート・保存を担当する。
+- スキーマは `version: 1` と `tools.<manager>[]`。全マネージャで `package`、任意の `version`、winget の任意の `source` に統一する。既存の YAML ライブラリを使用し、新規依存は追加しない。
+- 更新対象の選択と現在構成の記録は目的が異なるため、`sys.enable` / `go.targets` に依存せず対応マネージャを検出する。マネージャ固有の更新設定は適用しない。
+- 取得・解析・検証の失敗は部分成功として保存しない。未対応・利用不可は日本語で区別する。対応対象がないときもエラー。出力順は安定化し、完全重複を除去する。
+- 必要な識別子・版・source 名だけを許可し、取得元 URL・認証情報・ローカルパスを保存しない。CLI の生データや生エラー出力をログに流さない。
+- 既存ファイルの上書きには `--force` が必要。新規作成は排他的に開き、上書き時は同じディレクトリの一時ファイルから置換する。取得・検証失敗時は既存内容を保護する。
+- 外部 CLI は関数注入で fake に差し替え、parser・正規化・空一覧・不正形式・失敗集計・上書き保護を table-driven tests で検証する。
+
+### 後続: 復元計画と実行（未実装）
+
+- Phase 2: manifest 検証、OS / マネージャ / source / 版の互換性確認と `sys restore --dry-run`。
+- Phase 3: 明示的な復元実行。既存ツールの削除・ダウングレードは自動実行しない。
+- manifest は lockfile ではなく再構築の入力とし、生成後の手動編集を正式なフローとする。取得経路・追加オプション・推移的依存などの完全再現は保証しない。

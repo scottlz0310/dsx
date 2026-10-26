@@ -17,6 +17,7 @@ import (
 
 // CargoUpdater は cargo (Rust パッケージ) の実装です。
 type CargoUpdater struct {
+	snapshotRun snapshotCommandRunner
 	// 将来的な拡張のための設定フィールド
 }
 

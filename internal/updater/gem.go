@@ -10,7 +10,9 @@ import (
 )
 
 // GemUpdater は gem (Ruby Gems) の実装です。
-type GemUpdater struct{}
+type GemUpdater struct {
+	snapshotRun snapshotCommandRunner
+}
 
 // 起動時にレジストリに登録
 func init() {
