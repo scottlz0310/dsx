@@ -16,6 +16,7 @@ func TestNormalize(t *testing.T) {
 		invalid       bool
 	}{
 		{name: "空一覧", manager: "uv", want: []Tool{}},
+		{name: "Python の epoch 付きバージョン", manager: "uv", tools: []Tool{{Package: "tool", Version: "1!2.0"}}, want: []Tool{{Package: "tool", Version: "1!2.0"}}},
 		{name: "順序と重複", manager: "npm", tools: []Tool{{Package: "z", Version: "2"}, {Package: "@a/tool", Version: "1"}, {Package: "z", Version: "2"}}, want: []Tool{{Package: "@a/tool", Version: "1"}, {Package: "z", Version: "2"}}},
 		{name: "複数バージョン", manager: "gem", tools: []Tool{{Package: "rake", Version: "2"}, {Package: "rake", Version: "1"}}, want: []Tool{{Package: "rake", Version: "1"}, {Package: "rake", Version: "2"}}},
 		{name: "Go パッケージ", manager: "go", tools: []Tool{{Package: "example.org/tools/v2/cmd/tool", Version: "v2.1.0-rc.1"}}, want: []Tool{{Package: "example.org/tools/v2/cmd/tool", Version: "v2.1.0-rc.1"}}},

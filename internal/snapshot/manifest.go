@@ -28,7 +28,7 @@ var (
 	goPackagePattern     = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)+$`)
 	nodePackagePattern   = regexp.MustCompile(`^(@[A-Za-z0-9][A-Za-z0-9._-]*/)?[A-Za-z0-9][A-Za-z0-9._-]*$`)
 	wingetPackagePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.+_-]*$`)
-	versionPattern       = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.+_() -]*$`)
+	versionPattern       = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.!+_() -]*$`)
 )
 
 // Normalize は識別子を検証し、完全重複を除去して決定的な順序で返します。
