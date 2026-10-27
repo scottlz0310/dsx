@@ -21,9 +21,16 @@ type SnapshotProvider interface {
 type snapshotCommandRunner func(context.Context, string, ...string) ([]byte, error)
 
 func runSnapshotCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
+	env := append(os.Environ(), "LANG=C", "LC_ALL=C", "NO_COLOR=1")
+	if name == "pnpm" {
+		// グローバル構成の読み取りで、作業ディレクトリの pin による pnpm の自動導入を避けます。
+		args = pnpmSelfUpdateArgs(args...)
 
-	cmd.Env = append(os.Environ(), "LANG=C", "LC_ALL=C", "NO_COLOR=1")
+		env = append(pnpmSelfUpdateEnv(), "NO_COLOR=1")
+	}
+
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Env = env
 	output, err := cmd.Output()
 
 	if ctx.Err() != nil {
