@@ -31,6 +31,7 @@ var rootCmd = &cobra.Command{
   dsx sys list      利用可能なマネージャを一覧表示
   dsx sys discover  インストール済み Go ツールを検出し go.targets 候補を表示
   dsx sys snapshot  グローバルツール構成を YAML に保存
+  dsx sys restore   保存したツール構成から復元計画を表示
 
 リポジトリ管理:
   dsx repo update   管理下のリポジトリを更新
