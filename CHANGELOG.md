@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **グローバルツール構成の保存（#91 Phase 1）**: `dsx sys snapshot --output dsx-tools.yaml` を追加。Go / npm / pnpm / pipx / uv / Cargo / RubyGems / winget のインストール済み一覧を、バージョン付きの共通 YAML に安定ソートして保存する。`sys.enable` に依存せず検出し、取得失敗時は保存しない。既存ファイルの上書きには `--force` が必要。認証情報・ローカルパス・取得元 URL は保存せず、生成後に手動編集して管理できる。復元コマンドは後続で実装する。
+
 ## [0.13.2] - 2026-10-23
 
 ### Fixed

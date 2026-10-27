@@ -12,6 +12,7 @@ import (
 
 // NpmUpdater は npm グローバルパッケージマネージャの実装です。
 type NpmUpdater struct {
+	snapshotRun snapshotCommandRunner
 	// 将来的な拡張のための設定フィールド
 }
 

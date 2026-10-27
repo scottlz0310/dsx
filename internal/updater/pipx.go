@@ -12,6 +12,7 @@ import (
 
 // PipxUpdater は pipx (Python CLI ツール) の実装です。
 type PipxUpdater struct {
+	snapshotRun snapshotCommandRunner
 	// 将来的な拡張のための設定フィールド
 }
 

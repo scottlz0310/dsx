@@ -25,6 +25,7 @@ type pnpmNvmCommandOutputRunner func(context.Context, string, ...string) ([]byte
 
 // PnpmUpdater は pnpm グローバルパッケージマネージャの実装です。
 type PnpmUpdater struct {
+	snapshotRun             snapshotCommandRunner
 	runSelfUpdateOutputStep pnpmSelfUpdateOutputRunner
 	runSelfUpdateStep       pnpmSelfUpdateRunner
 	detectNvmShimModeStep   pnpmNvmShimModeChecker

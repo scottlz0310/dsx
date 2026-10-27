@@ -196,11 +196,48 @@ dsx sys update --no-tui # TUIを無効化（設定より優先）
 dsx sys update --log-file sys.log  # 実行ログをファイルに保存
 dsx sys update --events-file events.jsonl  # 機械可読なイベント（JSON Lines）と要約をファイルに保存
 dsx sys list      # 利用可能なパッケージマネージャを一覧表示
+dsx sys snapshot --output dsx-tools.yaml # グローバルツール構成を保存
 dsx sys discover              # インストール済み Go バイナリを検出し go.targets 追加候補を表示
 dsx sys discover --manager go # Go バイナリのみスキャン
 ```
 
 **対応パッケージマネージャ**: apt, brew, go, npm, pnpm, bun, nvm, snap, flatpak, fwupdmgr, pipx, cargo, uv, rustup, gem, winget, scoop
+
+`sys snapshot` は `sys.enable` や `go.targets` に関係なく、利用可能な Go / npm / pnpm / pipx / uv / Cargo / RubyGems / winget のインストール済みツールを収集します。更新・インストールは行いません。未対応と未導入は区別して表示し、取得・解析・検証に1件でも失敗するとファイルを保存せず、終了コード `1` を返します。利用可能な対応マネージャがない場合もエラーです。対応マネージャにツールがない場合は空一覧を保存します。
+
+```shell
+dsx sys snapshot --output dsx-tools.yaml
+dsx sys snapshot --output dsx-tools.yaml --force # 既存ファイルの上書きを明示的に許可
+```
+
+出力先の既定値は `dsx-tools.yaml` です。既存ファイルは `--force` なしでは上書きしません。保存先の親ディレクトリは事前に用意してください。全体のタイムアウトは `control.timeout`（未設定時は10分）で、`--timeout 2m` の指定を優先します。
+
+```yaml
+version: 1
+tools:
+  go:
+    - package: golang.org/x/tools/gopls
+      version: v0.20.0
+  uv:
+    - package: ruff
+      version: 0.12.0
+  winget:
+    - package: Git.Git
+      version: 2.51.0
+      source: winget
+```
+
+`version: 1` が保存形式のバージョンです。全マネージャで `package` を識別子に使い、winget には表示名ではなく Package ID を保存します。マネージャ名・識別子・バージョン・source で安定ソートし、日時や端末情報は含めません。CLI の生データから必要なフィールドだけを取り出し、認証情報・取得元 URL・ローカルパスは保存しません。識別子などに URL やパスが混入した場合はエラーにします。
+
+生成後は、不要なアプリや標準 gem などを手動で削除し、必要な項目の追加・バージョン変更を行って Git などで管理してください。このファイルは再構築への入力となる宣言的な manifest です。復元コマンドは後続の Phase で実装します。
+
+取得範囲と制約:
+
+- Go は既存の `sys discover` と同じ `$GOBIN` / `$GOPATH/bin` / `~/go/bin` の検出を使用します。モジュール情報のないファイルやバックアップは対象外です。開発ビルドなどで版が不明な場合は `version` を省略します。
+- npm / pnpm はグローバルの直接依存、pipx は各環境の主パッケージを保存します。推移的依存や pipx の追加注入パッケージは含みません。
+- Cargo / uv / pipx のローカル・VCS インストールもパッケージ名と版のみを保存し、元の取得経路や追加オプションは保存しません。npm / pnpm のリンクなどで版を取得できない項目はエラーです。
+- RubyGems は導入済みの全バージョンを保存します。プラットフォーム違いの同名・同バージョンは1項目にまとめます。
+- winget は `winget export --include-versions` の結果を正規化します。source と照合できないアプリは winget 自体の export 対象外です。source の URL や定義は保存しません。版が不明、または `> ...` / `< ...` の概算版の場合は `version` を省略し、固定できなかった件数を表示します。
 
 `sys update` は `--jobs / -j` で並列数を指定できます（未指定時は `config.yaml` の `control.concurrency` を使用）。
 `apt` はパッケージロック競合を避けるため、依存関係ルールとして単独実行されます。

@@ -15,6 +15,7 @@ import (
 
 // UVUpdater は uv tool (Python CLI ツール) の実装です。
 type UVUpdater struct {
+	snapshotRun snapshotCommandRunner
 	// listRunning は dir にある names の実行ファイルで動作中のプロセスを返します。nil のときは実際のプロセスを調べます（テスト用に差し替え可能）。
 	listRunning func(dir string, names []string) ([]string, error)
 }
