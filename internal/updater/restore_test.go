@@ -183,3 +183,33 @@ func TestRestorePlatformAndIndex(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.prefix, cargoIndexPrefix(tc.name)) })
 	}
 }
+
+func TestRunRestoreCommand(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	tests := []struct {
+		name    string
+		ctx     context.Context
+		args    []string
+		wantErr string
+	}{
+		{name: "引数が空", ctx: context.Background(), args: nil, wantErr: "空"},
+		{name: "存在しないコマンド", ctx: context.Background(), args: []string{"dsx-no-such-command-for-test"}, wantErr: "失敗しました"},
+		{name: "終了コードが非0", ctx: context.Background(), args: []string{"go", "dsx-no-such-subcommand"}, wantErr: "失敗しました"},
+		{name: "キャンセル済み", ctx: ctx, args: []string{"go", "version"}, wantErr: "失敗しました"},
+		{name: "正常終了", ctx: context.Background(), args: []string{"go", "version"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := RunRestoreCommand(tt.ctx, tt.args)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
