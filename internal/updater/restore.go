@@ -326,7 +326,7 @@ func RunRestoreCommand(ctx context.Context, args []string) error {
 
 	name, rest := args[0], args[1:]
 
-	cmd := exec.CommandContext(ctx, name, rest...) //nolint:gosec // 引数は restore.Build が検証・生成した配列
+	cmd := exec.CommandContext(ctx, name, rest...)
 	if name == "pnpm" {
 		cmd.Args = append([]string{name}, pnpmSelfUpdateArgs(rest...)...)
 		cmd.Env = pnpmSelfUpdateEnv()
