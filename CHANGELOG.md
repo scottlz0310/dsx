@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-01
+
 ### Added
 
 - **グローバルツールの復元実行（#91 Phase 3）**: `dsx sys restore --file dsx-tools.yaml` から `--dry-run` を外すと、復元計画の「追加候補」だけをインストールする。既存ツールの削除・ダウングレードは行わず、解決不能な項目があるときは何も実行しない。個別の失敗は続行したうえでマネージャ・パッケージ付きで集約報告し、終了コード1で終了する。 winget は標準入力が空のため、対話を発生させない `--disable-interactivity` と同意フラグ付きで実行する。
@@ -518,7 +520,8 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.13.2...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/scottlz0310/dsx/compare/v0.13.2...v0.14.0
 [0.13.2]: https://github.com/scottlz0310/dsx/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/scottlz0310/dsx/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/scottlz0310/dsx/compare/v0.12.0...v0.13.0
