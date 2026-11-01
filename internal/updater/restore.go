@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
 	"regexp"
 	"runtime"
 	"strings"
@@ -227,7 +229,9 @@ func nodeRestorePlatformMatches(conditions []string, current string) bool {
 func (r *restoreResolver) resolveWinget(ctx context.Context, tool snapshot.Tool) (restore.Command, error) {
 	args := []string{"show", "--id", tool.Package, "--exact", "--disable-interactivity", "--accept-source-agreements"}
 
-	install := []string{restoreWingetManager, restoreInstallCommand, "--id", tool.Package, "--exact"}
+	// 実行時の標準入力は空のため、同意や選択を求める対話が発生しないようにします。
+	install := []string{restoreWingetManager, restoreInstallCommand, "--id", tool.Package, "--exact",
+		"--disable-interactivity", "--accept-source-agreements", "--accept-package-agreements"}
 	if tool.Version != "" {
 		args = append(args, "--version", tool.Version)
 		install = append(install, "--version", tool.Version)
@@ -313,4 +317,29 @@ func metadataAddress(base, name, requestedVersion, suffix string) string {
 	}
 
 	return address + suffix
+}
+
+// RunRestoreCommand は復元計画のコマンドを実行し、標準出力・標準エラーをそのまま表示します。
+// 引数は検証済みの配列としてシェルを介さずに渡し、pnpm はプロジェクトの pin による本体自動導入を避けます。
+func RunRestoreCommand(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return errors.New("実行コマンドが空です")
+	}
+
+	name, rest := args[0], args[1:]
+
+	cmd := exec.CommandContext(ctx, name, rest...)
+	if name == "pnpm" {
+		cmd.Args = append([]string{name}, pnpmSelfUpdateArgs(rest...)...)
+		cmd.Env = pnpmSelfUpdateEnv()
+	}
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s のインストールコマンドが失敗しました: %w", name, err)
+	}
+
+	return nil
 }
