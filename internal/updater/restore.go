@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
 	"regexp"
 	"runtime"
 	"strings"
@@ -313,4 +315,29 @@ func metadataAddress(base, name, requestedVersion, suffix string) string {
 	}
 
 	return address + suffix
+}
+
+// RunRestoreCommand は復元計画のコマンドを実行し、標準出力・標準エラーをそのまま表示します。
+// 引数は検証済みの配列としてシェルを介さずに渡し、pnpm はプロジェクトの pin による本体自動導入を避けます。
+func RunRestoreCommand(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return errors.New("実行コマンドが空です")
+	}
+
+	name, rest := args[0], args[1:]
+
+	cmd := exec.CommandContext(ctx, name, rest...) //nolint:gosec // 引数は restore.Build が検証・生成した配列
+	if name == "pnpm" {
+		cmd.Args = append([]string{name}, pnpmSelfUpdateArgs(rest...)...)
+		cmd.Env = pnpmSelfUpdateEnv()
+	}
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s のインストールコマンドが失敗しました: %w", name, err)
+	}
+
+	return nil
 }
