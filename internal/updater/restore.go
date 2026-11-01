@@ -229,7 +229,9 @@ func nodeRestorePlatformMatches(conditions []string, current string) bool {
 func (r *restoreResolver) resolveWinget(ctx context.Context, tool snapshot.Tool) (restore.Command, error) {
 	args := []string{"show", "--id", tool.Package, "--exact", "--disable-interactivity", "--accept-source-agreements"}
 
-	install := []string{restoreWingetManager, restoreInstallCommand, "--id", tool.Package, "--exact"}
+	// 実行時の標準入力は空のため、同意や選択を求める対話が発生しないようにします。
+	install := []string{restoreWingetManager, restoreInstallCommand, "--id", tool.Package, "--exact",
+		"--disable-interactivity", "--accept-source-agreements", "--accept-package-agreements"}
 	if tool.Version != "" {
 		args = append(args, "--version", tool.Version)
 		install = append(install, "--version", tool.Version)

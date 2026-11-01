@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
@@ -76,7 +77,7 @@ func TestRestoreResolver(t *testing.T) {
 		{name: "cargo の撤回版を拒否", manager: "cargo", pkg: "tool", requested: "1.0.0", routes: map[string]string{"https://index.crates.io/to/ol/tool": `{"vers":"1.0.0","yanked":true}`}, invalid: true},
 		{name: "gem の指定版", manager: "gem", pkg: "rake", requested: "1.0", routes: map[string]string{"https://rubygems.org/api/v2/rubygems/rake/versions/1.0.json": `{"version":"1.0"}`}, want: []string{"gem", "install", "rake", "--version", "1.0", "--source", "https://rubygems.org"}},
 		{name: "gem の最新版", manager: "gem", pkg: "rake", routes: map[string]string{"https://rubygems.org/api/v1/versions/rake/latest.json": `{"version":"2.0"}`, "https://rubygems.org/api/v2/rubygems/rake/versions/2.0.json": `{"version":"2.0"}`}, want: []string{"gem", "install", "rake", "--version", "2.0", "--source", "https://rubygems.org"}},
-		{name: "winget の指定版", manager: "winget", pkg: "Git.Git", requested: "2.51.0", want: []string{"winget", "install", "--id", "Git.Git", "--exact", "--version", "2.51.0", "--source", "winget"}},
+		{name: "winget の指定版", manager: "winget", pkg: "Git.Git", requested: "2.51.0", want: []string{"winget", "install", "--id", "Git.Git", "--exact", "--disable-interactivity", "--accept-source-agreements", "--accept-package-agreements", "--version", "2.51.0", "--source", "winget"}},
 		{name: "URL の注入を拒否", manager: "uv", pkg: "https://user:secret@example.org", invalid: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -196,9 +197,9 @@ func TestRunRestoreCommand(t *testing.T) {
 	}{
 		{name: "引数が空", ctx: context.Background(), args: nil, wantErr: "空"},
 		{name: "存在しないコマンド", ctx: context.Background(), args: []string{"dsx-no-such-command-for-test"}, wantErr: "失敗しました"},
-		{name: "終了コードが非0", ctx: context.Background(), args: []string{"go", "dsx-no-such-subcommand"}, wantErr: "失敗しました"},
-		{name: "キャンセル済み", ctx: ctx, args: []string{"go", "version"}, wantErr: "失敗しました"},
-		{name: "正常終了", ctx: context.Background(), args: []string{"go", "version"}},
+		{name: "終了コードが非0", ctx: context.Background(), args: []string{os.Args[0], "-test.dsx-no-such-flag"}, wantErr: "失敗しました"},
+		{name: "キャンセル済み", ctx: ctx, args: []string{os.Args[0], "-test.list=^$"}, wantErr: "失敗しました"},
+		{name: "正常終了", ctx: context.Background(), args: []string{os.Args[0], "-test.list=^$"}},
 	}
 
 	for _, tt := range tests {
