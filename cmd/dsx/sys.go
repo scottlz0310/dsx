@@ -611,16 +611,19 @@ func executeUpdates(ctx context.Context, updaters []updater.Updater, opts update
 
 		result, err := u.Update(ctx, opts)
 		activeEvents.JobFinished(event.KindManager, u.Name(), updaterJobResult(result, err))
+		// 更新コマンドの失敗と同時に返された疑いも、エラー判定より前に記録する（失敗で欠落させない）
+		recordParseSuspect(u.Name(), result)
 
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ エラー: %v\n", err)
+			printParseSuspect(result)
+
 			stats.Errors = append(stats.Errors, fmt.Errorf("%s: %w", u.Name(), err))
 			stats.Failed++
 
 			continue
 		}
 
-		recordParseSuspect(u.Name(), result)
 		printUpdaterResult(result)
 		stats.Updated += result.UpdatedCount
 		stats.Failed += result.FailedCount
@@ -698,12 +701,13 @@ func runUpdaterJob(jobCtx context.Context, u updater.Updater, opts updater.Updat
 
 	result, err := u.Update(jobCtx, opts)
 	activeEvents.JobFinished(event.KindManager, u.Name(), updaterJobResult(result, err))
+	// 更新コマンドの失敗と同時に返された疑いも、エラー判定より前に記録する（失敗で欠落させない）
+	recordParseSuspect(u.Name(), result)
 
 	if err != nil {
-		return handleUpdaterError(u, err, useTUI, stats, statsMu, outputMu)
+		return handleUpdaterError(u, result, err, useTUI, stats, statsMu, outputMu)
 	}
 
-	recordParseSuspect(u.Name(), result)
 	printUpdaterResultIfNeeded(result, useTUI, outputMu)
 	mergeUpdaterResult(stats, statsMu, result)
 
@@ -720,7 +724,7 @@ func printUpdaterHeaderIfNeeded(u updater.Updater, useTUI bool, outputMu *sync.M
 	outputMu.Unlock()
 }
 
-func handleUpdaterError(u updater.Updater, err error, useTUI bool, stats *updateStats, statsMu, outputMu *sync.Mutex) error {
+func handleUpdaterError(u updater.Updater, result *updater.UpdateResult, err error, useTUI bool, stats *updateStats, statsMu, outputMu *sync.Mutex) error {
 	if isContextCancellation(err) {
 		return err
 	}
@@ -728,6 +732,7 @@ func handleUpdaterError(u updater.Updater, err error, useTUI bool, stats *update
 	if !useTUI {
 		outputMu.Lock()
 		fmt.Fprintf(os.Stderr, "❌ エラー: %v\n", err)
+		printParseSuspect(result)
 		outputMu.Unlock()
 	}
 
@@ -920,9 +925,16 @@ func printUpdaterResult(result *updater.UpdateResult) {
 		}
 	}
 
-	if result.Suspect != "" {
-		fmt.Fprintf(os.Stderr, "  ⚠️  判定不能の疑い: %s\n", result.Suspect)
+	printParseSuspect(result)
+}
+
+// printParseSuspect はマネージャ出力の「判定不能の疑い」を警告行として表示します。
+func printParseSuspect(result *updater.UpdateResult) {
+	if result == nil || result.Suspect == "" {
+		return
 	}
+
+	fmt.Fprintf(os.Stderr, "  ⚠️  判定不能の疑い: %s\n", result.Suspect)
 }
 
 // printUpdateSummary は更新サマリーを表示します。
