@@ -191,9 +191,22 @@ func (u *UVUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateResu
 		return result, fmt.Errorf("uv tool upgrade --all に失敗: %w", err)
 	}
 
-	result.UpdatedCount = len(checkResult.Packages)
-	result.Packages = checkResult.Packages
-	result.Message = fmt.Sprintf("%d 件のツールを確認・更新しました", result.UpdatedCount)
+	// `uv tool upgrade --all` は個別の結果を解釈しにくいため、更新後の一覧と比べて、版が変わったツールだけを数える。
+	afterCheck, afterErr := u.Check(ctx)
+	change := detectVersionChanges("uv tool", checkResult.Packages, afterCheck, afterErr)
+
+	result.Suspect = change.Suspect
+	result.UpdatedCount = len(change.Changed)
+	result.Packages = change.Changed
+
+	switch {
+	case change.Suspect != "":
+		result.Message = "uv tool の更新を実行しました（更新件数は確定できません）"
+	case result.UpdatedCount > 0:
+		result.Message = fmt.Sprintf("%d 件のツールを更新しました", result.UpdatedCount)
+	default:
+		result.Message = "uv tool を確認しました（更新なし）"
+	}
 
 	return result, nil
 }
