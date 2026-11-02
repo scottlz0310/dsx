@@ -107,6 +107,13 @@ vim/jammy-updates 2:8.2.3995-1ubuntu2.11 amd64 [upgradable from: 2:8.2.3995-1ubu
 			},
 		},
 		{
+			name:   "行末に CR を含む（CRLF 出力）",
+			output: "Listing... Done\r\nvim/jammy-updates 2:8.2.3995-1ubuntu2.11 amd64 [upgradable from: 2:8.2.3995-1ubuntu2.10]\r\n",
+			expected: []PackageInfo{
+				{Name: "vim", NewVersion: "2:8.2.3995-1ubuntu2.11", CurrentVersion: "2:8.2.3995-1ubuntu2.10"},
+			},
+		},
+		{
 			name: "複数のパッケージ",
 			output: `Listing... Done
 vim/jammy-updates 2:8.2.3995-1ubuntu2.11 amd64 [upgradable from: 2:8.2.3995-1ubuntu2.10]
@@ -167,7 +174,9 @@ func TestAptUpdater_Check(t *testing.T) {
 	testCases := []struct {
 		name        string
 		mode        string
+		locale      string
 		wantUpdates int
+		wantFirst   PackageInfo
 		wantErr     bool
 		errContains string
 	}{
@@ -175,12 +184,22 @@ func TestAptUpdater_Check(t *testing.T) {
 			name:        "更新候補あり",
 			mode:        "updates",
 			wantUpdates: 2,
+			wantFirst:   PackageInfo{Name: "vim", CurrentVersion: "8.2.1", NewVersion: "9.0.2"},
 			wantErr:     false,
 		},
 		{
 			name:        "更新なし",
 			mode:        "none",
 			wantUpdates: 0,
+			wantErr:     false,
+		},
+		{
+			// 実機の apt は日本語ロケールで "upgradable from:" を翻訳するため、旧バージョンが取れなくなる
+			name:        "日本語ロケールでも旧バージョンを取得できる",
+			mode:        "updates",
+			locale:      "ja_JP.UTF-8",
+			wantUpdates: 2,
+			wantFirst:   PackageInfo{Name: "vim", CurrentVersion: "8.2.1", NewVersion: "9.0.2"},
 			wantErr:     false,
 		},
 		{
@@ -208,6 +227,11 @@ func TestAptUpdater_Check(t *testing.T) {
 			t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 			t.Setenv("DSX_TEST_APT_MODE", tc.mode)
 
+			if tc.locale != "" {
+				t.Setenv("LANG", tc.locale)
+				t.Setenv("LC_ALL", tc.locale)
+			}
+
 			a := &AptUpdater{useSudo: false}
 			got, err := a.Check(context.Background())
 
@@ -223,6 +247,10 @@ func TestAptUpdater_Check(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, tc.wantUpdates, got.AvailableUpdates)
+
+			if tc.wantUpdates > 0 {
+				assert.Equal(t, tc.wantFirst, got.Packages[0])
+			}
 		})
 	}
 }
@@ -336,9 +364,17 @@ if "%mode%"=="none" (
   echo Listing... Done
   exit /b 0
 )
+set loc=%LC_ALL%
+if "%loc%"=="" set loc=%LANG%
+if "%loc:~0,2%"=="ja" goto dolist_localized
 echo Listing... Done
 echo vim/stable 9.0.2 amd64 [upgradable from: 8.2.1]
 echo curl/stable 8.5.0 amd64 [upgradable from: 7.88.1]
+exit /b 0
+:dolist_localized
+echo LOCALIZED-listing...
+echo vim/stable 9.0.2 amd64 [8.2.1 LOCALIZED-upgradable]
+echo curl/stable 8.5.0 amd64 [7.88.1 LOCALIZED-upgradable]
 exit /b 0
 :doupgrade
 if "%mode%"=="upgrade_error" (
@@ -367,6 +403,16 @@ if [ "$1" = "list" ]; then
     echo "Listing... Done"
     exit 0
   fi
+  # 実機の apt はロケールで出力を翻訳し、"upgradable from:" が消える
+  loc="${LC_ALL:-${LANG}}"
+  case "${loc}" in
+    ja*)
+      echo "LOCALIZED-listing..."
+      echo "vim/stable 9.0.2 amd64 [8.2.1 LOCALIZED-upgradable]"
+      echo "curl/stable 8.5.0 amd64 [7.88.1 LOCALIZED-upgradable]"
+      exit 0
+      ;;
+  esac
   echo "Listing... Done"
   echo "vim/stable 9.0.2 amd64 [upgradable from: 8.2.1]"
   echo "curl/stable 8.5.0 amd64 [upgradable from: 7.88.1]"

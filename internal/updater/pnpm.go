@@ -105,7 +105,7 @@ func (p *PnpmUpdater) check(ctx context.Context, allowManifestCreate bool) (*Che
 func (p *PnpmUpdater) runOutdatedCommand(ctx context.Context) (stdout, stderr []byte, err error) {
 	cmd := exec.CommandContext(ctx, "pnpm", "outdated", "-g", "--format", "json")
 
-	cmd.Env = append(os.Environ(), "LANG=C", "LC_ALL=C")
+	cmd.Env = localeCEnv()
 
 	var stderrBuf bytes.Buffer
 
