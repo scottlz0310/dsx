@@ -172,6 +172,27 @@ App Two    App.Two   3.0.0   4.0.0     winget
 			},
 		},
 		{
+			name: "ヘッダーの列が 4 未満なら解析不能として更新対象なし",
+			input: `Name   ID
+------------------
+App    App.One
+`,
+			expected: nil,
+		},
+		{
+			name: "ID 列が空の行は読み飛ばす",
+			input: `Name       ID        Version Available Source
+------------------------------------------------
+App One    App.One   1.0.0   2.0.0     winget
+Orphan               1.0.0   2.0.0     winget
+App Two    App.Two   3.0.0   4.0.0     winget
+`,
+			expected: []PackageInfo{
+				{Name: "App One", CurrentVersion: "1.0.0", NewVersion: "2.0.0"},
+				{Name: "App Two", CurrentVersion: "3.0.0", NewVersion: "4.0.0"},
+			},
+		},
+		{
 			// サマリー行でない案内文（ID 列に空白を含む）が表の直後に続いても行として数えない
 			name: "表の直後の案内文を行として数えない",
 			input: `Name       ID        Version Available Source
