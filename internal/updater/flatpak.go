@@ -56,7 +56,7 @@ func (f *FlatpakUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	args := f.buildCommandArgs("remote-ls", "--updates", "--columns=application,version")
 	cmd := exec.CommandContext(ctx, "flatpak", args...)
 
-	cmd.Env = append(os.Environ(), "LANG=C", "LC_ALL=C")
+	cmd.Env = localeCEnv()
 
 	var stderr bytes.Buffer
 

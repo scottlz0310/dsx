@@ -209,7 +209,7 @@ func (n *NvmUpdater) buildCommand(ctx context.Context, args ...string) (*exec.Cm
 	if runtime.GOOS == windowsOS {
 		cmd := exec.CommandContext(ctx, "nvm", args...)
 
-		cmd.Env = append(os.Environ(), "LANG=C", "LC_ALL=C")
+		cmd.Env = localeCEnv()
 
 		return cmd, nil
 	}
@@ -222,7 +222,7 @@ func (n *NvmUpdater) buildCommand(ctx context.Context, args ...string) (*exec.Cm
 	commandText := buildUnixNvmCommand(nvmScript, args...)
 	cmd := exec.CommandContext(ctx, shell, "-lc", commandText)
 
-	cmd.Env = append(os.Environ(), "LANG=C", "LC_ALL=C")
+	cmd.Env = localeCEnv()
 
 	return cmd, nil
 }
