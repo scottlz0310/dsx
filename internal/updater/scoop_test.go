@@ -79,6 +79,17 @@ git               2.34.1              2.38.0
 			},
 		},
 		{
+			name: "pwsh 7 の ANSI エスケープ付きヘッダー（単一スペース区切り）",
+			input: "\r\n\x1b[32;1mName\x1b[0m\x1b[32;1m Installed Version\x1b[0m\x1b[32;1m Latest Version\x1b[0m\x1b[32;1m Missing Dependencies\x1b[0m\x1b[32;1m Info\x1b[0m\r\n" +
+				"\x1b[32;1m----\x1b[0m \x1b[32;1m-----------------\x1b[0m \x1b[32;1m--------------\x1b[0m \x1b[32;1m--------------------\x1b[0m \x1b[32;1m----\x1b[0m\r\n" +
+				"gh   2.86.0            2.103.3                                 \r\n" +
+				"jq   1.8.1             1.8.2                                   \r\n\r\n",
+			expected: []PackageInfo{
+				{Name: "gh", CurrentVersion: "2.86.0", NewVersion: "2.103.3"},
+				{Name: "jq", CurrentVersion: "1.8.1", NewVersion: "1.8.2"},
+			},
+		},
+		{
 			name: "ヘッダーのみ・データなし",
 			input: `Name              Installed Version   Latest Version
 ----              -----------------   --------------
