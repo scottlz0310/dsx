@@ -15,7 +15,13 @@ import (
 	"github.com/scottlz0310/dsx/internal/config"
 )
 
-var semverPattern = regexp.MustCompile(`v?(\d+\.\d+\.\d+)`)
+// semverPattern はバージョン番号（第1グループ）と、あれば先行リリース識別子（第2グループ。例: -alpha.0.0.0）を取り出します。
+var semverPattern = regexp.MustCompile(`v?(\d+\.\d+\.\d+)(-[0-9A-Za-z][0-9A-Za-z.\-]*)?`)
+
+// nvmInstalledLinePattern は "nvm list" の導入済みバージョン行（行頭が "->" や "*" の印と版番号）を取り出します。
+// "default -> 22.12.0 (-> v22.12.0 *)" のようなエイリアス行や、"lts/jod -> v22.23.4 (-> N/A)" のように
+// 未導入の版を指す行は行頭が版番号ではないため一致しません。
+var nvmInstalledLinePattern = regexp.MustCompile(`^\s*(?:->|\*)?\s*v?(\d+\.\d+\.\d+)(-\S*)?`)
 
 const windowsOS = "windows"
 
@@ -62,7 +68,12 @@ func (n *NvmUpdater) Check(ctx context.Context) (*CheckResult, error) {
 		return nil, err
 	}
 
-	if currentVersion == "" {
+	installedVersions, err := n.installedVersions(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if currentVersion == "" && len(installedVersions) == 0 {
 		return &CheckResult{
 			AvailableUpdates: 1,
 			Packages: []PackageInfo{
@@ -75,7 +86,12 @@ func (n *NvmUpdater) Check(ctx context.Context) (*CheckResult, error) {
 		}, nil
 	}
 
-	needsUpdate, cmpErr := isSemverLess(currentVersion, latestVersion)
+	// 最新版が導入済みなら、既定（アクティブ）の版が古くても更新対象にしない。
+	// "nvm install" は導入済みの版を再導入せず、既定の版も切り替えないため、
+	// 更新可能と判定し続けても何も変わらない。
+	baseline := maxSemver(append(installedVersions, currentVersion)...)
+
+	needsUpdate, cmpErr := isSemverLess(baseline, latestVersion)
 	if cmpErr != nil {
 		return nil, fmt.Errorf("nvm バージョン比較に失敗: %w", cmpErr)
 	}
@@ -185,6 +201,16 @@ func (n *NvmUpdater) latestVersion(ctx context.Context) (string, error) {
 	}
 
 	return "", fmt.Errorf("最新 Node.js バージョンの取得に失敗: %s", strings.Join(errs, " / "))
+}
+
+// installedVersions は "nvm list" から導入済みの安定版を返します。先行リリース（-alpha など）は含めません。
+func (n *NvmUpdater) installedVersions(ctx context.Context) ([]string, error) {
+	output, err := n.runCommandOutput(ctx, "list")
+	if err != nil {
+		return nil, fmt.Errorf("nvm list の実行に失敗: %w", err)
+	}
+
+	return parseInstalledNodeVersions(output), nil
 }
 
 func (n *NvmUpdater) runCommandOutput(ctx context.Context, args ...string) (string, error) {
@@ -316,6 +342,49 @@ func parseNvmCurrentVersion(output string) (string, error) {
 	return version, nil
 }
 
+// parseInstalledNodeVersions は "nvm list" の出力から導入済みの安定版を返します。
+func parseInstalledNodeVersions(output string) []string {
+	versions := make([]string, 0)
+
+	for _, line := range strings.Split(ansiSGRPattern.ReplaceAllString(output, ""), "\n") {
+		match := nvmInstalledLinePattern.FindStringSubmatch(line)
+		if len(match) < 3 || match[2] != "" {
+			continue
+		}
+
+		versions = append(versions, match[1])
+	}
+
+	return versions
+}
+
+// maxSemver は最も新しいバージョンを返します。空文字列と解釈できない値は無視し、該当がなければ空文字列を返します。
+func maxSemver(versions ...string) string {
+	latest := ""
+
+	for _, version := range versions {
+		if version == "" {
+			continue
+		}
+
+		if latest == "" {
+			if _, err := parseSemver(version); err == nil {
+				latest = version
+			}
+
+			continue
+		}
+
+		if less, err := isSemverLess(latest, version); err == nil && less {
+			latest = version
+		}
+	}
+
+	return latest
+}
+
+// parseLatestNodeVersion は一覧の出力から最も新しい安定版を返します。
+// "v27.0.0-alpha.0.0.0" のような先行リリースは安定版として扱いません。
 func parseLatestNodeVersion(output string) string {
 	lines := strings.Split(output, "\n")
 	versions := make([]string, 0, len(lines))
@@ -332,7 +401,7 @@ func parseLatestNodeVersion(output string) string {
 
 		matches := semverPattern.FindAllStringSubmatch(trimmed, -1)
 		for _, match := range matches {
-			if len(match) < 2 {
+			if len(match) < 3 || match[2] != "" {
 				continue
 			}
 
