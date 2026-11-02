@@ -79,6 +79,9 @@ const (
 	CategoryConfigFallback = "config_fallback"
 	// CategoryGitHubRateLimit は GitHub のレート制限でリポジトリ一覧の補完を省略したことを表します。
 	CategoryGitHubRateLimit = "github_rate_limit"
+	// CategoryParseSuspect はマネージャの出力を正しく解釈できなかった疑い
+	// （更新の兆候があるのに 0 件、解析結果の文字列の崩れなど）を表します。更新の結果は補正しません。
+	CategoryParseSuspect = "parse_suspect"
 )
 
 // JobResult はジョブの結果です。

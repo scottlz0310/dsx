@@ -15,6 +15,8 @@ import (
 type stubUpdater struct {
 	name      string
 	updateErr error
+	// updateResult は Update が返す結果です。updateErr と同時に設定すると、結果とエラーを同時に返します。
+	updateResult *updater.UpdateResult
 }
 
 func (s stubUpdater) Name() string {
@@ -35,7 +37,11 @@ func (s stubUpdater) Check(context.Context) (*updater.CheckResult, error) {
 
 func (s stubUpdater) Update(context.Context, updater.UpdateOptions) (*updater.UpdateResult, error) {
 	if s.updateErr != nil {
-		return nil, s.updateErr
+		return s.updateResult, s.updateErr
+	}
+
+	if s.updateResult != nil {
+		return s.updateResult, nil
 	}
 
 	return &updater.UpdateResult{}, nil

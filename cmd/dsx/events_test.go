@@ -615,3 +615,142 @@ func TestSelfUpdateJobResult(t *testing.T) {
 		})
 	}
 }
+
+func TestRecordParseSuspect(t *testing.T) {
+	tests := []struct {
+		name        string
+		result      *updater.UpdateResult
+		wantWarning bool
+	}{
+		{name: "result が nil なら警告なし", result: nil, wantWarning: false},
+		{name: "疑いがなければ警告なし", result: &updater.UpdateResult{UpdatedCount: 1}, wantWarning: false},
+		{name: "疑いがあれば警告", result: &updater.UpdateResult{Suspect: "表を検出しましたが行を解釈できませんでした"}, wantWarning: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := useBufferedEvents(t, "sys")
+
+			recordParseSuspect("winget", tt.result)
+
+			var warnings []recordedEvent
+
+			for _, ev := range parseEventLines(t, buf.Bytes()) {
+				if ev["type"] == "warning" {
+					warnings = append(warnings, ev)
+				}
+			}
+
+			if !tt.wantWarning {
+				if len(warnings) != 0 {
+					t.Fatalf("警告が出力されました: %v", warnings)
+				}
+
+				return
+			}
+
+			if len(warnings) != 1 {
+				t.Fatalf("警告が 1 件であるべきところ %d 件: %v", len(warnings), warnings)
+			}
+
+			if got := evString(warnings[0], "category"); got != event.CategoryParseSuspect {
+				t.Errorf("category = %q, want %q", got, event.CategoryParseSuspect)
+			}
+
+			if got := evString(warnings[0], "subject"); got != "winget" {
+				t.Errorf("subject = %q, want winget", got)
+			}
+
+			if got := evString(warnings[0], "message"); got != tt.result.Suspect {
+				t.Errorf("message = %q, want %q", got, tt.result.Suspect)
+			}
+		})
+	}
+}
+
+// 判定不能の疑いはジョブの結果を変えない（success のまま。終了コードにも影響しない）。
+func TestUpdaterJobResult_SuspectKeepsSuccess(t *testing.T) {
+	got := updaterJobResult(&updater.UpdateResult{Suspect: "疑い"}, nil)
+
+	if got.Status != event.StatusSuccess || got.Code != "" {
+		t.Errorf("疑いがあってもジョブは success のはず: %+v", got)
+	}
+}
+
+// TestExecuteUpdates_RecordsParseSuspect は、判定不能の疑いが、更新の成功・失敗にかかわらず、
+// 逐次・並列の両方で warning イベントと CLI の警告行になることを確認します。
+// 更新コマンドが失敗した（結果とエラーが同時に返る）場合も、疑いを欠落させません。
+func TestExecuteUpdates_RecordsParseSuspect(t *testing.T) {
+	const reason = "表を検出しましたが行を解釈できませんでした"
+
+	suspectResult := &updater.UpdateResult{Suspect: reason}
+
+	runs := map[string]func(updaters []updater.Updater){
+		"逐次": func(u []updater.Updater) { executeUpdates(context.Background(), u, updater.UpdateOptions{}) },
+		"並列": func(u []updater.Updater) {
+			executeUpdatesParallel(context.Background(), u, updater.UpdateOptions{}, 2, false)
+		},
+	}
+
+	tests := []struct {
+		name         string
+		updater      stubUpdater
+		wantWarning  bool
+		wantJobState string
+	}{
+		{name: "更新成功で疑いあり", updater: stubUpdater{name: "scoop", updateResult: suspectResult}, wantWarning: true, wantJobState: "success"},
+		{name: "更新失敗と疑いが同時に返る", updater: stubUpdater{name: "scoop", updateErr: errors.New("boom"), updateResult: suspectResult}, wantWarning: true, wantJobState: "failed"},
+		{name: "更新失敗で結果なし", updater: stubUpdater{name: "scoop", updateErr: errors.New("boom")}, wantWarning: false, wantJobState: "failed"},
+		{name: "疑いなし", updater: stubUpdater{name: "scoop", updateResult: &updater.UpdateResult{UpdatedCount: 1}}, wantWarning: false, wantJobState: "success"},
+	}
+
+	for mode, run := range runs {
+		for _, tt := range tests {
+			t.Run(mode+"/"+tt.name, func(t *testing.T) {
+				buf := useBufferedEvents(t, "sys")
+
+				stderr := captureStderr(t, func() {
+					captureStdout(t, func() { run([]updater.Updater{tt.updater}) })
+				})
+
+				events := parseEventLines(t, buf.Bytes())
+
+				var warnings []recordedEvent
+
+				for _, ev := range events {
+					if ev["type"] == "warning" {
+						warnings = append(warnings, ev)
+					}
+				}
+
+				if got := evString(finishedJobs(events)["scoop"], "status"); got != tt.wantJobState {
+					t.Errorf("ジョブの status = %q, want %q", got, tt.wantJobState)
+				}
+
+				if !tt.wantWarning {
+					if len(warnings) != 0 {
+						t.Errorf("警告が出力されました: %v", warnings)
+					}
+
+					if strings.Contains(stderr, "判定不能の疑い") {
+						t.Errorf("警告行が出力されました: %s", stderr)
+					}
+
+					return
+				}
+
+				if len(warnings) != 1 {
+					t.Fatalf("警告が 1 件であるべきところ %d 件: %v", len(warnings), warnings)
+				}
+
+				if evString(warnings[0], "category") != event.CategoryParseSuspect || evString(warnings[0], "subject") != "scoop" || evString(warnings[0], "message") != reason {
+					t.Errorf("警告の内容が想定と異なります: %v", warnings[0])
+				}
+
+				if !strings.Contains(stderr, "判定不能の疑い: "+reason) {
+					t.Errorf("CLI の警告行がありません: %q", stderr)
+				}
+			})
+		}
+	}
+}

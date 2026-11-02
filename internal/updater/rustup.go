@@ -9,6 +9,9 @@ import (
 	"github.com/scottlz0310/dsx/internal/config"
 )
 
+// rustupUpdateMarker は rustup check の更新あり行を見分ける目印です。
+const rustupUpdateMarker = "update available"
+
 // RustupUpdater は rustup (Rust ツールチェーン) の実装です。
 type RustupUpdater struct{}
 
@@ -47,7 +50,30 @@ func (r *RustupUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	return &CheckResult{
 		AvailableUpdates: len(packages),
 		Packages:         packages,
+		Suspect:          rustupSuspect(string(output), packages),
 	}, nil
+}
+
+// rustupSuspect は rustup check の出力を正しく解釈できなかった疑いの理由を返します（疑いがなければ空文字列）。
+// "update available" を含む行は更新ありの行なので、その数より解析できた件数が少なければ、書式の変化を疑います。
+func rustupSuspect(output string, packages []PackageInfo) string {
+	if reason := corruptedPackageReason(packages); reason != "" {
+		return reason
+	}
+
+	marked := 0
+
+	for _, line := range strings.Split(output, "\n") {
+		if strings.Contains(strings.ToLower(line), rustupUpdateMarker) {
+			marked++
+		}
+	}
+
+	if marked > len(packages) {
+		return fmt.Sprintf("rustup check に更新ありの行が %d 行ありますが、%d 行しか解釈できませんでした（出力形式が想定と異なる可能性）", marked, len(packages))
+	}
+
+	return ""
 }
 
 func (r *RustupUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateResult, error) {
@@ -83,7 +109,7 @@ func (r *RustupUpdater) parseCheckOutput(output string) []PackageInfo {
 			continue
 		}
 
-		if !strings.Contains(strings.ToLower(trimmed), "update available") {
+		if !strings.Contains(strings.ToLower(trimmed), rustupUpdateMarker) {
 			continue
 		}
 

@@ -80,6 +80,9 @@ type CheckResult struct {
 	Packages []PackageInfo
 	// Message は追加情報（任意）
 	Message string
+	// Suspect は出力を正しく解釈できなかった疑い（判定不能の疑い）の理由です。空なら疑いなし。
+	// 検知のみで、更新の実行や件数の補正は行いません。
+	Suspect string
 }
 
 // PackageInfo はパッケージの情報を保持します。
@@ -111,6 +114,9 @@ type UpdateResult struct {
 	Errors []error
 	// Message は追加情報（任意）
 	Message string
+	// Suspect は出力を正しく解釈できなかった疑い（判定不能の疑い）の理由です。空なら疑いなし。
+	// 「更新なし」や件数が誤っている可能性を知らせるだけで、結果は補正しません。
+	Suspect string
 }
 
 // Registry はUpdaterの登録・取得を管理します。

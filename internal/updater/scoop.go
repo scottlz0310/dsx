@@ -62,7 +62,33 @@ func (s *ScoopUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	return &CheckResult{
 		AvailableUpdates: len(packages),
 		Packages:         packages,
+		Suspect:          scoopSuspect(string(output), packages),
 	}, nil
+}
+
+// scoopSuspect は scoop status の出力を正しく解釈できなかった疑いの理由を返します（疑いがなければ空文字列）。
+// 更新なしのときは "Everything is ok!" が出るため、それが無いのに表の兆候があって 0 件の場合を疑います。
+// 表の区切り行だけでなく見出し（"Latest Version"）も兆候とするのは、区切り行の装飾が変わっても気づけるようにするためです。
+func scoopSuspect(output string, packages []PackageInfo) string {
+	if reason := corruptedPackageReason(packages); reason != "" {
+		return reason
+	}
+
+	if len(packages) > 0 {
+		return ""
+	}
+
+	cleaned := ansiSGRPattern.ReplaceAllString(output, "")
+	if strings.Contains(cleaned, "Everything is ok!") {
+		return ""
+	}
+
+	_, separatorIdx := findScoopTableHeader(strings.Split(cleaned, "\n"))
+	if separatorIdx >= 0 || strings.Contains(cleaned, "Latest Version") {
+		return "scoop status に表の出力がありますが、更新可能なパッケージを 1 件も解釈できませんでした（出力形式が想定と異なる可能性）"
+	}
+
+	return ""
 }
 
 func (s *ScoopUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateResult, error) {
