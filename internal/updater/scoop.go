@@ -10,8 +10,8 @@ import (
 	"github.com/scottlz0310/dsx/internal/config"
 )
 
-// scoopANSIPattern は pwsh が非 TTY の出力にも付与する ANSI SGR エスケープシーケンスです。
-var scoopANSIPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+// ansiSGRPattern は pwsh（scoop）などが非 TTY の出力にも付与する ANSI SGR エスケープシーケンスです。
+var ansiSGRPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 // ScoopUpdater は Scoop パッケージマネージャの実装です。
 type ScoopUpdater struct{}
@@ -99,7 +99,7 @@ func (s *ScoopUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 func (s *ScoopUpdater) parseStatusOutput(output string) []PackageInfo {
 	// scoop シムは pwsh を優先して起動し、pwsh 7 は表ヘッダー・区切り行に色付けの
 	// エスケープシーケンスを出力する。除去しないと区切り行を検出できず更新ゼロと誤判定する。
-	output = scoopANSIPattern.ReplaceAllString(output, "")
+	output = ansiSGRPattern.ReplaceAllString(output, "")
 	lines := strings.Split(output, "\n")
 
 	// "Everything is ok!" が含まれる場合は更新なし

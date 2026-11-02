@@ -134,6 +134,62 @@ func TestParseLatestNodeVersion(t *testing.T) {
 `,
 			want: "",
 		},
+		{
+			// 実機（nvm for Windows v2.0.0）の出力。先頭の先行リリースを安定版として扱わない
+			name: "list available・先行リリースが先頭",
+			output: `   Version              Released    
+   -------              ----------  
+   v27.0.0-alpha.0.0.0  2026-10-29  installed                    
+   v26.13.0             2026-10-28  installed                    
+   v26.12.1             2026-10-21  installed, security release  
+   v26.12.0             2026-10-14  installed                    
+   v26.11.1             2026-10-07  installed                    
+   v26.11.0             2026-10-07  installed                    
+*  v26.10.0             2026-09-21  installed, current default   
+   v26.9.0              2026-09-16                               
+   v26.8.2              2026-09-09                               
+   v26.8.1              2026-08-26                               
+   v26.8.0              2026-08-25                               
+   v26.7.0              2026-08-05                               
+   v26.6.0              2026-08-03                               
+   v26.5.1              2026-07-28  security release             
+   v26.5.0              2026-07-08                               
+   v26.4.0              2026-06-24                               
+   v26.3.1              2026-06-17  security release             
+   v26.3.0              2026-06-01                               
+   v26.2.0              2026-05-20                               
+   v26.1.0              2026-05-06                               
+
+20 versions listed.
+
+Use --no-limit to show all versions or --limit=# to define your own limit.
+`,
+			want: "26.13.0",
+		},
+		{
+			// 実機（nvm.sh 0.40.3）の ls-remote の末尾抜粋。末尾の先行リリースを安定版として扱わない
+			name: "ls-remote・末尾に先行リリース",
+			output: `       v26.12.0
+       v26.12.1
+       v26.13.0   (Latest LTS: Lithium)
+v27.0.0-alpha.0.0.0
+`,
+			want: "26.13.0",
+		},
+		{
+			name: "rc・beta も安定版として扱わない",
+			output: `
+      v22.11.0
+      v23.0.0-rc.1
+      v23.0.0-beta.2
+`,
+			want: "22.11.0",
+		},
+		{
+			name:   "先行リリースのみ",
+			output: "v27.0.0-alpha.0.0.0\n",
+			want:   "",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -143,6 +199,90 @@ func TestParseLatestNodeVersion(t *testing.T) {
 
 			got := parseLatestNodeVersion(tc.output)
 			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestParseInstalledNodeVersions(t *testing.T) {
+	testCases := []struct {
+		name   string
+		output string
+		want   []string
+	}{
+		{
+			// 実機（nvm for Windows v2.0.0）の出力
+			name: "nvm for Windows v2",
+			output: `  27.0.0-alpha.0.0.0  
+  26.13.0             
+  26.12.1             
+* 26.10.0             (default)
+  24.21.0             
+`,
+			want: []string{"26.13.0", "26.12.1", "26.10.0", "24.21.0"},
+		},
+		{
+			// 実機（nvm.sh 0.40.3）の出力。エイリアス行・未導入の版を指す行は数えない
+			name: "nvm.sh",
+			output: `->     v20.18.0 *
+       v22.12.0 *
+default -> 22.12.0 (-> v22.12.0 *)
+iojs -> N/A (default)
+node -> stable (-> v22.12.0 *) (default)
+stable -> 22.12 (-> v22.12.0 *) (default)
+unstable -> N/A (default)
+lts/* -> lts/lithium (-> N/A)
+lts/jod -> v22.23.4 (-> N/A)
+lts/lithium -> v26.13.0 (-> N/A)
+`,
+			want: []string{"20.18.0", "22.12.0"},
+		},
+		{
+			// 色付き出力を想定（実機では色なしで出力された）
+			name:   "ANSI エスケープを含む行",
+			output: "\x1b[0;32m->     v20.18.0\x1b[0m\n       v22.12.0\n",
+			want:   []string{"20.18.0", "22.12.0"},
+		},
+		{
+			name:   "導入済みなし",
+			output: "->       system\n",
+			want:   []string{},
+		},
+		{
+			name:   "空出力",
+			output: "",
+			want:   []string{},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, parseInstalledNodeVersions(tc.output))
+		})
+	}
+}
+
+func TestMaxSemver(t *testing.T) {
+	testCases := []struct {
+		name     string
+		versions []string
+		want     string
+	}{
+		{"最大を返す", []string{"20.10.0", "26.13.0", "22.11.0"}, "26.13.0"},
+		{"空文字列は無視", []string{"", "20.10.0"}, "20.10.0"},
+		{"解釈できない値は無視", []string{"not-a-version", "20.10.0"}, "20.10.0"},
+		{"すべて空", []string{"", ""}, ""},
+		{"引数なし", nil, ""},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, maxSemver(tc.versions...))
 		})
 	}
 }
@@ -232,6 +372,17 @@ func TestNvmUpdater_Check(t *testing.T) {
 			name:      "list available 失敗時は ls-remote にフォールバック",
 			mode:      "list_available_fail_remote_fallback",
 			wantCount: 1,
+		},
+		{
+			// 最新版が導入済みで既定の版だけ古い場合は、"nvm install" しても何も変わらないため更新対象にしない
+			name:      "最新版が導入済みなら更新対象にしない",
+			mode:      "installed_latest",
+			wantCount: 0,
+		},
+		{
+			name:      "先行リリースが先頭にあっても安定版で比較する",
+			mode:      "prerelease_top",
+			wantCount: 0,
 		},
 		{
 			name:        "current が不正形式ならエラー",
@@ -493,6 +644,10 @@ if "%cmd1%"=="current" (
     echo v22.11.0
     exit /b 0
   )
+  if "%mode%"=="prerelease_top" (
+    echo v22.11.0
+    exit /b 0
+  )
   echo v20.10.0
   exit /b 0
 )
@@ -507,6 +662,11 @@ if "%cmd1%"=="list" (
       >&2 echo list failed
       exit /b 1
     )
+    if "%mode%"=="prerelease_top" (
+      echo    v23.0.0-alpha.0.0.0  2026-10-29
+      echo    v22.11.0             2026-10-28
+      exit /b 0
+    )
     if "%mode%"=="check_none" (
       echo ^|   CURRENT    ^|     LTS      ^|
       echo ^|    22.11.0   ^|    20.17.0   ^|
@@ -515,6 +675,13 @@ if "%cmd1%"=="list" (
     echo ^|   CURRENT    ^|     LTS      ^|
     echo ^|    22.11.0   ^|    20.17.0   ^|
     exit /b 0
+  )
+  if "%cmd2%"=="" (
+    if "%mode%"=="installed_latest" (
+      echo   22.11.0
+      echo * 20.10.0
+      exit /b 0
+    )
   )
 )
 
@@ -555,7 +722,7 @@ nvm() {
       echo "none"
       return 0
     fi
-    if [ "${mode}" = "check_none" ]; then
+    if [ "${mode}" = "check_none" ] || [ "${mode}" = "prerelease_top" ]; then
       echo "v22.11.0"
       return 0
     fi
@@ -568,8 +735,21 @@ nvm() {
       echo "list failed" 1>&2
       return 1
     fi
+    if [ "${mode}" = "prerelease_top" ]; then
+      echo "   v23.0.0-alpha.0.0.0  2026-10-29"
+      echo "   v22.11.0             2026-10-28"
+      return 0
+    fi
     echo "|   CURRENT    |     LTS      |"
     echo "|    22.11.0   |    20.17.0   |"
+    return 0
+  fi
+
+  if [ "${cmd1}" = "list" ] && [ -z "${cmd2}" ]; then
+    if [ "${mode}" = "installed_latest" ]; then
+      echo "       v22.11.0 *"
+      echo "->     v20.10.0 *"
+    fi
     return 0
   fi
 
