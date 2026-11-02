@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -93,6 +94,95 @@ App1   App.One     1.0.0   2.0.0     winget
 				{Name: "App1", CurrentVersion: "1.0.0", NewVersion: "2.0.0"},
 			},
 		},
+		{
+			// 実機（ja-JP）の出力。3 件目は "upgrade --all" の対象外（明示的対象化が必要）
+			name: "実機の日本語出力・明示的対象化が必要な表を含む",
+			input: `名前                                            ID                   バージョン 利用可能     ソース
+---------------------------------------------------------------------------------------------------
+Google Cloud SDK                                Google.CloudSDK      Unknown    591.0.0      winget
+Microsoft Build of OpenJDK  17.0.21.0.2+1 (x64) Microsoft.OpenJDK.17 17.0.21.21 17.0.21.1021 winget
+3 アップグレードを利用できます。
+
+次のパッケージにはアップグレードを適用可能ですが、アップグレードには明示的対象化が必要です:
+名前           ID                   バージョン 利用可能   ソース
+----------------------------------------------------------------
+Android Studio Google.AndroidStudio 2026.1     2026.2.2.8 winget
+`,
+			expected: []PackageInfo{
+				{Name: "Google Cloud SDK", CurrentVersion: "Unknown", NewVersion: "591.0.0"},
+				{Name: "Microsoft Build of OpenJDK  17.0.21.0.2+1 (x64)", CurrentVersion: "17.0.21.21", NewVersion: "17.0.21.1021"},
+			},
+		},
+		{
+			name: "実機の日本語出力・CRLF",
+			input: strings.ReplaceAll(`名前                                            ID                   バージョン 利用可能     ソース
+---------------------------------------------------------------------------------------------------
+Google Cloud SDK                                Google.CloudSDK      Unknown    591.0.0      winget
+Microsoft Build of OpenJDK  17.0.21.0.2+1 (x64) Microsoft.OpenJDK.17 17.0.21.21 17.0.21.1021 winget
+3 アップグレードを利用できます。
+
+次のパッケージにはアップグレードを適用可能ですが、アップグレードには明示的対象化が必要です:
+名前           ID                   バージョン 利用可能   ソース
+----------------------------------------------------------------
+Android Studio Google.AndroidStudio 2026.1     2026.2.2.8 winget
+`, "\n", "\r\n"),
+			expected: []PackageInfo{
+				{Name: "Google Cloud SDK", CurrentVersion: "Unknown", NewVersion: "591.0.0"},
+				{Name: "Microsoft Build of OpenJDK  17.0.21.0.2+1 (x64)", CurrentVersion: "17.0.21.21", NewVersion: "17.0.21.1021"},
+			},
+		},
+		{
+			name: "名前に全角文字を含む行は表示幅で列を切り出す",
+			input: `名前     ID          バージョン 利用可能 ソース
+-------------------------------------------
+メモ帳   App.Memo    1.0.0      2.0.0    winget
+ＡＢＣ   App.Abc     3.0.0      4.0.0    winget
+2 アップグレードを利用できます。
+`,
+			expected: []PackageInfo{
+				{Name: "メモ帳", CurrentVersion: "1.0.0", NewVersion: "2.0.0"},
+				{Name: "ＡＢＣ", CurrentVersion: "3.0.0", NewVersion: "4.0.0"},
+			},
+		},
+		{
+			// 英語ロケールの実出力は未採取のため、日本語の実出力を英語の語に置き換えた想定の入力
+			name: "明示的対象化が必要な表だけがある場合は更新対象なし",
+			input: `The following packages have an upgrade available, but require explicit targeting for upgrade:
+Name           ID                   Version Available  Source
+--------------------------------------------------------------
+Android Studio Google.AndroidStudio 2026.1  2026.2.2.8 winget
+`,
+			expected: nil,
+		},
+		{
+			// 英語ロケールの実出力は未採取のため、想定の入力
+			name: "先頭の表の後ろに別の表があっても先頭の表だけを数える",
+			input: `Name       ID        Version Available Source
+------------------------------------------------
+App One    App.One   1.0.0   2.0.0     winget
+1 upgrades available.
+
+The following packages have an upgrade available, but require explicit targeting for upgrade:
+Name       ID        Version Available Source
+------------------------------------------------
+App Two    App.Two   3.0.0   4.0.0     winget
+`,
+			expected: []PackageInfo{
+				{Name: "App One", CurrentVersion: "1.0.0", NewVersion: "2.0.0"},
+			},
+		},
+		{
+			// サマリー行でない案内文（ID 列に空白を含む）が表の直後に続いても行として数えない
+			name: "表の直後の案内文を行として数えない",
+			input: `Name       ID        Version Available Source
+------------------------------------------------
+App One    App.One   1.0.0   2.0.0     winget
+1 package(s) have version numbers that cannot be determined. Use --include-unknown to see all results.
+`,
+			expected: []PackageInfo{
+				{Name: "App One", CurrentVersion: "1.0.0", NewVersion: "2.0.0"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -178,35 +268,63 @@ func TestIsSummaryLine(t *testing.T) {
 	}
 }
 
-func TestDetectColumnPositions(t *testing.T) {
+func TestWingetColumnStarts(t *testing.T) {
 	tests := []struct {
-		name        string
-		header      string
-		minExpected int
+		name     string
+		header   string
+		expected []int
 	}{
 		{
-			name:        "英語ヘッダー",
-			header:      "Name                                   ID                               Version              Available            Source",
-			minExpected: 5,
+			name:     "英語ヘッダー",
+			header:   "Name           ID                   Version Available  Source",
+			expected: []int{0, 15, 36, 44, 55},
 		},
 		{
-			name:        "短いヘッダー",
-			header:      "Name ID Version Available Source",
-			minExpected: 5,
+			// 全角文字は 2 桁として数える。"バージョン" と "利用可能" の間は空白 1 つ
+			name:     "日本語ヘッダー",
+			header:   "名前                                            ID                   バージョン 利用可能     ソース",
+			expected: []int{0, 48, 69, 80, 93},
 		},
 		{
-			name:        "カラム1つ",
-			header:      "Name",
-			minExpected: 1,
+			name:     "カラム1つ",
+			header:   "Name",
+			expected: []int{0},
+		},
+		{
+			name:     "空文字列",
+			header:   "",
+			expected: nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := detectColumnPositions(tt.header)
-			if len(got) < tt.minExpected {
-				t.Errorf("カラム位置数: got %d, want >= %d (positions: %v)", len(got), tt.minExpected, got)
-			}
+			got := wingetColumnStarts(tt.header)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
+
+func TestSliceByDisplayWidth(t *testing.T) {
+	tests := []struct {
+		name     string
+		s        string
+		start    int
+		end      int
+		expected string
+	}{
+		{"半角のみ", "hello world", 0, 5, "hello"},
+		{"行末まで", "hello world", 6, -1, "world"},
+		{"全角は2桁", "名前 ID", 5, -1, "ID"},
+		{"全角の途中から始めない", "名前 ID", 0, 4, "名前"},
+		{"範囲外", "abc", 10, 20, ""},
+		{"空文字列", "", 0, 5, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sliceByDisplayWidth(tt.s, tt.start, tt.end)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
