@@ -68,7 +68,28 @@ func (a *AptUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	return &CheckResult{
 		AvailableUpdates: len(packages),
 		Packages:         packages,
+		Suspect:          aptSuspect(packages),
 	}, nil
+}
+
+// aptSuspect は apt list の出力を正しく解釈できなかった疑いの理由を返します（疑いがなければ空文字列）。
+// 更新可能なパッケージがあれば旧バージョン（"upgradable from:"）が付くため、全件で空なら出力が翻訳されている等を疑います。
+func aptSuspect(packages []PackageInfo) string {
+	if reason := corruptedPackageReason(packages); reason != "" {
+		return reason
+	}
+
+	if len(packages) == 0 {
+		return ""
+	}
+
+	for _, pkg := range packages {
+		if pkg.CurrentVersion != "" {
+			return ""
+		}
+	}
+
+	return "更新可能なパッケージの旧バージョンを 1 件も取得できませんでした（出力が翻訳されている等、形式が想定と異なる可能性）"
 }
 
 func (a *AptUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateResult, error) {
@@ -79,6 +100,8 @@ func (a *AptUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRes
 	if err != nil {
 		return nil, err
 	}
+
+	result.Suspect = checkResult.Suspect
 
 	if checkResult.AvailableUpdates == 0 {
 		result.Message = allPackagesUpToDateMessage

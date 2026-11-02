@@ -68,6 +68,16 @@ func recordEnableWarning(err error) {
 	}
 }
 
+// recordParseSuspect はマネージャ出力の「判定不能の疑い」を警告にします。
+// 警告は終了コードとジョブの結果（success）に影響せず、更新の結果も補正しません。
+func recordParseSuspect(name string, result *updater.UpdateResult) {
+	if result == nil || result.Suspect == "" {
+		return
+	}
+
+	activeEvents.Warn(event.CategoryParseSuspect, name, result.Suspect)
+}
+
 // updaterJobResult はマネージャの更新結果を、終了コードの判定と一致するジョブ結果にします。
 // 失敗（部分的なエラーを含む）は failed、キャンセルとタイムアウトは skipped（cancelled）です。
 func updaterJobResult(result *updater.UpdateResult, err error) event.JobResult {

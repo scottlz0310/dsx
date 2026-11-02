@@ -18,7 +18,7 @@ func runCountBasedUpdate(
 	runErrFormat string,
 	successMessageFn func(count int) string,
 ) (*UpdateResult, error) {
-	result := &UpdateResult{}
+	result := &UpdateResult{Suspect: checkResult.Suspect}
 
 	if checkResult.AvailableUpdates == 0 {
 		result.Message = noUpdatesMessage

@@ -48,7 +48,7 @@ func (w *WingetUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	// まずは出力をパースしてみて、アップグレード候補が取得できるかを確認する。
 	output, err := cmd.CombinedOutput()
 
-	packages := w.parseUpgradeOutput(string(output))
+	packages, tableFound := parseWingetUpgradeTable(string(output))
 
 	// コマンドがエラー終了しており、かつパース結果が 0 件の場合は、
 	// 実際には失敗している可能性が高いためエラーとして扱う。
@@ -59,6 +59,7 @@ func (w *WingetUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	return &CheckResult{
 		AvailableUpdates: len(packages),
 		Packages:         packages,
+		Suspect:          wingetSuspect(packages, tableFound),
 	}, nil
 }
 
@@ -107,11 +108,23 @@ var wingetCondition = func() *runewidth.Condition {
 // パッケージの表（"…:" で終わる導入文の後ろ）は数えません。
 // 列位置はヘッダー行から表示幅で算出します。
 func (w *WingetUpdater) parseUpgradeOutput(output string) []PackageInfo {
+	packages, _ := parseWingetUpgradeTable(output)
+
+	return packages
+}
+
+// wingetSeparatorToken は表の区切り行（ダッシュの連続）を見分ける目印です。
+const wingetSeparatorToken = "----------"
+
+// parseWingetUpgradeTable は先頭の表を読み取ります。
+// tableFound は更新可能パッケージの表（のような出力）を検出したかどうかで、
+// 検出したのに読み取れなかった場合を「判定不能の疑い」として検知するために返します。
+func parseWingetUpgradeTable(output string) (packages []PackageInfo, tableFound bool) {
 	lines := splitLines(output)
 
 	for i := 1; i < len(lines); i++ {
 		trimmed := strings.TrimSpace(lines[i])
-		if len(trimmed) < 10 || !isAllDashes(trimmed) {
+		if !strings.Contains(trimmed, wingetSeparatorToken) {
 			continue
 		}
 
@@ -120,15 +133,33 @@ func (w *WingetUpdater) parseUpgradeOutput(output string) []PackageInfo {
 			continue
 		}
 
-		cols := wingetColumnStarts(lines[i-1])
-		if len(cols) < 4 {
-			return nil
+		// 区切り行らしいが、ダッシュだけではない（想定外の装飾が付いている等）
+		if !isAllDashes(trimmed) {
+			return nil, true
 		}
 
-		return parseWingetRows(lines[i+1:], cols)
+		cols := wingetColumnStarts(lines[i-1])
+		if len(cols) < 4 {
+			return nil, true
+		}
+
+		return parseWingetRows(lines[i+1:], cols), true
 	}
 
-	return nil
+	return nil, false
+}
+
+// wingetSuspect は winget の出力を正しく解釈できなかった疑いの理由を返します（疑いがなければ空文字列）。
+func wingetSuspect(packages []PackageInfo, tableFound bool) string {
+	if reason := corruptedPackageReason(packages); reason != "" {
+		return reason
+	}
+
+	if tableFound && len(packages) == 0 {
+		return "winget の更新可能パッケージの表を検出しましたが、行を 1 件も解釈できませんでした（出力形式が想定と異なる可能性）"
+	}
+
+	return ""
 }
 
 // parseWingetRows は表の行を列位置（表示幅）で切り出します。

@@ -620,6 +620,7 @@ func executeUpdates(ctx context.Context, updaters []updater.Updater, opts update
 			continue
 		}
 
+		recordParseSuspect(u.Name(), result)
 		printUpdaterResult(result)
 		stats.Updated += result.UpdatedCount
 		stats.Failed += result.FailedCount
@@ -702,6 +703,7 @@ func runUpdaterJob(jobCtx context.Context, u updater.Updater, opts updater.Updat
 		return handleUpdaterError(u, err, useTUI, stats, statsMu, outputMu)
 	}
 
+	recordParseSuspect(u.Name(), result)
 	printUpdaterResultIfNeeded(result, useTUI, outputMu)
 	mergeUpdaterResult(stats, statsMu, result)
 
@@ -916,6 +918,10 @@ func printUpdaterResult(result *updater.UpdateResult) {
 		for _, e := range result.Errors {
 			fmt.Fprintf(os.Stderr, "  ⚠️  %v\n", e)
 		}
+	}
+
+	if result.Suspect != "" {
+		fmt.Fprintf(os.Stderr, "  ⚠️  判定不能の疑い: %s\n", result.Suspect)
 	}
 }
 
