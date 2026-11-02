@@ -56,9 +56,47 @@ func Validate(cfg *Config, opts ValidateOptions) ValidationResult {
 	validateControl(&result, cfg)
 	validateRepo(&result, cfg)
 	validateSecrets(&result, cfg)
+	validateDiagnostics(&result, cfg)
 	validateSys(&result, cfg, opts)
 
 	return result
+}
+
+func validateDiagnostics(result *ValidationResult, cfg *Config) {
+	diag := cfg.Diagnostics
+	if !diag.Enabled {
+		return
+	}
+
+	switch diag.Capture {
+	case DiagnosticsCaptureAnomaly, DiagnosticsCaptureAll:
+	default:
+		result.Errors = append(result.Errors, ValidationIssue{
+			Field:   "diagnostics.capture",
+			Message: fmt.Sprintf("未対応の指定です: %q（対応: %s, %s）", diag.Capture, DiagnosticsCaptureAnomaly, DiagnosticsCaptureAll),
+		})
+	}
+
+	if diag.MaxFiles < 1 {
+		result.Errors = append(result.Errors, ValidationIssue{
+			Field:   "diagnostics.max_files",
+			Message: "1以上を指定してください",
+		})
+	}
+
+	if diag.MaxTotalMB < 1 {
+		result.Errors = append(result.Errors, ValidationIssue{
+			Field:   "diagnostics.max_total_mb",
+			Message: "1以上を指定してください",
+		})
+	}
+
+	if dir := strings.TrimSpace(diag.Dir); dir != "" && !filepath.IsAbs(dir) {
+		result.Errors = append(result.Errors, ValidationIssue{
+			Field:   "diagnostics.dir",
+			Message: fmt.Sprintf("絶対パスを指定してください: %q（空なら OS ごとの既定の保存先）", diag.Dir),
+		})
+	}
 }
 
 func validateControl(result *ValidationResult, cfg *Config) {

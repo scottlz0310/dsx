@@ -110,6 +110,12 @@ func Default() *Config {
 				ExcludeBranches: []string{"main", "master", "develop"},
 			},
 		},
+		Diagnostics: DiagnosticsConfig{
+			Enabled:    false,
+			Capture:    DiagnosticsCaptureAnomaly,
+			MaxFiles:   DiagnosticsDefaultMaxFiles,
+			MaxTotalMB: DiagnosticsDefaultMaxTotalMB,
+		},
 		Sys: SysConfig{
 			Enable:   []string{},
 			Managers: map[string]ManagerConfig{},
@@ -161,6 +167,13 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("secrets.enabled", false)
 	v.SetDefault("secrets.provider", secretsProviderBitwarden)
 	v.SetDefault("secrets.items", []string{})
+
+	// Diagnostics
+	v.SetDefault("diagnostics.enabled", false)
+	v.SetDefault("diagnostics.capture", DiagnosticsCaptureAnomaly)
+	v.SetDefault("diagnostics.dir", "")
+	v.SetDefault("diagnostics.max_files", DiagnosticsDefaultMaxFiles)
+	v.SetDefault("diagnostics.max_total_mb", DiagnosticsDefaultMaxTotalMB)
 }
 
 // ConfigPath はデフォルトの設定ファイルパスを返します。

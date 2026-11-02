@@ -8,6 +8,22 @@ type Config struct {
 	Repo    RepoConfig    `mapstructure:"repo" yaml:"repo"`
 	Sys     SysConfig     `mapstructure:"sys" yaml:"sys"`
 	Secrets SecretsConfig `mapstructure:"secrets" yaml:"secrets"`
+
+	Diagnostics DiagnosticsConfig `mapstructure:"diagnostics" yaml:"diagnostics"`
+}
+
+// DiagnosticsConfig は診断ログ（解析対象コマンドの生出力と環境情報のローカル保存）の設定です。
+// 既定は無効で、有効にしたときだけ、利用者のローカルのディレクトリへ保存します（外部へは送信しません）。
+type DiagnosticsConfig struct {
+	Enabled bool `mapstructure:"enabled" yaml:"enabled"`
+	// Capture は保存の対象です。"anomaly"（判定不能の疑いまたはコマンド失敗のときだけ）または "all"（毎回）。
+	Capture string `mapstructure:"capture" yaml:"capture"`
+	// Dir は保存先ディレクトリ（絶対パス）です。空なら OS ごとの状態ディレクトリを使います。
+	Dir string `mapstructure:"dir" yaml:"dir"`
+	// MaxFiles は保持するログファイルの最大数です。超えた分は古いものから削除します。
+	MaxFiles int `mapstructure:"max_files" yaml:"max_files"`
+	// MaxTotalMB はログファイルの合計容量の上限（MiB）です。超えた分は古いものから削除します。
+	MaxTotalMB int `mapstructure:"max_total_mb" yaml:"max_total_mb"`
 }
 
 // UIConfig はUI表示に関する設定です。

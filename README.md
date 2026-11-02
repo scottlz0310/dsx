@@ -393,6 +393,25 @@ dsx config uninstall  # シェル設定からdsxを削除
 
 警告やスキップに気づけるよう、`--events-file <パス>` で、ジョブごとの結果と終了時の要約（更新・失敗・スキップ・警告の件数と理由）を JSON Lines で書き出せます。人が読む出力は変わりません。スキーマ（版つき）は [docs/Events_Schema.md](docs/Events_Schema.md) を参照してください。
 
+### 診断ログ（出力の誤解析を後から調べる）
+
+`dsx sys update` が解析する確認系コマンド（`winget upgrade`・`scoop status`・`apt list --upgradable`・`rustup check`）の**生出力と環境情報**を、ローカルのファイルへ保存できます。「更新があるのに最新と表示された」「件数が合わない」といったときに、実際の出力を後から確認するためのものです。**既定は無効**で、設定ファイル（`~/.config/dsx/config.yaml`）で有効にしたときだけ保存します。
+
+```yaml
+diagnostics:
+  enabled: true        # 既定: false
+  capture: anomaly     # anomaly（既定）: 判定不能の疑い、またはコマンド失敗のときだけ / all: 毎回
+  dir: ""              # 保存先（絶対パス）。空なら下記の既定の保存先
+  max_files: 20        # 保持するファイル数（超えた分は古いものから削除）
+  max_total_mb: 20     # 合計容量の上限（MiB。超えた分は古いものから削除）
+```
+
+- **保存先（既定）**: Windows は `%LOCALAPPDATA%\dsx\diagnostics`、Linux/macOS は `$XDG_STATE_HOME/dsx/diagnostics`（未設定なら `~/.local/state/dsx/diagnostics`）。dsx の 1 回の実行につき `diag-<UTC時刻>-<PID>.jsonl` を 1 つ作ります（JSON Lines。先頭の `meta` 行に dsx の版・OS・ロケール・`NO_COLOR` の有無・出力が端末か・`--events-file` の有無、続く `capture` 行にマネージャ・コマンド・終了コード・疑いの理由・ツールの版・出力）。Arbor 経由で起動した場合も同じ設定・同じ保存先です。
+- **ローカルだけ**: 外部へは送信しません。ファイルは利用者だけが読める権限（Linux/macOS は 0600、ディレクトリは 0700。Windows は `%LOCALAPPDATA%` の利用者別のアクセス権）で作ります。
+- **伏せ字化**: 保存前に、ホームのパス（`~`）・ユーザー名（`<user>`）・ホスト名（`<host>`）・トークンや認証情報らしい文字列を置き換えます。**完全ではありません**（未知の形式は残り得ます）。Issue などに貼るときは、**必ず内容を確認してから**にしてください。
+- **対象外**: 更新を実行するコマンド（`upgrade --all` など）の出力は保存しません。1 回の出力は 256 KiB までで、超えた分は切り捨てます。
+- 保存に失敗しても更新は止めず、警告を 1 回だけ表示します。
+
 ## 📋 リリース方針（v0.9.0）
 
 本バージョンは **Windows の配布経路を MSIX に統一**し、MSIX の自動更新とワンライナー導入を提供するリリースです。
