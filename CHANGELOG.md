@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-11-02
+
 ### Fixed
 
 - **Scoop のパッケージ更新が実行されず「最新です」と誤判定されていた**: scoop シムが pwsh を優先して起動する環境では、`scoop status` の表ヘッダー・区切り行に ANSI エスケープシーケンスが含まれ、区切り行を検出できず更新可能数が常に 0 になっていた。パース前にエスケープシーケンスを除去するようにした。
@@ -524,7 +526,8 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/scottlz0310/dsx/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/scottlz0310/dsx/compare/v0.13.2...v0.14.0
 [0.13.2]: https://github.com/scottlz0310/dsx/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/scottlz0310/dsx/compare/v0.13.0...v0.13.1
