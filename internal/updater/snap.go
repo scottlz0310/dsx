@@ -72,7 +72,7 @@ func (s *SnapUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	// LANG=C でロケールを英語に固定
 	cmd := exec.CommandContext(ctx, "snap", "refresh", "--list")
 
-	cmd.Env = append(os.Environ(), "LANG=C", "LC_ALL=C")
+	cmd.Env = localeCEnv()
 	output, err := cmd.Output()
 
 	// 更新がない場合は特定のメッセージが返る

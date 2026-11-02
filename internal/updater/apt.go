@@ -58,11 +58,9 @@ func (a *AptUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	}
 
 	// 更新可能なパッケージを取得
-	cmd := exec.CommandContext(ctx, "apt", "list", "--upgradable")
-
-	output, err := cmd.Output()
+	output, err := runCommandOutputWithLocaleC(ctx, "apt", []string{"list", "--upgradable"}, "更新可能パッケージの取得に失敗: %w")
 	if err != nil {
-		return nil, fmt.Errorf("更新可能パッケージの取得に失敗: %w", err)
+		return nil, err
 	}
 
 	packages := a.parseUpgradableList(string(output))
@@ -155,8 +153,8 @@ func (a *AptUpdater) parseUpgradableList(output string) []PackageInfo {
 
 		// 旧バージョンを取得
 		if idx := strings.Index(line, "upgradable from:"); idx != -1 {
-			oldVersion := strings.TrimSuffix(line[idx+len("upgradable from:"):], "]")
-			pkg.CurrentVersion = strings.TrimSpace(oldVersion)
+			oldVersion := strings.TrimSpace(line[idx+len("upgradable from:"):])
+			pkg.CurrentVersion = strings.TrimSuffix(oldVersion, "]")
 		}
 
 		packages = append(packages, pkg)

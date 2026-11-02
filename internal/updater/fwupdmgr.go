@@ -42,7 +42,7 @@ func (f *FwupdmgrUpdater) Configure(cfg config.ManagerConfig) error {
 func (f *FwupdmgrUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	cmd := exec.CommandContext(ctx, "fwupdmgr", "get-updates", "--json")
 
-	cmd.Env = append(os.Environ(), "LANG=C", "LC_ALL=C")
+	cmd.Env = localeCEnv()
 
 	var stderr bytes.Buffer
 
