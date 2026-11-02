@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-02
+
 ### Added
 
 - **マネージャ出力の「判定不能の疑い」を警告する（#174）**: scoop の更新ゼロ誤判定（v0.14.1 で修正）のように、更新の兆候があるのに「最新です」と成功扱いになる見落としに気づけるようにした。winget・scoop・apt・rustup で、表の出力があるのに更新可能が 0 件、解析結果の文字列が崩れている（不正な UTF-8）、旧バージョンが全件で空、`update available` の行を解釈できない、といった矛盾を検知すると、`sys update` が CLI に `判定不能の疑い:` の警告行を出し、`--events-file` に `warning` イベント（`category: parse_suspect`、`subject` はマネージャ名）を記録して `summary.warning_items` にも載せる。検知のみで、更新の実行・件数・ジョブの結果（success）・終了コードは変えない。イベントの schema の版は上げない（`docs/Events_Schema.md` に `parse_suspect` を追記）。
@@ -542,7 +544,8 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/scottlz0310/dsx/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/scottlz0310/dsx/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/scottlz0310/dsx/compare/v0.13.2...v0.14.0
 [0.13.2]: https://github.com/scottlz0310/dsx/compare/v0.13.1...v0.13.2
