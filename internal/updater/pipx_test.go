@@ -135,6 +135,9 @@ func TestPipxUpdater_Update(t *testing.T) {
 		wantErr     bool
 		errContains string
 		msgContains string
+		// wantPackages は nil のとき検証しません。
+		wantPackages []PackageInfo
+		wantSuspect  string
 	}{
 		{
 			name:        "DryRunは更新せず計画表示",
@@ -153,12 +156,51 @@ func TestPipxUpdater_Update(t *testing.T) {
 			msgContains: "pipx でインストールされたパッケージがありません",
 		},
 		{
-			name:        "更新成功",
+			name:        "版が変わらなければ更新なし（インストール済みの件数は数えない）",
 			mode:        "updates",
+			opts:        UpdateOptions{},
+			wantUpdated: 0,
+			wantErr:     false,
+			msgContains: "更新なし",
+		},
+		{
+			name:         "版が変わったパッケージだけを数える（新規パッケージは数えない）",
+			mode:         "upgrade_changes",
+			opts:         UpdateOptions{},
+			wantUpdated:  1,
+			wantErr:      false,
+			msgContains:  "1 件のパッケージを更新しました",
+			wantPackages: []PackageInfo{{Name: "ruff", CurrentVersion: "0.2.0", NewVersion: "0.2.1"}},
+		},
+		{
+			name:        "すべて版が変われば全件を数える",
+			mode:        "upgrade_changes_all",
 			opts:        UpdateOptions{},
 			wantUpdated: 2,
 			wantErr:     false,
-			msgContains: "2 件のパッケージを確認・更新しました",
+			msgContains: "2 件のパッケージを更新しました",
+			wantPackages: []PackageInfo{
+				{Name: "black", CurrentVersion: "24.1.0", NewVersion: "24.2.0"},
+				{Name: "ruff", CurrentVersion: "0.2.0", NewVersion: "0.2.1"},
+			},
+		},
+		{
+			name:        "更新後の一覧を取得できなければ件数を作らず警告する",
+			mode:        "after_list_error",
+			opts:        UpdateOptions{},
+			wantUpdated: 0,
+			wantErr:     false,
+			msgContains: "更新件数は確定できません",
+			wantSuspect: "更新後の一覧を取得できず",
+		},
+		{
+			name:        "更新後の一覧からパッケージを読み取れなければ件数を作らず警告する",
+			mode:        "after_list_empty",
+			opts:        UpdateOptions{},
+			wantUpdated: 0,
+			wantErr:     false,
+			msgContains: "更新件数は確定できません",
+			wantSuspect: "1 件も読み取れず",
 		},
 		{
 			name:        "更新失敗",
@@ -199,6 +241,16 @@ func TestPipxUpdater_Update(t *testing.T) {
 			if tc.msgContains != "" {
 				assert.Contains(t, got.Message, tc.msgContains)
 			}
+
+			if tc.wantPackages != nil {
+				assert.Equal(t, tc.wantPackages, got.Packages)
+			}
+
+			if tc.wantSuspect == "" {
+				assert.Empty(t, got.Suspect)
+			} else {
+				assert.Contains(t, got.Suspect, tc.wantSuspect)
+			}
 		})
 	}
 }
@@ -228,6 +280,26 @@ if "%mode%"=="none" (
   echo {"venvs":{}}
   exit /b 0
 )
+if exist "%~dp0upgraded" goto listafter
+echo {"venvs":{"black":{"metadata":{"main_package":{"package":"black","package_version":"24.1.0"}}},"ruff":{"metadata":{"main_package":{"package":"ruff","package_version":"0.2.0"}}}}}
+exit /b 0
+:listafter
+if "%mode%"=="after_list_error" (
+  echo pipx list failed 1>&2
+  exit /b 1
+)
+if "%mode%"=="after_list_empty" (
+  echo {"venvs":{}}
+  exit /b 0
+)
+if "%mode%"=="upgrade_changes" (
+  echo {"venvs":{"black":{"metadata":{"main_package":{"package":"black","package_version":"24.1.0"}}},"ruff":{"metadata":{"main_package":{"package":"ruff","package_version":"0.2.1"}}},"newtool":{"metadata":{"main_package":{"package":"newtool","package_version":"1.0.0"}}}}}
+  exit /b 0
+)
+if "%mode%"=="upgrade_changes_all" (
+  echo {"venvs":{"black":{"metadata":{"main_package":{"package":"black","package_version":"24.2.0"}}},"ruff":{"metadata":{"main_package":{"package":"ruff","package_version":"0.2.1"}}}}}
+  exit /b 0
+)
 echo {"venvs":{"black":{"metadata":{"main_package":{"package":"black","package_version":"24.1.0"}}},"ruff":{"metadata":{"main_package":{"package":"ruff","package_version":"0.2.0"}}}}}
 exit /b 0
 :doupgrade
@@ -235,6 +307,7 @@ if "%mode%"=="update_error" (
   echo pipx upgrade-all failed 1>&2
   exit /b 1
 )
+type nul > "%~dp0upgraded"
 exit /b 0
 `
 	} else {
@@ -251,6 +324,24 @@ case "$1" in
       echo '{"venvs":{}}'
       exit 0
     fi
+    if [ -e "$(dirname "$0")/upgraded" ]; then
+      if [ "${mode}" = "after_list_error" ]; then
+        echo "pipx list failed" 1>&2
+        exit 1
+      fi
+      if [ "${mode}" = "after_list_empty" ]; then
+        echo '{"venvs":{}}'
+        exit 0
+      fi
+      if [ "${mode}" = "upgrade_changes" ]; then
+        echo '{"venvs":{"black":{"metadata":{"main_package":{"package":"black","package_version":"24.1.0"}}},"ruff":{"metadata":{"main_package":{"package":"ruff","package_version":"0.2.1"}}},"newtool":{"metadata":{"main_package":{"package":"newtool","package_version":"1.0.0"}}}}}'
+        exit 0
+      fi
+      if [ "${mode}" = "upgrade_changes_all" ]; then
+        echo '{"venvs":{"black":{"metadata":{"main_package":{"package":"black","package_version":"24.2.0"}}},"ruff":{"metadata":{"main_package":{"package":"ruff","package_version":"0.2.1"}}}}}'
+        exit 0
+      fi
+    fi
     echo '{"venvs":{"black":{"metadata":{"main_package":{"package":"black","package_version":"24.1.0"}}},"ruff":{"metadata":{"main_package":{"package":"ruff","package_version":"0.2.0"}}}}}'
     exit 0
     ;;
@@ -259,6 +350,7 @@ case "$1" in
       echo "pipx upgrade-all failed" 1>&2
       exit 1
     fi
+    : > "$(dirname "$0")/upgraded"
     exit 0
     ;;
   *)

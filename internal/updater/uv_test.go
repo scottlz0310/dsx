@@ -275,6 +275,9 @@ func TestUVUpdater_Update(t *testing.T) {
 		wantErr     bool
 		errContains string
 		msgContains string
+		// wantPackages は nil のとき検証しません。
+		wantPackages []PackageInfo
+		wantSuspect  string
 	}{
 		{
 			name:        "DryRunは更新せず計画表示",
@@ -293,12 +296,51 @@ func TestUVUpdater_Update(t *testing.T) {
 			msgContains: "インストールされたツールがありません",
 		},
 		{
-			name:        "更新成功",
+			name:        "版が変わらなければ更新なし（インストール済みの件数は数えない）",
 			mode:        "updates",
+			opts:        UpdateOptions{},
+			wantUpdated: 0,
+			wantErr:     false,
+			msgContains: "更新なし",
+		},
+		{
+			name:         "版が変わったツールだけを数える（新規ツールは数えない）",
+			mode:         "upgrade_changes",
+			opts:         UpdateOptions{},
+			wantUpdated:  1,
+			wantErr:      false,
+			msgContains:  "1 件のツールを更新しました",
+			wantPackages: []PackageInfo{{Name: "ruff", CurrentVersion: "0.6.2", NewVersion: "0.6.3"}},
+		},
+		{
+			name:        "すべて版が変われば全件を数える",
+			mode:        "upgrade_changes_all",
 			opts:        UpdateOptions{},
 			wantUpdated: 2,
 			wantErr:     false,
-			msgContains: "2 件のツールを確認・更新しました",
+			msgContains: "2 件のツールを更新しました",
+			wantPackages: []PackageInfo{
+				{Name: "httpie", CurrentVersion: "3.2.2", NewVersion: "3.2.3"},
+				{Name: "ruff", CurrentVersion: "0.6.2", NewVersion: "0.6.3"},
+			},
+		},
+		{
+			name:        "更新後の一覧を取得できなければ件数を作らず警告する",
+			mode:        "after_list_error",
+			opts:        UpdateOptions{},
+			wantUpdated: 0,
+			wantErr:     false,
+			msgContains: "更新件数は確定できません",
+			wantSuspect: "更新後の一覧を取得できず",
+		},
+		{
+			name:        "更新後の一覧からツールを読み取れなければ件数を作らず警告する",
+			mode:        "after_list_empty",
+			opts:        UpdateOptions{},
+			wantUpdated: 0,
+			wantErr:     false,
+			msgContains: "更新件数は確定できません",
+			wantSuspect: "1 件も読み取れず",
 		},
 		{
 			name:        "更新失敗",
@@ -339,6 +381,16 @@ func TestUVUpdater_Update(t *testing.T) {
 
 			if tc.msgContains != "" {
 				assert.Contains(t, got.Message, tc.msgContains)
+			}
+
+			if tc.wantPackages != nil {
+				assert.Equal(t, tc.wantPackages, got.Packages)
+			}
+
+			if tc.wantSuspect == "" {
+				assert.Empty(t, got.Suspect)
+			} else {
+				assert.Contains(t, got.Suspect, tc.wantSuspect)
 			}
 		})
 	}
@@ -558,6 +610,37 @@ if "%mode%"=="none" (
   echo No tools installed
   exit /b 0
 )
+if exist "%~dp0upgraded" goto listafter
+echo ruff v0.6.2
+echo - ruff
+echo httpie v3.2.2
+echo - http
+exit /b 0
+:listafter
+if "%mode%"=="after_list_error" (
+  >&2 echo uv tool list stderr
+  exit /b 1
+)
+if "%mode%"=="after_list_empty" (
+  echo No tools installed
+  exit /b 0
+)
+if "%mode%"=="upgrade_changes" (
+  echo ruff v0.6.3
+  echo - ruff
+  echo httpie v3.2.2
+  echo - http
+  echo newtool v1.0.0
+  echo - newtool
+  exit /b 0
+)
+if "%mode%"=="upgrade_changes_all" (
+  echo ruff v0.6.3
+  echo - ruff
+  echo httpie v3.2.3
+  echo - http
+  exit /b 0
+)
 echo ruff v0.6.2
 echo - ruff
 echo httpie v3.2.2
@@ -568,6 +651,7 @@ if "%mode%"=="update_error" (
   >&2 echo uv tool upgrade failed
   exit /b 1
 )
+type nul > "%~dp0upgraded"
 exit /b 0
 :selfupdate
 if "%3"=="--dry-run" goto selfupdatedryrun
@@ -607,6 +691,34 @@ if [ "$1" = "tool" ] && [ "$2" = "list" ]; then
     echo "No tools installed"
     exit 0
   fi
+  if [ -e "$(dirname "$0")/upgraded" ]; then
+    if [ "${mode}" = "after_list_error" ]; then
+      echo "uv tool list stderr" 1>&2
+      exit 1
+    fi
+    if [ "${mode}" = "after_list_empty" ]; then
+      echo "No tools installed"
+      exit 0
+    fi
+    if [ "${mode}" = "upgrade_changes" ]; then
+      printf 'ruff v0.6.3
+- ruff
+httpie v3.2.2
+- http
+newtool v1.0.0
+- newtool
+'
+      exit 0
+    fi
+    if [ "${mode}" = "upgrade_changes_all" ]; then
+      printf 'ruff v0.6.3
+- ruff
+httpie v3.2.3
+- http
+'
+      exit 0
+    fi
+  fi
   echo "ruff v0.6.2"
   echo "- ruff"
   echo "httpie v3.2.2"
@@ -618,6 +730,7 @@ if [ "$1" = "tool" ] && [ "$2" = "upgrade" ]; then
     echo "uv tool upgrade failed" 1>&2
     exit 1
   fi
+  : > "$(dirname "$0")/upgraded"
   exit 0
 fi
 if [ "$1" = "self" ] && [ "$2" = "update" ]; then

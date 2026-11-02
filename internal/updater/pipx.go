@@ -93,10 +93,22 @@ func (p *PipxUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRe
 	}
 
 	// pipx upgrade-all は個別のパッケージ結果を返さないため、
-	// 処理したパッケージ数を UpdatedCount とする
-	result.UpdatedCount = len(checkResult.Packages)
-	result.Packages = checkResult.Packages
-	result.Message = fmt.Sprintf("%d 件のパッケージを確認・更新しました", result.UpdatedCount)
+	// 更新後の一覧と比べて、版が変わったパッケージだけを数える
+	afterCheck, afterErr := p.Check(ctx)
+	change := detectVersionChanges("pipx", checkResult.Packages, afterCheck, afterErr)
+
+	result.Suspect = change.Suspect
+	result.UpdatedCount = len(change.Changed)
+	result.Packages = change.Changed
+
+	switch {
+	case change.Suspect != "":
+		result.Message = "pipx の更新を実行しました（更新件数は確定できません）"
+	case result.UpdatedCount > 0:
+		result.Message = fmt.Sprintf("%d 件のパッケージを更新しました", result.UpdatedCount)
+	default:
+		result.Message = "pipx パッケージを確認しました（更新なし）"
+	}
 
 	return result, nil
 }
