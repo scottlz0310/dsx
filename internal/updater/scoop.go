@@ -50,19 +50,26 @@ func (s *ScoopUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	statusCmd := exec.CommandContext(ctx, "scoop", "status")
 
 	output, err := statusCmd.CombinedOutput()
-	if err != nil {
-		// scoop status は更新可能なパッケージがあっても exit code 0 以外を返すことがある
-		if len(output) == 0 {
-			return nil, fmt.Errorf("scoop status の実行に失敗: %w", buildCommandOutputErr(err, output))
-		}
-	}
+
+	// scoop status は更新可能なパッケージがあっても exit code 0 以外を返すことがあるため、
+	// 出力が空のときだけコマンドの失敗として扱う
+	failed := err != nil && len(output) == 0
 
 	packages := s.parseStatusOutput(string(output))
+	suspect := scoopSuspect(string(output), packages)
+
+	recordDiagnostic(ctx, &diagCapture{
+		Manager: "scoop", Command: statusCmd.Args, Output: output, Err: err, Failed: failed, Suspect: suspect, VersionArgs: []string{versionFlag},
+	})
+
+	if failed {
+		return nil, fmt.Errorf("scoop status の実行に失敗: %w", buildCommandOutputErr(err, output))
+	}
 
 	return &CheckResult{
 		AvailableUpdates: len(packages),
 		Packages:         packages,
-		Suspect:          scoopSuspect(string(output), packages),
+		Suspect:          suspect,
 	}, nil
 }
 

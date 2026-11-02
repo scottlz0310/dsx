@@ -58,17 +58,28 @@ func (a *AptUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	}
 
 	// 更新可能なパッケージを取得
-	output, err := runCommandOutputWithLocaleC(ctx, "apt", []string{"list", "--upgradable"}, "更新可能パッケージの取得に失敗: %w")
+	listCommand := []string{"apt", "list", "--upgradable"}
+
+	output, err := runCommandOutputWithLocaleC(ctx, listCommand[0], listCommand[1:], "更新可能パッケージの取得に失敗: %w")
 	if err != nil {
+		recordDiagnostic(ctx, &diagCapture{
+			Manager: "apt", Command: listCommand, Err: err, Failed: true, VersionArgs: []string{versionFlag},
+		})
+
 		return nil, err
 	}
 
 	packages := a.parseUpgradableList(string(output))
+	suspect := aptSuspect(packages)
+
+	recordDiagnostic(ctx, &diagCapture{
+		Manager: "apt", Command: listCommand, Output: output, Suspect: suspect, VersionArgs: []string{versionFlag},
+	})
 
 	return &CheckResult{
 		AvailableUpdates: len(packages),
 		Packages:         packages,
-		Suspect:          aptSuspect(packages),
+		Suspect:          suspect,
 	}, nil
 }
 

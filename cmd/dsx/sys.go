@@ -538,6 +538,8 @@ func loadSysUpdateConfig(cmd *cobra.Command) (*config.Config, updater.UpdateOpti
 		CurrentVersion: version,
 	}
 
+	configureDiagnostics(cfg, "sys update")
+
 	return cfg, opts
 }
 

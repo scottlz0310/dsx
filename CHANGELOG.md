@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **診断ログ（解析対象コマンドの生出力と環境情報のローカル保存。#175）**: `sys update` が解析する確認系コマンド（`winget upgrade`・`scoop status`・`apt list --upgradable`・`rustup check`）の出力を、後から原因を追えるように、ローカルのファイルへ保存できるようにした。**既定は無効**で、設定の `diagnostics` で有効にしたときだけ動く（`enabled` / `capture`: `anomaly`（判定不能の疑いまたはコマンド失敗のときだけ。既定）か `all`（毎回）/ `dir` / `max_files`（既定 20）/ `max_total_mb`（既定 20））。dsx の 1 回の実行につき JSON Lines を 1 ファイル（先頭に dsx の版・OS・ロケール・`NO_COLOR` の有無・出力が端末か・`--events-file` の有無、続く各行にマネージャ・コマンド・終了コード・疑いの理由・ツールの版・出力）を作り、件数と合計容量の上限を超えた分は古いものから削除する。保存先は Windows が `%LOCALAPPDATA%\dsx\diagnostics`、Linux/macOS が `$XDG_STATE_HOME/dsx/diagnostics`（未設定なら `~/.local/state/dsx/diagnostics`）で、利用者だけが読める権限で作り、外部へは送信しない。保存前に、ホームのパス・ユーザー名・ホスト名・トークンらしい文字列を伏せ字にする（完全ではないため、共有前に内容の確認が必要）。更新を実行するコマンドの出力は対象外。保存に失敗しても更新は止めず、警告を 1 回だけ表示する。Arbor 経由の起動でも同じ設定・保存先を使う。
+
 ## [0.15.0] - 2026-11-02
 
 ### Added

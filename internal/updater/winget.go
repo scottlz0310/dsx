@@ -49,17 +49,24 @@ func (w *WingetUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	output, err := cmd.CombinedOutput()
 
 	packages, tableFound := parseWingetUpgradeTable(string(output))
+	suspect := wingetSuspect(packages, tableFound)
 
 	// コマンドがエラー終了しており、かつパース結果が 0 件の場合は、
 	// 実際には失敗している可能性が高いためエラーとして扱う。
-	if err != nil && len(packages) == 0 {
+	failed := err != nil && len(packages) == 0
+
+	recordDiagnostic(ctx, &diagCapture{
+		Manager: "winget", Command: cmd.Args, Output: output, Err: err, Failed: failed, Suspect: suspect, VersionArgs: []string{versionFlag},
+	})
+
+	if failed {
 		return nil, fmt.Errorf("winget upgrade の実行に失敗: %w", buildCommandOutputErr(err, output))
 	}
 
 	return &CheckResult{
 		AvailableUpdates: len(packages),
 		Packages:         packages,
-		Suspect:          wingetSuspect(packages, tableFound),
+		Suspect:          suspect,
 	}, nil
 }
 

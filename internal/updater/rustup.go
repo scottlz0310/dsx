@@ -40,17 +40,28 @@ func (r *RustupUpdater) Configure(cfg config.ManagerConfig) error {
 
 func (r *RustupUpdater) Check(ctx context.Context) (*CheckResult, error) {
 	// exit code 100 は「更新あり」を意味する正常な終了コードなのでエラー扱いしない
-	output, err := runCommandOutputWithLocaleCAllowExitCodes(ctx, "rustup", []string{"check"}, "rustup check の実行に失敗: %w", 100)
+	checkCommand := []string{r.Name(), "check"}
+
+	output, err := runCommandOutputWithLocaleCAllowExitCodes(ctx, checkCommand[0], checkCommand[1:], "rustup check の実行に失敗: %w", 100)
 	if err != nil {
+		recordDiagnostic(ctx, &diagCapture{
+			Manager: r.Name(), Command: checkCommand, Err: err, Failed: true, VersionArgs: []string{versionFlag},
+		})
+
 		return nil, err
 	}
 
 	packages := r.parseCheckOutput(string(output))
+	suspect := rustupSuspect(string(output), packages)
+
+	recordDiagnostic(ctx, &diagCapture{
+		Manager: r.Name(), Command: checkCommand, Output: output, Suspect: suspect, VersionArgs: []string{versionFlag},
+	})
 
 	return &CheckResult{
 		AvailableUpdates: len(packages),
 		Packages:         packages,
-		Suspect:          rustupSuspect(string(output), packages),
+		Suspect:          suspect,
 	}, nil
 }
 
