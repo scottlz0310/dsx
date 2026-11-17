@@ -28,7 +28,7 @@ jobs:
   draft:
     if: github.event_name == 'push'
     # `chore(release):` で始まるコミット以外は、release-automate 側の条件で skip される。
-    uses: scottlz0310/release-automate/.github/workflows/reusable-publish-release.yml@3c860f1b178eb5b942d87c800153bc47887a7bfd # v3.2.1
+    uses: scottlz0310/release-automate/.github/workflows/reusable-publish-release.yml@b155081b04cae981e8ae3beeb37aa1c024866ea2 # v3.3.0
     permissions:
       contents: write
     with:
@@ -335,7 +335,7 @@ jobs:
   finalize:
     needs: [draft, verify-linux, verify-windows]
     if: ${{ !cancelled() && needs.draft.outputs.release_state == 'draft' && needs.verify-linux.result == 'success' && needs.verify-windows.result == 'success' }}
-    uses: scottlz0310/release-automate/.github/workflows/reusable-finalize-release.yml@3c860f1b178eb5b942d87c800153bc47887a7bfd # v3.2.1
+    uses: scottlz0310/release-automate/.github/workflows/reusable-finalize-release.yml@b155081b04cae981e8ae3beeb37aa1c024866ea2 # v3.3.0
     permissions:
       contents: write
     with:
