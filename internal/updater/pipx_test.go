@@ -137,7 +137,9 @@ func TestPipxUpdater_Update(t *testing.T) {
 		msgContains string
 		// wantPackages は nil のとき検証しません。
 		wantPackages []PackageInfo
-		wantSuspect  string
+		// wantInstalled は nil のとき空であることを検証します。
+		wantInstalled []PackageInfo
+		wantSuspect   string
 	}{
 		{
 			name:        "DryRunは更新せず計画表示",
@@ -146,6 +148,10 @@ func TestPipxUpdater_Update(t *testing.T) {
 			wantUpdated: 0,
 			wantErr:     false,
 			msgContains: "DryRunモード",
+			wantInstalled: []PackageInfo{
+				{Name: "black", CurrentVersion: "24.1.0"},
+				{Name: "ruff", CurrentVersion: "0.2.0"},
+			},
 		},
 		{
 			name:        "対象なし",
@@ -244,6 +250,14 @@ func TestPipxUpdater_Update(t *testing.T) {
 
 			if tc.wantPackages != nil {
 				assert.Equal(t, tc.wantPackages, got.Packages)
+			} else {
+				assert.Empty(t, got.Packages)
+			}
+
+			if tc.wantInstalled == nil {
+				assert.Empty(t, got.InstalledPackages)
+			} else {
+				assert.ElementsMatch(t, tc.wantInstalled, got.InstalledPackages)
 			}
 
 			if tc.wantSuspect == "" {

@@ -174,16 +174,17 @@ func TestCargoUpdater_Check(t *testing.T) {
 
 func TestCargoUpdater_Update(t *testing.T) {
 	testCases := []struct {
-		name        string
-		mode        string
-		noUpdate    bool // true: cargo-install-update バイナリを PATH に含めない
-		noCargoBin  bool // true: CARGO_HOME/bin にもバイナリを配置しない（フォールバック失敗のテスト用）
-		v19         bool // true: v19 スタイルの cargo-install-update を使用（バージョン互換テスト用）
-		opts        UpdateOptions
-		wantErr     bool
-		errContains string
-		msgContains string
-		wantUpdated int
+		name          string
+		mode          string
+		noUpdate      bool // true: cargo-install-update バイナリを PATH に含めない
+		noCargoBin    bool // true: CARGO_HOME/bin にもバイナリを配置しない（フォールバック失敗のテスト用）
+		v19           bool // true: v19 スタイルの cargo-install-update を使用（バージョン互換テスト用）
+		opts          UpdateOptions
+		wantErr       bool
+		errContains   string
+		msgContains   string
+		wantUpdated   int
+		wantInstalled []PackageInfo
 	}{
 		{
 			name:        "DryRunは更新せず計画表示",
@@ -191,6 +192,10 @@ func TestCargoUpdater_Update(t *testing.T) {
 			opts:        UpdateOptions{DryRun: true},
 			wantErr:     false,
 			msgContains: "DryRunモード",
+			wantInstalled: []PackageInfo{
+				{Name: "ripgrep", CurrentVersion: "14.0.0"},
+				{Name: "bat", CurrentVersion: "0.24.0"},
+			},
 		},
 		{
 			name:        "対象なし（DryRun）",
@@ -312,6 +317,14 @@ func TestCargoUpdater_Update(t *testing.T) {
 
 			if !tc.opts.DryRun {
 				assert.Equal(t, tc.wantUpdated, got.UpdatedCount)
+			}
+
+			assert.Empty(t, got.Packages)
+
+			if tc.wantInstalled == nil {
+				assert.Empty(t, got.InstalledPackages)
+			} else {
+				assert.Equal(t, tc.wantInstalled, got.InstalledPackages)
 			}
 		})
 	}

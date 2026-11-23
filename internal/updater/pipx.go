@@ -76,7 +76,7 @@ func (p *PipxUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateRe
 
 	if opts.DryRun {
 		result.Message = fmt.Sprintf("%d 件のインストール済みパッケージについて更新を確認します（DryRunモード）", len(checkResult.Packages))
-		result.Packages = checkResult.Packages
+		result.InstalledPackages = checkResult.Packages
 
 		return result, nil
 	}

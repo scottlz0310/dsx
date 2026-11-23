@@ -905,6 +905,10 @@ func printUpdaterHeader(u updater.Updater) {
 
 // printUpdaterResult は更新結果を表示します。
 func printUpdaterResult(result *updater.UpdateResult) {
+	if result == nil {
+		return
+	}
+
 	if result.Message != "" {
 		fmt.Printf("✅ %s\n", result.Message)
 	}
@@ -913,11 +917,15 @@ func printUpdaterResult(result *updater.UpdateResult) {
 		fmt.Println("  更新パッケージ:")
 
 		for _, pkg := range result.Packages {
-			if pkg.CurrentVersion != "" {
-				fmt.Printf("    - %s: %s → %s\n", pkg.Name, pkg.CurrentVersion, pkg.NewVersion)
-			} else {
-				fmt.Printf("    - %s %s\n", pkg.Name, pkg.NewVersion)
-			}
+			fmt.Println(formatPackageLine(pkg))
+		}
+	}
+
+	if sysVerbose && len(result.InstalledPackages) > 0 {
+		fmt.Println("  インストール済み（更新の有無は実行時に判定）:")
+
+		for _, pkg := range result.InstalledPackages {
+			fmt.Println(formatInstalledPackageLine(pkg))
 		}
 	}
 
@@ -928,6 +936,27 @@ func printUpdaterResult(result *updater.UpdateResult) {
 	}
 
 	printParseSuspect(result)
+}
+
+func formatPackageLine(pkg updater.PackageInfo) string {
+	switch {
+	case pkg.CurrentVersion != "" && pkg.NewVersion != "":
+		return fmt.Sprintf("    - %s: %s → %s", pkg.Name, pkg.CurrentVersion, pkg.NewVersion)
+	case pkg.CurrentVersion != "":
+		return fmt.Sprintf("    - %s: %s", pkg.Name, pkg.CurrentVersion)
+	case pkg.NewVersion != "":
+		return fmt.Sprintf("    - %s %s", pkg.Name, pkg.NewVersion)
+	default:
+		return fmt.Sprintf("    - %s", pkg.Name)
+	}
+}
+
+func formatInstalledPackageLine(pkg updater.PackageInfo) string {
+	if pkg.CurrentVersion != "" {
+		return fmt.Sprintf("    - %s: %s", pkg.Name, pkg.CurrentVersion)
+	}
+
+	return fmt.Sprintf("    - %s", pkg.Name)
 }
 
 // printParseSuspect はマネージャ出力の「判定不能の疑い」を警告行として表示します。
