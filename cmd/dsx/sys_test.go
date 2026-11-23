@@ -908,3 +908,103 @@ func TestResolveSysTimeout(t *testing.T) {
 		})
 	}
 }
+
+func TestPrintUpdaterResult(t *testing.T) {
+	tests := []struct {
+		name       string
+		verbose    bool
+		result     *updater.UpdateResult
+		wantStdout string
+		wantStderr string
+	}{
+		{
+			name:       "nil結果は何も出力しない",
+			verbose:    true,
+			result:     nil,
+			wantStdout: "",
+			wantStderr: "",
+		},
+		{
+			name:    "verbose無効時はパッケージ一覧を表示しない",
+			verbose: false,
+			result: &updater.UpdateResult{
+				Message: "1 件のインストール済みツールについて更新を確認します（DryRunモード）",
+				InstalledPackages: []updater.PackageInfo{
+					{Name: "pre-commit", CurrentVersion: "4.7.0"},
+				},
+			},
+			wantStdout: "✅ 1 件のインストール済みツールについて更新を確認します（DryRunモード）\n",
+		},
+		{
+			name:    "更新パッケージは新旧バージョンに応じて整形する",
+			verbose: true,
+			result: &updater.UpdateResult{
+				Message: "4 件のパッケージが更新可能です（DryRunモード）",
+				Packages: []updater.PackageInfo{
+					{Name: "git", CurrentVersion: "2.40.0", NewVersion: "2.41.0"},
+					{Name: "snap-app", NewVersion: "1.2.3"},
+					{Name: "brew-app", CurrentVersion: "1.0.0"},
+					{Name: "no-ver-app"},
+				},
+			},
+			wantStdout: "✅ 4 件のパッケージが更新可能です（DryRunモード）\n" +
+				"  更新パッケージ:\n" +
+				"    - git: 2.40.0 → 2.41.0\n" +
+				"    - snap-app 1.2.3\n" +
+				"    - brew-app: 1.0.0\n" +
+				"    - no-ver-app\n",
+		},
+		{
+			name:    "更新未判定のインストール済み一覧は専用見出しで矢印を出さない",
+			verbose: true,
+			result: &updater.UpdateResult{
+				Message: "3 件のインストール済みパッケージについて更新を確認します（DryRunモード）",
+				InstalledPackages: []updater.PackageInfo{
+					{Name: "cargo-about", CurrentVersion: "0.9.3"},
+					{Name: "custom-tool"},
+					{Name: "unexpected-newver", CurrentVersion: "1.0.0", NewVersion: "2.0.0"},
+				},
+			},
+			wantStdout: "✅ 3 件のインストール済みパッケージについて更新を確認します（DryRunモード）\n" +
+				"  インストール済み（更新の有無は実行時に判定）:\n" +
+				"    - cargo-about: 0.9.3\n" +
+				"    - custom-tool\n" +
+				"    - unexpected-newver: 1.0.0\n",
+		},
+		{
+			name:    "エラーと判定不能の疑いは標準エラーに出力する",
+			verbose: true,
+			result: &updater.UpdateResult{
+				Message: "更新を実行しました",
+				Errors:  []error{errors.New("partial failure")},
+				Suspect: "出力形式が想定と異なる可能性",
+			},
+			wantStdout: "✅ 更新を実行しました\n",
+			wantStderr: "  ⚠️  partial failure\n  ⚠️  判定不能の疑い: 出力形式が想定と異なる可能性\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prevVerbose := sysVerbose
+			sysVerbose = tt.verbose
+			t.Cleanup(func() { sysVerbose = prevVerbose })
+
+			var gotStderr string
+
+			gotStdout := captureStdout(t, func() {
+				gotStderr = captureStderr(t, func() {
+					printUpdaterResult(tt.result)
+				})
+			})
+
+			if gotStdout != tt.wantStdout {
+				t.Errorf("stdout = %q, want %q", gotStdout, tt.wantStdout)
+			}
+
+			if gotStderr != tt.wantStderr {
+				t.Errorf("stderr = %q, want %q", gotStderr, tt.wantStderr)
+			}
+		})
+	}
+}

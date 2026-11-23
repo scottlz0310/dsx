@@ -108,8 +108,11 @@ type UpdateResult struct {
 	UpdatedCount int
 	// FailedCount は失敗したパッケージ数
 	FailedCount int
-	// Packages は更新されたパッケージの詳細リスト
+	// Packages は更新対象または更新されたパッケージの詳細リスト
 	Packages []PackageInfo
+	// InstalledPackages は更新の有無を事前に判定できないマネージャが DryRun 時に返す
+	// インストール済みパッケージ一覧です（更新対象ではありません）。
+	InstalledPackages []PackageInfo
 	// Errors は発生したエラーのリスト
 	Errors []error
 	// Message は追加情報（任意）
