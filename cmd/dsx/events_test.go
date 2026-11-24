@@ -754,3 +754,70 @@ func TestExecuteUpdates_RecordsParseSuspect(t *testing.T) {
 		}
 	}
 }
+
+func TestExecuteUpdates_PreservesPartialUpdatedCountOnError(t *testing.T) {
+	runners := []struct {
+		name string
+		run  func([]updater.Updater) updateStats
+	}{
+		{
+			name: "逐次",
+			run: func(u []updater.Updater) updateStats {
+				return executeUpdates(context.Background(), u, updater.UpdateOptions{})
+			},
+		},
+		{
+			name: "並列",
+			run: func(u []updater.Updater) updateStats {
+				return executeUpdatesParallel(context.Background(), u, updater.UpdateOptions{}, 2, false)
+			},
+		},
+	}
+
+	for _, r := range runners {
+		t.Run(r.name+": 非ゼロ失敗時に部分成功件数をサマリーとイベントへ引き継ぐ", func(t *testing.T) {
+			buf := useBufferedEvents(t, "sys")
+
+			u := stubUpdater{
+				name:         "cargo",
+				updateResult: &updater.UpdateResult{UpdatedCount: 1},
+				updateErr:    errors.New("cargo install-update -a -g に失敗: exit status 1"),
+			}
+
+			var stats updateStats
+
+			captureStderr(t, func() {
+				captureStdout(t, func() {
+					stats = r.run([]updater.Updater{u})
+				})
+			})
+
+			if stats.Updated != 1 {
+				t.Errorf("stats.Updated = %d, want 1", stats.Updated)
+			}
+
+			if stats.Failed != 1 {
+				t.Errorf("stats.Failed = %d, want 1", stats.Failed)
+			}
+
+			if len(stats.Errors) != 1 {
+				t.Errorf("len(stats.Errors) = %d, want 1", len(stats.Errors))
+			}
+
+			jobs := finishedJobs(parseEventLines(t, buf.Bytes()))
+
+			cargoJob, ok := jobs["cargo"]
+			if !ok {
+				t.Fatalf("cargo の job_finished イベントがありません: %v", jobs)
+			}
+
+			if cargoJob["status"] != "failed" || cargoJob["code"] != "error" {
+				t.Errorf("cargo job = %v, want status=failed code=error", cargoJob)
+			}
+
+			if updated, ok := cargoJob["updated"].(float64); !ok || int(updated) != 1 {
+				t.Errorf("cargo job updated = %v, want 1", cargoJob["updated"])
+			}
+		})
+	}
+}

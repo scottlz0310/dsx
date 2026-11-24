@@ -82,7 +82,12 @@ func recordParseSuspect(name string, result *updater.UpdateResult) {
 // 失敗（部分的なエラーを含む）は failed、キャンセルとタイムアウトは skipped（cancelled）です。
 func updaterJobResult(result *updater.UpdateResult, err error) event.JobResult {
 	if err != nil {
-		return failedJobResult(err)
+		jobRes := failedJobResult(err)
+		if result != nil && result.UpdatedCount > 0 {
+			jobRes.Updated = result.UpdatedCount
+		}
+
+		return jobRes
 	}
 
 	if result == nil {

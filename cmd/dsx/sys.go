@@ -640,6 +640,10 @@ func executeUpdates(ctx context.Context, updaters []updater.Updater, opts update
 			fmt.Fprintf(os.Stderr, "❌ エラー: %v\n", err)
 			printParseSuspect(result)
 
+			if result != nil {
+				stats.Updated += result.UpdatedCount
+			}
+
 			stats.Errors = append(stats.Errors, fmt.Errorf("%s: %w", u.Name(), err))
 			stats.Failed++
 
@@ -759,6 +763,10 @@ func handleUpdaterError(u updater.Updater, result *updater.UpdateResult, err err
 	}
 
 	statsMu.Lock()
+
+	if result != nil {
+		stats.Updated += result.UpdatedCount
+	}
 
 	stats.Errors = append(stats.Errors, fmt.Errorf("%s: %w", u.Name(), err))
 	stats.Failed++

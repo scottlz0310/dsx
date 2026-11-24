@@ -29,9 +29,23 @@ type CargoUpdater struct {
 	listRunning func(dir string, names []string) ([]string, error)
 }
 
+// minCargoUpdateLockedVersion は cargo-install-update の --locked フラグに対応する最低バージョンです。
+const (
+	minCargoUpdateLockedVersion = "14.1.0"
+	minCargoUpdateLockedMajor   = 14
+	minCargoUpdateLockedMinor   = 1
+)
+
 type cargoUpdateOptions struct {
 	includeGit bool
 	locked     bool
+}
+
+type cargoUpdateBinaryInfo struct {
+	isLegacyCLI    bool
+	version        string
+	versionKnown   bool
+	supportsLocked bool
 }
 
 // 起動時にレジストリに登録
@@ -150,15 +164,22 @@ func (c *CargoUpdater) Update(ctx context.Context, opts UpdateOptions) (*UpdateR
 	// フルパスで直接実行（PATH に ~/.cargo/bin がない環境でも動作）
 	var buf bytes.Buffer
 
-	args := cargoUpdateArgs(updateBin, cargoUpdateOptions{
+	args, err := cargoUpdateArgs(updateBin, cargoUpdateOptions{
 		includeGit: c.includeGit(),
 		locked:     c.locked,
 	})
+	if err != nil {
+		result.Errors = append(result.Errors, err)
+		return result, err
+	}
+
 	cmd := exec.CommandContext(ctx, updateBin, args...)
 	cmd.Stdout = io.MultiWriter(os.Stdout, &buf)
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
+		// crates.io 側が失敗し Git 側のみ成功した場合など、非ゼロ終了前に出力された成功件数を引き継ぐ
+		result.UpdatedCount = c.parseUpdateCount(buf.String())
 		result.Errors = append(result.Errors, err)
 
 		cmdDesc := formatCargoUpdateCommand(args)
@@ -240,11 +261,22 @@ func (c *CargoUpdater) ensureCargoUpdate(ctx context.Context) (string, error) {
 // cargoUpdateArgs はインストール済みの cargo-update バージョンと設定に応じた実行引数を返します。
 // v19-: --version が "cargo-install-update N.N.N" を返す → ["-a", ...]（直接引数形式）
 // v20+: --version が "cargo N.N.N" を返す、または検出失敗 → ["install-update", "-a", ...]（サブコマンド形式）
-func cargoUpdateArgs(bin string, opts cargoUpdateOptions) []string {
-	var args []string
+// locked が有効かつ検出バージョンが v14.1.0 未満の場合は、更新前にアップグレード案内エラーを返します。
+func cargoUpdateArgs(bin string, opts cargoUpdateOptions) ([]string, error) {
+	info := inspectCargoUpdateBinary(bin)
 
-	out, err := exec.CommandContext(context.Background(), bin, "--version").Output()
-	if err == nil && strings.HasPrefix(strings.TrimSpace(string(out)), "cargo-install-update") {
+	if opts.locked && info.versionKnown && !info.supportsLocked {
+		return nil, fmt.Errorf(
+			"sys.managers.%s.%s には cargo-update v%s 以上が必要です（検出バージョン: v%s）。`cargo install cargo-update` でアップグレードしてから再実行してください",
+			config.SysManagerCargo,
+			config.CargoConfigKeyLocked,
+			minCargoUpdateLockedVersion,
+			info.version,
+		)
+	}
+
+	var args []string
+	if info.isLegacyCLI {
 		args = []string{"-a"}
 	} else {
 		args = []string{"install-update", "-a"}
@@ -258,7 +290,63 @@ func cargoUpdateArgs(bin string, opts cargoUpdateOptions) []string {
 		args = append(args, "--locked")
 	}
 
-	return args
+	return args, nil
+}
+
+func inspectCargoUpdateBinary(bin string) cargoUpdateBinaryInfo {
+	out, err := exec.CommandContext(context.Background(), bin, "--version").Output()
+	if err != nil {
+		return cargoUpdateBinaryInfo{supportsLocked: true}
+	}
+
+	return parseCargoUpdateVersionOutput(string(out))
+}
+
+func parseCargoUpdateVersionOutput(output string) cargoUpdateBinaryInfo {
+	fields := strings.Fields(strings.TrimSpace(output))
+	if len(fields) == 0 {
+		return cargoUpdateBinaryInfo{supportsLocked: true}
+	}
+
+	info := cargoUpdateBinaryInfo{
+		isLegacyCLI:    fields[0] == "cargo-install-update",
+		supportsLocked: true,
+	}
+
+	if len(fields) >= 2 {
+		if major, minor, ok := parseCargoUpdateSemverMajorMinor(fields[1]); ok {
+			info.versionKnown = true
+			info.version = strings.TrimPrefix(fields[1], "v")
+			info.supportsLocked = major > minCargoUpdateLockedMajor ||
+				(major == minCargoUpdateLockedMajor && minor >= minCargoUpdateLockedMinor)
+		}
+	}
+
+	return info
+}
+
+func parseCargoUpdateSemverMajorMinor(raw string) (major, minor int, ok bool) {
+	trimmed := strings.TrimPrefix(strings.TrimSpace(raw), "v")
+	if idx := strings.IndexAny(trimmed, "-+"); idx >= 0 {
+		trimmed = trimmed[:idx]
+	}
+
+	parts := strings.Split(trimmed, ".")
+	if len(parts) < 2 {
+		return 0, 0, false
+	}
+
+	maj, err := strconv.Atoi(parts[0])
+	if err != nil || maj < 0 {
+		return 0, 0, false
+	}
+
+	minVer, err := strconv.Atoi(parts[1])
+	if err != nil || minVer < 0 {
+		return 0, 0, false
+	}
+
+	return maj, minVer, true
 }
 
 func formatCargoUpdateCommand(args []string) string {

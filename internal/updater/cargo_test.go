@@ -315,9 +315,10 @@ func TestCargoUpdater_Update(t *testing.T) {
 		name          string
 		mode          string
 		cfg           config.ManagerConfig
-		noUpdate      bool // true: cargo-install-update バイナリを PATH に含めない
-		noCargoBin    bool // true: CARGO_HOME/bin にもバイナリを配置しない（フォールバック失敗のテスト用）
-		v19           bool // true: v19 スタイルの cargo-install-update を使用（バージョン互換テスト用）
+		noUpdate      bool   // true: cargo-install-update バイナリを PATH に含めない
+		noCargoBin    bool   // true: CARGO_HOME/bin にもバイナリを配置しない（フォールバック失敗のテスト用）
+		v19           bool   // true: v19 スタイルの cargo-install-update を使用（バージョン互換テスト用）
+		v19Version    string // v19 fake バイナリの --version 出力バージョン（空なら 16.0.0）
 		expectArgs    string
 		opts          UpdateOptions
 		wantErr       bool
@@ -428,6 +429,25 @@ func TestCargoUpdater_Update(t *testing.T) {
 			errContains: "cargo install-update -a -g に失敗",
 		},
 		{
+			name:        "部分成功を伴う非ゼロ終了でもUpdatedCountを引き継ぐ",
+			mode:        "partial_update_error",
+			expectArgs:  "install-update -a -g",
+			opts:        UpdateOptions{},
+			wantErr:     true,
+			errContains: "cargo install-update -a -g に失敗",
+			wantUpdated: 1,
+		},
+		{
+			name:        "cargo-update v14.0.0 で locked有効 は更新前にアップグレード案内エラーを返す",
+			mode:        "updates",
+			cfg:         config.ManagerConfig{"locked": true},
+			v19:         true,
+			v19Version:  "14.0.0",
+			opts:        UpdateOptions{},
+			wantErr:     true,
+			errContains: "cargo-update v14.1.0 以上が必要です",
+		},
+		{
 			name:        "cargo-update 未インストール → 自動インストール → 更新成功",
 			mode:        "updates",
 			noUpdate:    true,
@@ -494,7 +514,7 @@ func TestCargoUpdater_Update(t *testing.T) {
 			case tc.v19:
 				// v19: cargo のみ書き、cargo-install-update は v19 スタイルで別途作成
 				writeFakeCargoCommandImpl(t, fakeDir, false)
-				writeFakeCargoInstallUpdateV19Binary(t, fakeDir)
+				writeFakeCargoInstallUpdateV19Binary(t, fakeDir, tc.v19Version)
 				t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 			case tc.noUpdate:
 				// noUpdate=true の場合は PATH を fakeDir のみに絞り、
@@ -533,6 +553,11 @@ func TestCargoUpdater_Update(t *testing.T) {
 
 				if tc.errContains != "" && err != nil {
 					assert.Contains(t, err.Error(), tc.errContains)
+				}
+
+				if tc.wantUpdated > 0 {
+					require.NotNil(t, got)
+					assert.Equal(t, tc.wantUpdated, got.UpdatedCount)
 				}
 
 				return
@@ -815,6 +840,13 @@ func writeFakeCIUBinary(t *testing.T, dir string) {
 			"  echo cargo install-update failed 1>&2\r\n" +
 			"  exit /b 1\r\n" +
 			")\r\n" +
+			"if \"%mode%\"==\"partial_update_error\" (\r\n" +
+			"  echo Updated 0 packages.\r\n" +
+			"  echo Updated 1 git package.\r\n" +
+			"  echo Overall updated 1 package: agent-statusline.\r\n" +
+			"  echo Failed to update broken-crate. 1>&2\r\n" +
+			"  exit /b 1\r\n" +
+			")\r\n" +
 			"if \"%mode%\"==\"updates\" (\r\n" +
 			"  echo Overall updated 2 packages.\r\n" +
 			")\r\n" +
@@ -843,6 +875,13 @@ func writeFakeCIUBinary(t *testing.T, dir string) {
 			"  echo \"cargo install-update failed\" 1>&2\n" +
 			"  exit 1\n" +
 			"fi\n" +
+			"if [ \"${mode}\" = \"partial_update_error\" ]; then\n" +
+			"  echo \"Updated 0 packages.\"\n" +
+			"  echo \"Updated 1 git package.\"\n" +
+			"  echo \"Overall updated 1 package: agent-statusline.\"\n" +
+			"  echo \"Failed to update broken-crate.\" 1>&2\n" +
+			"  exit 1\n" +
+			"fi\n" +
 			"if [ \"${mode}\" = \"updates\" ]; then\n" +
 			"  echo \"Overall updated 2 packages.\"\n" +
 			"fi\n" +
@@ -860,15 +899,19 @@ func writeFakeCIUBinary(t *testing.T, dir string) {
 }
 
 // writeFakeCargoInstallUpdateV19Binary は v19 スタイルの fake cargo-install-update を作成します。
-// --version は "cargo-install-update 16.0.0" を返し、-a 以降を直接受け付けます。
-func writeFakeCargoInstallUpdateV19Binary(t *testing.T, dir string) {
+// --version は "cargo-install-update <version>"（空なら 16.0.0）を返し、-a 以降を直接受け付けます。
+func writeFakeCargoInstallUpdateV19Binary(t *testing.T, dir, ver string) {
 	t.Helper()
+
+	if ver == "" {
+		ver = "16.0.0"
+	}
 
 	if runtime.GOOS == "windows" {
 		content := "@echo off\r\n" +
 			"set mode=%DSX_TEST_CARGO_MODE%\r\n" +
 			"if \"%1\"==\"--version\" (\r\n" +
-			"  echo cargo-install-update 16.0.0\r\n" +
+			"  echo cargo-install-update " + ver + "\r\n" +
 			"  exit /b 0\r\n" +
 			")\r\n" +
 			"if not \"%DSX_TEST_CARGO_EXPECT_ARGS%\"==\"\" (\r\n" +
@@ -898,7 +941,7 @@ func writeFakeCargoInstallUpdateV19Binary(t *testing.T, dir string) {
 		content := "#!/bin/sh\n" +
 			"mode=\"${DSX_TEST_CARGO_MODE}\"\n" +
 			"if [ \"$1\" = \"--version\" ]; then\n" +
-			"  echo \"cargo-install-update 16.0.0\"\n" +
+			"  echo \"cargo-install-update " + ver + "\"\n" +
 			"  exit 0\n" +
 			"fi\n" +
 			"if [ -n \"${DSX_TEST_CARGO_EXPECT_ARGS}\" ] && [ \"$*\" != \"${DSX_TEST_CARGO_EXPECT_ARGS}\" ]; then\n" +
@@ -931,10 +974,12 @@ func writeFakeCargoInstallUpdateV19Binary(t *testing.T, dir string) {
 
 func TestCargoUpdateArgs(t *testing.T) {
 	tests := []struct {
-		name       string
-		versionOut string // --version の出力（空なら exit 1）
-		opts       cargoUpdateOptions
-		wantArgs   []string
+		name        string
+		versionOut  string // --version の出力（空なら exit 1）
+		opts        cargoUpdateOptions
+		wantArgs    []string
+		wantErr     bool
+		errContains string
 	}{
 		{
 			name:       "v20+/git無効・locked無効",
@@ -973,10 +1018,36 @@ func TestCargoUpdateArgs(t *testing.T) {
 			wantArgs:   []string{"-a", "-g"},
 		},
 		{
-			name:       "v19-/git有効・locked有効",
+			name:       "v19-/git有効・locked有効（v16.0.0は対応版）",
 			versionOut: "cargo-install-update 16.0.0",
 			opts:       cargoUpdateOptions{includeGit: true, locked: true},
 			wantArgs:   []string{"-a", "-g", "--locked"},
+		},
+		{
+			name:       "v14.1.0は--locked対応の最低バージョン境界",
+			versionOut: "cargo-install-update 14.1.0",
+			opts:       cargoUpdateOptions{includeGit: true, locked: true},
+			wantArgs:   []string{"-a", "-g", "--locked"},
+		},
+		{
+			name:       "v14.0.0でもlocked無効なら正常に実行できる",
+			versionOut: "cargo-install-update 14.0.0",
+			opts:       cargoUpdateOptions{includeGit: true, locked: false},
+			wantArgs:   []string{"-a", "-g"},
+		},
+		{
+			name:        "v14.0.0でlocked有効は事前診断エラー",
+			versionOut:  "cargo-install-update 14.0.0",
+			opts:        cargoUpdateOptions{includeGit: true, locked: true},
+			wantErr:     true,
+			errContains: "cargo install cargo-update",
+		},
+		{
+			name:        "v14.0.2でlocked有効は事前診断エラー",
+			versionOut:  "cargo-install-update 14.0.2",
+			opts:        cargoUpdateOptions{locked: true},
+			wantErr:     true,
+			errContains: "cargo-update v14.1.0 以上が必要です",
 		},
 		{
 			name:       "--version 失敗時は v20+ 形式にフォールバック（オプション付与あり）",
@@ -990,7 +1061,16 @@ func TestCargoUpdateArgs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
 			binPath := writeFakeVersionBinary(t, dir, tt.versionOut)
-			got := cargoUpdateArgs(binPath, tt.opts)
+			got, err := cargoUpdateArgs(binPath, tt.opts)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errContains)
+
+				return
+			}
+
+			require.NoError(t, err)
 			assert.Equal(t, tt.wantArgs, got)
 		})
 	}
