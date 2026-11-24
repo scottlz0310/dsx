@@ -240,6 +240,11 @@ func validateSecrets(result *ValidationResult, cfg *Config) {
 }
 
 func validateSys(result *ValidationResult, cfg *Config, opts ValidateOptions) {
+	validateSysEnable(result, cfg, opts)
+	validateSysManagers(result, cfg)
+}
+
+func validateSysEnable(result *ValidationResult, cfg *Config, opts ValidateOptions) {
 	if len(opts.KnownSysManagers) == 0 || len(cfg.Sys.Enable) == 0 {
 		return
 	}
@@ -288,6 +293,49 @@ func validateSys(result *ValidationResult, cfg *Config, opts ValidateOptions) {
 			Field:   fieldSysEnable,
 			Message: fmt.Sprintf("未知のマネージャが指定されています（typoの可能性があります）: %v", unknown),
 		})
+	}
+}
+
+func validateSysManagers(result *ValidationResult, cfg *Config) {
+	if len(cfg.Sys.Managers) == 0 {
+		return
+	}
+
+	if cargoCfg, ok := cfg.Sys.Managers[SysManagerCargo]; ok {
+		validateCargoManagerConfig(result, cargoCfg)
+	}
+}
+
+func validateCargoManagerConfig(result *ValidationResult, cargoCfg ManagerConfig) {
+	if len(cargoCfg) == 0 {
+		return
+	}
+
+	keys := make([]string, 0, len(cargoCfg))
+	for k := range cargoCfg {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		field := fmt.Sprintf("sys.managers.%s.%s", SysManagerCargo, key)
+		val := cargoCfg[key]
+
+		switch key {
+		case CargoConfigKeyGit, CargoConfigKeyLocked:
+			if _, ok := val.(bool); !ok {
+				result.Errors = append(result.Errors, ValidationIssue{
+					Field:   field,
+					Message: fmt.Sprintf("真偽値（true/false）で指定してください（指定値: %T）", val),
+				})
+			}
+		default:
+			result.Warnings = append(result.Warnings, ValidationIssue{
+				Field:   field,
+				Message: "未知の設定項目が指定されています（typoの可能性があります）",
+			})
+		}
 	}
 }
 

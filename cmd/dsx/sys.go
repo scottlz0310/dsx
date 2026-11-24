@@ -118,10 +118,9 @@ func runSysUpdateBody(cmd *cobra.Command) error {
 	defer cancel()
 
 	// 有効なマネージャを取得
-	enabledUpdaters, err := updater.GetEnabled(&cfg.Sys)
+	enabledUpdaters, err := resolveEnabledUpdaters(&cfg.Sys)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  %v\n", err)
-		recordEnableWarning(err)
+		return err
 	}
 
 	configureUpdaterRuntimeVersion(enabledUpdaters, version)
@@ -177,6 +176,27 @@ func runSysUpdateBody(cmd *cobra.Command) error {
 	}
 
 	return nil
+}
+
+// resolveEnabledUpdaters は有効化されたマネージャを取得します。
+// 未インストール・未知マネージャ（EnableWarning）は警告のみで継続し、
+// マネージャ設定の適用失敗などそれ以外のエラーは呼び出し元へ返して失敗終了させます。
+func resolveEnabledUpdaters(sysCfg *config.SysConfig) ([]updater.Updater, error) {
+	enabledUpdaters, err := updater.GetEnabled(sysCfg)
+	if err == nil {
+		return enabledUpdaters, nil
+	}
+
+	var enableWarning *updater.EnableWarning
+	if !errors.As(err, &enableWarning) {
+		recordEnableWarning(err)
+		return nil, err
+	}
+
+	fmt.Fprintf(os.Stderr, "⚠️  %v\n", err)
+	recordEnableWarning(err)
+
+	return enabledUpdaters, nil
 }
 
 // runSysUpdatePhases はマネージャ本体更新・単独実行・並列実行の各フェーズを実行します。

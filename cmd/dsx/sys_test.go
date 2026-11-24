@@ -1008,3 +1008,116 @@ func TestPrintUpdaterResult(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveEnabledUpdaters(t *testing.T) {
+	// テスト用の一意なマネージャ名を登録して GetEnabled 経由の挙動を検証する
+	const (
+		okMgrName  = "test-resolve-ok"
+		errMgrName = "test-resolve-err"
+	)
+
+	updater.Register(&configErrStubUpdater{name: okMgrName})
+	updater.Register(&configErrStubUpdater{name: errMgrName, configErr: errors.New("sys.managers.cargo.git は真偽値（true/false）で指定してください")})
+
+	tests := []struct {
+		name           string
+		sysCfg         *config.SysConfig
+		wantLen        int
+		wantErr        bool
+		wantErrContain string
+		wantEventCat   string
+	}{
+		{
+			name: "正常にマネージャを取得できる",
+			sysCfg: &config.SysConfig{
+				Enable: []string{okMgrName},
+			},
+			wantLen: 1,
+		},
+		{
+			name: "EnableWarning（未知マネージャ）は警告のみで継続しエラーを返さない",
+			sysCfg: &config.SysConfig{
+				Enable: []string{okMgrName, "test-unknown-manager-xyz"},
+			},
+			wantLen:      1,
+			wantErr:      false,
+			wantEventCat: "manager_unknown",
+		},
+		{
+			name: "Configure失敗は警告イベントを記録したうえでエラー終了を返す",
+			sysCfg: &config.SysConfig{
+				Enable: []string{errMgrName},
+				Managers: map[string]config.ManagerConfig{
+					errMgrName: {"git": "false"},
+				},
+			},
+			wantLen:        0,
+			wantErr:        true,
+			wantErrContain: "設定適用に失敗",
+			wantEventCat:   "manager_config",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := useBufferedEvents(t, "sys")
+
+			var (
+				got []updater.Updater
+				err error
+			)
+
+			_ = captureStderr(t, func() {
+				got, err = resolveEnabledUpdaters(tt.sysCfg)
+			})
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("resolveEnabledUpdaters() error = nil, want error")
+				}
+
+				if tt.wantErrContain != "" && !strings.Contains(err.Error(), tt.wantErrContain) {
+					t.Errorf("error = %q, want substring %q", err.Error(), tt.wantErrContain)
+				}
+			} else if err != nil {
+				t.Fatalf("resolveEnabledUpdaters() unexpected error = %v", err)
+			}
+
+			if len(got) != tt.wantLen {
+				t.Errorf("len(got) = %d, want %d", len(got), tt.wantLen)
+			}
+
+			if tt.wantEventCat != "" {
+				events := parseEventLines(t, buf.Bytes())
+				found := false
+
+				for _, ev := range events {
+					if ev["type"] == "warning" && evString(ev, "category") == tt.wantEventCat {
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					t.Errorf("warning event with category %q not found in %v", tt.wantEventCat, events)
+				}
+			}
+		})
+	}
+}
+
+type configErrStubUpdater struct {
+	name      string
+	configErr error
+}
+
+func (u *configErrStubUpdater) Name() string        { return u.name }
+func (u *configErrStubUpdater) DisplayName() string { return u.name }
+func (u *configErrStubUpdater) IsAvailable() bool   { return true }
+func (u *configErrStubUpdater) Check(context.Context) (*updater.CheckResult, error) {
+	return &updater.CheckResult{}, nil
+}
+func (u *configErrStubUpdater) Update(context.Context, updater.UpdateOptions) (*updater.UpdateResult, error) {
+	return &updater.UpdateResult{}, nil
+}
+func (u *configErrStubUpdater) Configure(config.ManagerConfig) error { return u.configErr }

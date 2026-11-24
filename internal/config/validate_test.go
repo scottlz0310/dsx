@@ -226,6 +226,60 @@ func TestValidate(t *testing.T) {
 			opts:               ValidateOptions{KnownSysManagers: knownManagers},
 			wantWarningSubstrs: []string{"sys.enable", "重複"},
 		},
+		{
+			name: "sys.managers.cargo に正当なbool設定はエラー・警告なし",
+			cfg: func() *Config {
+				c := newValidConfig(existingDir)
+				c.Sys.Managers["cargo"] = ManagerConfig{
+					"git":    false,
+					"locked": true,
+				}
+
+				return c
+			}(),
+			opts: ValidateOptions{KnownSysManagers: knownManagers},
+		},
+		{
+			name: "sys.managers.cargo.git が文字列ならエラー",
+			cfg: func() *Config {
+				c := newValidConfig(existingDir)
+				c.Sys.Managers["cargo"] = ManagerConfig{"git": "false"}
+
+				return c
+			}(),
+			wantErrorSubstrs: []string{"sys.managers.cargo.git", "真偽値"},
+		},
+		{
+			name: "sys.managers.cargo.locked が数値ならエラー",
+			cfg: func() *Config {
+				c := newValidConfig(existingDir)
+				c.Sys.Managers["cargo"] = ManagerConfig{"locked": 1}
+
+				return c
+			}(),
+			wantErrorSubstrs: []string{"sys.managers.cargo.locked", "真偽値"},
+		},
+		{
+			name: "sys.managers.cargo.git がnilならエラー",
+			cfg: func() *Config {
+				c := newValidConfig(existingDir)
+				c.Sys.Managers["cargo"] = ManagerConfig{"git": nil}
+
+				return c
+			}(),
+			wantErrorSubstrs: []string{"sys.managers.cargo.git", "真偽値"},
+		},
+		{
+			name: "sys.managers.cargo に未知キーがあると警告（sys.enable空でも検証）",
+			cfg: func() *Config {
+				c := newValidConfig(existingDir)
+				c.Sys.Enable = nil
+				c.Sys.Managers["cargo"] = ManagerConfig{"git_update": true}
+
+				return c
+			}(),
+			wantWarningSubstrs: []string{"sys.managers.cargo.git_update", "未知"},
+		},
 	}
 
 	for _, tc := range testCases {

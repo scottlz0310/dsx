@@ -205,11 +205,9 @@ func GetEnabled(cfg *config.SysConfig) ([]Updater, error) {
 			unavailable = append(unavailable, name)
 			continue
 		}
-		// マネージャ固有の設定を適用
-		if managerCfg, ok := cfg.Managers[name]; ok {
-			if err := u.Configure(managerCfg); err != nil {
-				return nil, fmt.Errorf("%s の設定適用に失敗: %w", name, err)
-			}
+		// マネージャ固有の設定を適用（未指定時も nil で既定値へ初期化し、前回設定の残留を防ぐ）
+		if err := u.Configure(cfg.Managers[name]); err != nil {
+			return nil, fmt.Errorf("%s の設定適用に失敗: %w", name, err)
 		}
 
 		result = append(result, u)

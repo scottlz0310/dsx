@@ -315,4 +315,37 @@ func TestGetEnabled(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "apt の設定適用に失敗")
 	})
+
+	t.Run("マネージャ設定が無い場合もnilでConfigureが呼ばれ既定値へリセットされる", func(t *testing.T) {
+		clearRegistry()
+
+		resetMock := &configureCaptureUpdater{
+			mockUpdater: mockUpdater{name: "cargo", available: true},
+		}
+		Register(resetMock)
+
+		cfg := &config.SysConfig{
+			Enable:   []string{"cargo"},
+			Managers: map[string]config.ManagerConfig{},
+		}
+
+		result, err := GetEnabled(cfg)
+		require.NoError(t, err)
+		assert.Len(t, result, 1)
+		assert.Equal(t, 1, resetMock.configureCalls)
+		assert.Nil(t, resetMock.lastCfg)
+	})
+}
+
+type configureCaptureUpdater struct {
+	mockUpdater
+	configureCalls int
+	lastCfg        config.ManagerConfig
+}
+
+func (u *configureCaptureUpdater) Configure(cfg config.ManagerConfig) error {
+	u.configureCalls++
+	u.lastCfg = cfg
+
+	return u.configErr
 }

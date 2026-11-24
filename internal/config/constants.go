@@ -20,4 +20,10 @@ const (
 	fieldRepoRoot                = "repo.root"
 	fieldSecretsProvider         = "secrets.provider"
 	fieldSysEnable               = "sys.enable"
+	// SysManagerCargo は cargo マネージャの設定キー名です。
+	SysManagerCargo = "cargo"
+	// CargoConfigKeyGit は sys.managers.cargo で Git パッケージ更新を有効/無効にする設定キーです。
+	CargoConfigKeyGit = "git"
+	// CargoConfigKeyLocked は sys.managers.cargo で --locked 付与を有効/無効にする設定キーです。
+	CargoConfigKeyLocked = "locked"
 )
