@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-25
+
 ### Added
 
 - **Cargo updater の Git パッケージ更新（`-g`）と `--locked` オプションに対応（#197）**: `sys.managers.cargo` に `git`（既定 `true`）と `locked`（既定 `false`、`cargo-update` v14.1.0 以上が必要）を追加し、`cargo-install-update`（v19-/v20+ 両形式）の実行引数へ反映するようにした。Git リポジトリ由来のツール（`cargo install --git ...`）も設定なしで一括更新でき、`--tag` 導入品の追従を避けたい場合は `git: false` で無効化できる。`locked: true` で v14.1.0 未満が検出された場合は更新前に `cargo install cargo-update` によるアップグレードを案内する。`DryRun`（`dsx sys update -n`）では従来のインストール済み一覧表示を維持しつつ、有効なオプションをメッセージに併記する。また `dsx config validate` で `sys.managers.cargo` の型不正エラーと未知キー警告を検証し、Windows で更新失敗時は `$CARGO_HOME/bin` 配下の実行中プロセスを検出した場合にエラーへ補足メッセージを付与する。
@@ -567,7 +569,8 @@
 
 ---
 
-[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/scottlz0310/dsx/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/scottlz0310/dsx/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/scottlz0310/dsx/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/scottlz0310/dsx/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/scottlz0310/dsx/compare/v0.14.0...v0.14.1
