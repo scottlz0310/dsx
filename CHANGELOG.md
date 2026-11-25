@@ -6,12 +6,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Cargo updater の Git パッケージ更新（`-g`）と `--locked` オプションに対応（#197）**: `sys.managers.cargo` に `git`（既定 `true`）と `locked`（既定 `false`、`cargo-update` v14.1.0 以上が必要）を追加し、`cargo-install-update`（v19-/v20+ 両形式）の実行引数へ反映するようにした。Git リポジトリ由来のツール（`cargo install --git ...`）も設定なしで一括更新でき、`--tag` 導入品の追従を避けたい場合は `git: false` で無効化できる。`locked: true` で v14.1.0 未満が検出された場合は更新前に `cargo install cargo-update` によるアップグレードを案内する。`DryRun`（`dsx sys update -n`）では従来のインストール済み一覧表示を維持しつつ、有効なオプションをメッセージに併記する。また `dsx config validate` で `sys.managers.cargo` の型不正エラーと未知キー警告を検証し、Windows で更新失敗時は `$CARGO_HOME/bin` 配下の実行中プロセスを検出した場合にエラーへ補足メッセージを付与する。
+
 ### Changed
 
 - `renovate.json` の `extends` から、中央プリセットで解除済みの非推奨プリセット（`options/schedule`・`options/security`）への参照を削除した。スケジュール・待機期間・自動マージ等は中央側で既に解除されているため更新の挙動は変わらず、Dependency Dashboard の警告表示が消える。
 
 ### Fixed
 
+- **Cargo updater の混在更新件数集計・部分成功の引き継ぎとマネージャ設定適用失敗時の終了コードを修正（#197）**: `cargo install-update` が crates.io と Git パッケージのグループ別集計行の後に `Overall updated` 行を出力する際、先頭の `Updated` 行で途中終了して件数を誤集計する不具合を修正した（`Overall updated` を最優先し、未出力の v19- のみグループ行を合算）。また部分成功を伴う非ゼロ終了時にも成功件数を集計し、`dsx sys update` のサマリーと `--events-file` へ引き継ぐようにした。あわせて `dsx sys update` でマネージャ設定の適用に失敗した際、警告のみで終了コード 0 になっていた挙動を改め、エラー終了（終了コード 1）するようにした。
 - **dry-run（-v）で更新の有無を判定できない cargo / uv tool / pipx が、更新先の版が空欄の「更新パッケージ」として表示されていた（#184）**: これら 3 マネージャの Update(DryRun: true) は更新可否を事前判定せずインストール済み一覧をそのまま UpdateResult.Packages へ入れており、CLI 側も常に見出しを 更新パッケージ:、行形式を 名前: 現在版 → 新版 として出力していた。UpdateResult.InstalledPackages に一覧を分離し、CLI の詳細表示では インストール済み（更新の有無は実行時に判定）: の見出しで → を付けず現在版のみ表示するようにした。あわせて 更新パッケージ: 側も新旧バージョンの有無に応じて整形し、新版が空のときに →  や不要な末尾空白を出さないようにした。
 
 ## [0.16.0] - 2026-11-02

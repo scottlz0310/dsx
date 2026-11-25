@@ -292,6 +292,16 @@ Go updater は `go.targets` のうち `@latest` 対象について、インス�
 `go.targets` に `github.com/scottlz0310/dsx/cmd/dsx` が含まれる場合、Go updater では dsx 本体を更新しません。
 dsx 本体が最新版なら非エラーでスキップし、新しい dsx バージョンがある場合は `dsx self-update` を案内します。
 
+Cargo updater は `cargo-install-update` を使用してパッケージを一括更新します。既定で Git リポジトリ由来のパッケージも更新対象（`-g`）に含めます。`--tag` 指定で導入したパッケージも既定ブランチの最新コミットへ追従するため、対象から外したい場合や `--locked` を付けたい場合は `config.yaml` の `sys.managers.cargo` で制御できます（`dsx config validate` で型や未知キーを検証できます）。`locked: true` には `cargo-update` v14.1.0 以上が必要で、未満のバージョンが検出された場合は更新前に `cargo install cargo-update` によるアップグレード案内エラーを返します。Windows で更新が失敗した場合は、`$CARGO_HOME/bin` 配下の実行中プロセスを検出したときのみ原因の補足メッセージをエラーに付与します。
+
+```yaml
+sys:
+  managers:
+    cargo:
+      git: true      # 既定: true（-g を付与し Git 由来パッケージも更新対象に含める）
+      locked: false  # 既定: false（true で --locked を付与。cargo-update v14.1.0 以上が必要）
+```
+
 ### リポジトリ管理 (`repo`)
 ```
 dsx repo update       # 管理下リポジトリを更新（fetch + pull --rebase）
